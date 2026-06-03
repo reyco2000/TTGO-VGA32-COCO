@@ -28,7 +28,7 @@ A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the **L
 - **3.5 mm audio output** (mono) on the board's jack
 - **5 V USB-C** for power and serial programming
 
-> The board provides VGA, PS/2, audio jack, and SD socket on-board — no extra wiring is required. **Joystick hardware is not wired** on the v1.4 board for this build; the joystick HAL is a neutral stub.
+> The board provides VGA, PS/2, audio jack, and SD socket on-board — no extra wiring is required. **Joystick 1 is emulated via the PS/2 mouse port** (GPIO26/27): plug a PS/2 mouse into the board's mouse header and it drives the CoCo right joystick. Joystick 2 is a neutral stub.
 
 ## Fixed Pin Map (TTGO VGA32 v1.4)
 
@@ -41,8 +41,8 @@ A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the **L
 | VGA VSYNC | GPIO15 | |
 | PS/2 Keyboard CLK | GPIO33 | |
 | PS/2 Keyboard DATA | GPIO32 | |
-| PS/2 Mouse CLK | GPIO26 | (unused) |
-| PS/2 Mouse DATA | GPIO27 | (unused) |
+| PS/2 Mouse CLK | GPIO26 | Joystick 1 emulation (PS/2 mouse) |
+| PS/2 Mouse DATA | GPIO27 | Joystick 1 emulation (PS/2 mouse) |
 | SD Card CS | GPIO13 | HSPI |
 | SD Card MOSI | GPIO12 | HSPI |
 | SD Card MISO | GPIO2 | HSPI (note: GPIO2 is a strapping pin — must float/high at boot) |
@@ -219,7 +219,7 @@ src/
 │   ├── hal_video.cpp         FabGL VGAController (640×200 @ 70 Hz, 64-color)
 │   ├── hal_audio.cpp         Internal DAC1 on GPIO25 via timer ISR
 │   ├── hal_keyboard.cpp      FabGL PS/2 VirtualKey → CoCo matrix mapping
-│   ├── hal_joystick.cpp      Neutral stub — hardware not wired
+│   ├── hal_joystick.cpp      PS/2 mouse → CoCo joystick 1 (GPIO26/27); joystick 2 stub
 │   ├── hal_storage.cpp       SD card access on dedicated HSPI
 │   └── tft_compat.h/cpp      TFT_eSPI API shim backed by FabGL Canvas (supervisor OSD)
 ├── supervisor/             On-Screen Display system (HAL-agnostic via tft_compat)
@@ -250,7 +250,7 @@ All technical documentation is in the `docs/` directory:
 | [supervisor.md](docs/supervisor.md) | OSD state machine, file browser, NVS persistence |
 | [video.md](docs/video.md) | Video rendering pipeline, scale modes, palette |
 | [audio-hal.md](docs/audio-hal.md) | Audio path, ISR, PIA DAC routing |
-| [joystick-hal.md](docs/joystick-hal.md) | Analog joystick emulation (S3 history; current VGA32 build stubs the HAL) |
+| [joystick-hal.md](docs/joystick-hal.md) | Joystick HAL — PS/2 mouse as CoCo joystick 1, comparator emulation, lessons learned |
 | [performance.md](docs/performance.md) | FPS analysis, optimization log, methodology |
 | [cpu-enhancements.md](docs/cpu-enhancements.md) | MC6809 correctness/performance analysis |
 | [runtime-machine-switch.md](docs/runtime-machine-switch.md) | Runtime CoCo 2 / CoCo 3 switching, NVS state |
@@ -263,7 +263,7 @@ All technical documentation is in the `docs/` directory:
 - VGA mode `640×200 @ 70 Hz` may not sync on some modern LCD monitors — older CRTs and most VGA→HDMI scalers accept it
 - DMK disk format is recognized but not mountable
 - Max 128 file entries in the SD card browser
-- Joystick hardware is not wired on the TTGO VGA32 v1.4 build; HAL stub returns centered, button-released
+- Joystick 2 (left port) is a stub — returns centered, button released; only Joystick 1 is active via PS/2 mouse
 - Audio frequency does not exactly match original CoCo hardware
 - NTSC TV emulation is a stub only
 - Supervisor OSD was sized for 320×240; on the 640×200 VGA surface its layout sits in the upper-left region

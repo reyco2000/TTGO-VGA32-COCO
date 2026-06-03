@@ -215,12 +215,6 @@ Change in `config.h` and reflash. No runtime UI.
 
 ---
 
-## ESP32-S3 Variant (removed)
-
-The historical ESP32-S3 build used two 100K linear-pot joysticks on ADC pins, read via `CoCoJoystick.{h,cpp}` with moving-average filtering, dead zone, and NVS-persisted calibration. That code and the `BOARD_TYPE_S3_TFT` guard have been removed from the codebase. See git history for the full S3 wiring details.
-
----
-
 ## Data Flow Summary (VGA32)
 
 ```
