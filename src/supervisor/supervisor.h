@@ -1,0 +1,115 @@
+/*
+ * ============================================================
+ *        CoCo 2&3 Emulator for ESP32-TTGO-VGA32-COCO
+ *   (C) 2026 Reinaldo Torres / CoCo Byte Club
+ *   https://github.com/reyco2000/TTGO-VGA32-COCO
+ *   Based on XRoar , co-developed with Claude Code
+ *   MIT License
+ * ============================================================
+ *  File   : supervisor.h
+ *  Module : OSD supervisor interface — overlay lifecycle and event dispatch
+ * ============================================================
+*/
+
+/*
+ * supervisor.h - On-Screen Display (OSD) supervisor for CoCo_ESP32
+ *
+ * F1 toggles the supervisor overlay. While active, emulation is paused.
+ * Provides disk mounting, machine reset, and settings via menu UI.
+ */
+
+#ifndef SUPERVISOR_H
+#define SUPERVISOR_H
+
+#include <stdint.h>
+#include <stdbool.h>
+#include "../core/machine.h"
+#include "../utils/debug.h"   // SerialPortMode
+#include "sv_disk.h"
+
+enum SV_State : uint8_t {
+    SV_INACTIVE = 0,
+    SV_MAIN_MENU,
+    SV_FILE_BROWSER,
+    SV_MACHINE_SELECT,
+    SV_SETTINGS,
+    SV_ABOUT,
+    SV_DEBUG_MENU,
+    SV_DEBUG_DUMP,
+    SV_CONFIRM_DIALOG,
+};
+
+struct SV_FileEntry;
+
+typedef struct Supervisor_t {
+    SV_State state;
+    SV_State prev_state;
+
+    Machine* machine;
+
+    // Framebuffer snapshot (PSRAM)
+    uint16_t* emu_snapshot;
+
+    // Menu state
+    int8_t   menu_cursor;
+    int8_t   menu_scroll_offset;
+    uint8_t  menu_item_count;
+
+    // File browser state
+    char     current_path[256];
+    int16_t  file_cursor;
+    int16_t  file_scroll_offset;
+    int16_t  file_count;
+    uint8_t  target_drive;
+
+    // File entries (allocated once)
+    SV_FileEntry* file_entries;
+
+    // Confirm dialog
+    const char* confirm_message;
+    void (*confirm_callback)(bool accepted, void* ctx);
+    void* confirm_context;
+    bool  confirm_yes_selected;
+
+    // Rendering
+    bool     needs_redraw;
+    uint32_t last_blink_ms;
+    bool     blink_on;
+
+} Supervisor_t;
+
+// Public API
+void supervisor_init(Machine* m);
+void supervisor_toggle(void);
+bool supervisor_is_active(void);
+
+void supervisor_on_key(uint8_t hid_usage, bool pressed);
+
+// Returns true if supervisor consumed the frame (skip emulation)
+bool supervisor_update_and_render(void);
+
+void supervisor_quick_mount_last_disk(Machine* m);
+
+void supervisor_save_state(void);
+void supervisor_load_state(void);
+
+// Runtime machine-type selection.
+// Returns the stored NVS value, or the compile-time MACHINE_TYPE if none.
+// Called from the main sketch before machine_init() to seed g_machine_type.
+uint8_t supervisor_load_machine_type(void);
+
+// Persist a new machine type in NVS and reboot the device. Saves supervisor
+// state (mounted disks, last_dir) first so the new boot auto-mounts them.
+// Does not return — calls esp_restart().
+void supervisor_set_machine_type(uint8_t machine_type);
+
+// Serial-port ownership persistence (NVS "sv" namespace, key "serial_mode").
+// load returns the stored mode, or SERIAL_MODE_FIRST_BOOT_DEFAULT if unset.
+// Called from setup() before the boot banner so the banner respects the mode.
+SerialPortMode supervisor_load_serial_mode(void);
+void       supervisor_save_serial_mode(SerialPortMode mode);
+
+// Access global supervisor (for disk manager sub-screens)
+Supervisor_t* supervisor_get(void);
+
+#endif // SUPERVISOR_H
