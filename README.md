@@ -1,8 +1,10 @@
 # TTGO-VGA32-COCO — CoCo 2 & CoCo 3 Emulator for the LilyGo TTGO VGA32
 
+![TTGO-VGA32-COCO](TTGOVGACOCO.png)
+
 A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the **LilyGo TTGO VGA32 v1.4** board (ESP32-WROVER). Ported from the [XRoar](http://www.6809.org.uk/xroar/) emulator by Ciaran Anscomb.
 
-**Beta-3 — May 2026** (LilyGo TTGO VGA32 port)
+**v0.6 — June 15, 2026** (LilyGo TTGO VGA32 port)
 
 ## Features
 
@@ -13,9 +15,11 @@ A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the **L
 - **SAM6883** address multiplexer (CoCo 2) / GIME integrated MMU (CoCo 3)
 - **WD1793 floppy disk controller** with `.DSK` and `.VDK` image support
 - **VGA output** at 640×200 @ 70 Hz via FabGL (64-color direct mode)
-- **PS/2 keyboard** input with selectable layout (Spanish by default; US/UK/German/Italian/French/etc. supported)
+- **PS/2 keyboard** input with selectable layout (US English / Spanish Latam), switchable live from the supervisor Settings menu — no reboot required
+- **Custom key mapping** — remap any physical key to a CoCo key (including CoCo 3-only keys: ALT, CTRL, CLEAR, F1, F2) via the supervisor Key Mapper
+- **Joystick/mouse sensitivity adjustment** — live, on-screen sensitivity tuning for joystick 1 (PS/2 mouse), persisted in NVS
 - **Audio** via the ESP32 internal 8-bit DAC on GPIO25 (3.5 mm jack)
-- **On-Screen Display (OSD)** supervisor for disk mounting, machine reset, and status
+- **On-Screen Display (OSD)** supervisor for disk mounting, machine reset, settings, and status
 - **PSRAM disk caching** — entire disk images loaded into PSRAM for zero-latency access
 - **Runtime CoCo 2 / CoCo 3 switching** — chosen at boot from NVS, settable from the supervisor menu
 
@@ -118,7 +122,7 @@ arduino-cli lib install FabGL
 Edit `config.h` if you want to change:
 
 - `MACHINE_TYPE` — default compile-time machine (4 = CoCo 3, 3 = CoCo 2). The active machine is also runtime-switchable from the supervisor menu, persisted to NVS.
-- Keyboard layout — edit `hal_keyboard.cpp` `hal_keyboard_init()` to pick a different `fabgl::XxxLayout` (US, UK, German, Italian, **Spanish** (default), French, Belgian, Norwegian, Japanese).
+- `KBD_LAYOUT_FIRST_BOOT_DEFAULT` — initial PS/2 keyboard layout (0 = US English, 1 = Spanish Latam) used the first time the device boots. After that the layout is runtime-switchable (live, no reboot) from the supervisor Settings menu and persisted to NVS.
 
 ### 5. Compile & Upload
 
@@ -150,9 +154,13 @@ If `Failed to connect to ESP32: Wrong boot mode detected`, hold the **BOOT** but
 | Backspace | LEFT ARROW (BASIC line edit) |
 | Insert / Delete | CLEAR |
 
-PS/2 keyboard layout defaults to **Spanish**. Change at the top of `hal_keyboard_init()` to any of FabGL's built-in layouts (US, UK, German, Italian, French, Belgian, Norwegian, Japanese).
+PS/2 keyboard layout defaults to **US English** and can be switched live (no reboot) to **Spanish Latam** from the supervisor **Settings** menu; the choice is persisted in NVS.
 
 The shifted-symbol row is handled by FabGL's layout (it pre-resolves SHIFT+digit into `VK_HASH`, `VK_DOLLAR`, etc.); the HAL maps each symbol back to the corresponding CoCo SHIFT+N combination so `#`, `$`, `%`, `&`, `(`, `)`, `!`, `"`, `'`, `?`, `<`, `>`, `+` all produce the right CoCo character.
+
+### Custom Key Mapping
+
+The supervisor **Settings → Key Mapper** screen lets you remap any physical PS/2 key to a CoCo key (including the CoCo 3-only ALT, CTRL, CLEAR, F1, and F2 keys, which are hidden when a CoCo 2 is active). A **Test Mappings** mode shows what each pressed key would type without sending it to the emulated CoCo, and **Clear All Mappings** restores the defaults. Mappings persist in NVS.
 
 ## On-Screen Display (OSD)
 
@@ -161,6 +169,7 @@ Press **F3** to open the supervisor overlay. From here you can:
 - **Mount/Eject Disks** — browse the SD card and mount `.DSK`/`.VDK` images to drives 0–3
 - **Disk Manager** — view mounted drives and eject disks
 - **Machine** — switch between CoCo 2 / CoCo 3 (`esp_restart()` after confirm; persisted to NVS)
+- **Settings** — Debug Log, RS-232 Pak, **Keyboard** layout (US English / Spanish Latam, live switch), **Key Mapper** (custom key remapping), and **Mouse Sensitivity** (joystick 1 / PS/2 mouse sensitivity adjustment, live preview)
 - **Reset Machine** — warm or cold reset with confirmation
 - **About** — version info and free memory
 
