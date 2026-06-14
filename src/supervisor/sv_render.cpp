@@ -303,3 +303,92 @@ void sv_render_clear_content(void) {
                     SV_BORDER_W - 4, SV_BORDER_H - SV_TITLE_H - SV_FOOTER_H - 6,
                     SV_COLOR_BG);
 }
+
+// ---- Mouse Sensitivity pad geometry (shared by full draw + cursor update) ----
+static const int JOYPAD_SIDE = 96;   // pad box side, pixels
+static const int JOYPAD_CUR  = 6;    // cursor square side, pixels
+
+static inline int joypad_box_x(void) { return SV_BORDER_X + (SV_BORDER_W - JOYPAD_SIDE) / 2; }
+static inline int joypad_box_y(void) { return SV_BORDER_Y + SV_TITLE_H + 10; }
+
+// Logical axis (0..63) -> pixel offset of the cursor square inside the box.
+static inline int joypad_cur_offset(uint8_t v) {
+    int inner = JOYPAD_SIDE - 2 - JOYPAD_CUR;   // travel range in px
+    return 1 + (int)v * inner / 63;
+}
+
+// Full repaint of the pad: box, cursor at the current position, sensitivity
+// bar, and Invert-Y value. Called once on open and whenever level/invert
+// change — NOT per frame. Between frames the cursor is moved incrementally by
+// sv_render_joystick_cursor() so there is no flicker.
+void sv_render_joystick_pad(uint8_t cursor_x, uint8_t cursor_y,
+                            uint8_t level, bool invert_y) {
+    if (!g_tft) return;
+
+    int box_x = joypad_box_x();
+    int box_y = joypad_box_y();
+
+    g_tft->startWrite();
+
+    g_tft->fillRect(box_x, box_y, JOYPAD_SIDE, JOYPAD_SIDE, SV_COLOR_BG);
+    g_tft->drawRect(box_x, box_y, JOYPAD_SIDE, JOYPAD_SIDE, SV_COLOR_BORDER);
+
+    // Cursor square at the current position.
+    int cx = box_x + joypad_cur_offset(cursor_x);
+    int cy = box_y + joypad_cur_offset(cursor_y);
+    g_tft->fillRect(cx, cy, JOYPAD_CUR, JOYPAD_CUR, SV_COLOR_TEXT);
+
+    // --- Sensitivity bar + numeric level (compact 8x8 font) ---
+    int row_y = box_y + JOYPAD_SIDE + 8;
+    g_tft->setTextFont(1);
+    g_tft->setTextColor(SV_COLOR_TEXT, SV_COLOR_BG);
+    g_tft->setTextDatum(TL_DATUM);
+    g_tft->drawString("Sensitivity:", SV_CONTENT_X, row_y);
+
+    // Ten segment bar, filled up to `level`.
+    const int SEG_W = 10, SEG_H = 10, GAP = 2;
+    int bar_x = SV_CONTENT_X + 96;
+    for (int i = 0; i < 10; i++) {
+        int x = bar_x + i * (SEG_W + GAP);
+        uint16_t c = (i < level) ? SV_COLOR_BORDER : SV_COLOR_BG;
+        g_tft->fillRect(x, row_y, SEG_W, SEG_H, c);
+        g_tft->drawRect(x, row_y, SEG_W, SEG_H, SV_COLOR_DIM);
+    }
+
+    char lvl[8];
+    snprintf(lvl, sizeof(lvl), "%u", (unsigned)level);
+    g_tft->setTextDatum(TR_DATUM);
+    g_tft->drawString(lvl, SV_VALUE_RIGHT, row_y);
+
+    // --- Invert-Y value ---
+    int inv_y = row_y + SV_ITEM_H + 2;
+    g_tft->setTextDatum(TL_DATUM);
+    g_tft->drawString("Invert Y:", SV_CONTENT_X, inv_y);
+    g_tft->setTextDatum(TR_DATUM);
+    g_tft->drawString(invert_y ? "ON" : "OFF", SV_VALUE_RIGHT, inv_y);
+
+    g_tft->setTextDatum(TL_DATUM);
+    g_tft->endWrite();
+}
+
+// Incremental cursor move: erase the cursor square at its old logical position
+// and redraw it at the new one. The pad box border is never touched (the cursor
+// stays >=1px inside), so no full repaint — and thus no flicker — is needed.
+// Pass old_x/old_y > 63 (e.g. 0xFF) to skip the erase on the first draw.
+void sv_render_joystick_cursor(uint8_t old_x, uint8_t old_y,
+                               uint8_t new_x, uint8_t new_y) {
+    if (!g_tft) return;
+    int box_x = joypad_box_x();
+    int box_y = joypad_box_y();
+
+    g_tft->startWrite();
+    if (old_x <= 63 && old_y <= 63) {
+        int ox = box_x + joypad_cur_offset(old_x);
+        int oy = box_y + joypad_cur_offset(old_y);
+        g_tft->fillRect(ox, oy, JOYPAD_CUR, JOYPAD_CUR, SV_COLOR_BG);
+    }
+    int nx = box_x + joypad_cur_offset(new_x);
+    int ny = box_y + joypad_cur_offset(new_y);
+    g_tft->fillRect(nx, ny, JOYPAD_CUR, JOYPAD_CUR, SV_COLOR_TEXT);
+    g_tft->endWrite();
+}

@@ -15,6 +15,7 @@
 #include "../utils/debug.h"
 #include "../supervisor/supervisor.h"
 #include "../supervisor/sv_disk.h"
+#include "../supervisor/sv_keymap.h"
 
 #define COCO_SHIFT_ROW  6
 #define COCO_SHIFT_COL  7
@@ -85,6 +86,29 @@ void hal_keyboard_set_machine(Machine* m) { s_machine_ptr = m; }
 #include "fabgl.h"
 
 static fabgl::PS2Controller s_ps2;
+
+// FabGL's SpanishLayout is Castilian (Spain): SHIFT+3 = "·" (VK_INTERPUNCT,
+// which has no CoCo equivalent and gets dropped), with "#" on AltGr+3. On a
+// Latam keyboard SHIFT+3 = "#" and "@" = AltGr+Q, so inherit Spain and
+// override those combos — the active layout is searched before the inherited
+// one (FabGL VKtoAlternateVK), so these entries win over Spain's.
+// The empty deadkey tables are deliberate: FabGL reads deadKeysVK from the
+// active layout only (no inheritance), so this also disables Spain's accent
+// deadkeys (´ ` ¨ ^), which would otherwise swallow the following vowel into
+// accented VKs the CoCo can't type anyway.
+static const fabgl::KeyboardLayout LatamLayout = {
+    "LA",            // name
+    "Spanish Latam", // desc
+    &fabgl::SpanishLayout,
+    {},              // single-byte scancodes (inherited)
+    {},              // extended scancodes (inherited)
+    {
+        { fabgl::VK_3, { 0, 0, 0, 1 }, fabgl::VK_HASH }, // SHIFT+3 = #
+        { fabgl::VK_q, { 0, 0, 1, 0 }, fabgl::VK_AT },   // AltGr+Q = @
+    },
+    {},              // deadkeys — none (see comment above)
+    {},              // deadkey translations
+};
 
 // Supervisor maps still want HID Usage IDs (it calls supervisor_on_key with
 // a usage). Provide a VK→HID-usage map for the keys the supervisor handles.
@@ -191,6 +215,7 @@ static const VkMap VK_MAP[] = {
     { fabgl::VK_GREATER,    6, 5, true, false }, // SHIFT+. → >
     { fabgl::VK_LESS,       4, 5, true, false }, // SHIFT+, → <
     { fabgl::VK_PLUS,       5, 5, true, false }, // SHIFT+- → +
+    { fabgl::VK_CARET,      3, 3, false, true }, // SHIFT+6 (US) → ^ → CoCo ↑ (UP key, ASCII 94, BASIC exponent); suppress host SHIFT for clean ↑
     // Punctuation row
     { fabgl::VK_SEMICOLON, 3, 5, false, false },
     { fabgl::VK_COLON,     2, 5, false, true },  // : on shifted ; → suppress CoCo SHIFT
@@ -227,6 +252,128 @@ static const VkMap* find_vk_mapping(fabgl::VirtualKey vk) {
     return nullptr;
 }
 
+// ============================================================================
+//  Key Mapper — user-remappable CoCo keys (configured in supervisor Settings)
+// ============================================================================
+
+// The remappable CoCo keys, each with its true CoCo matrix combo (unlike a
+// couple of legacy VK_MAP shortcuts: * really is SHIFT+:, + really is SHIFT+;).
+// needs_shift asserts CoCo SHIFT; suppress_shift forces it released so a
+// host-SHIFTed source key still types the exact unshifted CoCo character.
+// Arrow/ALT/CTRL/CLEAR/F1/F2 entries leave host SHIFT alone so combos like
+// CoCo SHIFT+arrow stay reachable.
+struct KmChar {
+    const char* label;
+    uint8_t col, row;
+    bool needs_shift;
+    bool suppress_shift;
+};
+
+static const KmChar KM_CHARS[KM_COUNT] = {
+    { "!",           1, 4, true,  false },
+    { "\"",          2, 4, true,  false },
+    { "#",           3, 4, true,  false },
+    { "$",           4, 4, true,  false },
+    { "%",           5, 4, true,  false },
+    { "&",           6, 4, true,  false },
+    { "'",           7, 4, true,  false },
+    { "(",           0, 5, true,  false },
+    { ")",           1, 5, true,  false },
+    { ":",           2, 5, false, true  },
+    { "*",           2, 5, true,  false },  // CoCo SHIFT+:
+    { "-",           5, 5, false, true  },
+    { "=",           5, 5, true,  false },  // CoCo SHIFT+-
+    { "@",           0, 0, false, true  },
+    { "+",           3, 5, true,  false },  // CoCo SHIFT+;
+    { ";",           3, 5, false, true  },
+    { "<",           4, 5, true,  false },  // CoCo SHIFT+,
+    { ">",           6, 5, true,  false },  // CoCo SHIFT+.
+    { ",",           4, 5, false, true  },
+    { ".",           6, 5, false, true  },
+    { "?",           7, 5, true,  false },  // CoCo SHIFT+/
+    { "/",           7, 5, false, true  },
+    { "ARROW UP",    3, 3, false, false },
+    { "ARROW DOWN",  4, 3, false, false },
+    { "ARROW LEFT",  5, 3, false, false },
+    { "ARROW RIGHT", 6, 3, false, false },
+    // --- CoCo 3 only (indices >= KM_COCO2_COUNT) ---
+    { "ALT",         3, 6, false, false },
+    { "CTRL",        4, 6, false, false },
+    { "CLEAR",       1, 6, false, false },
+    { "F1",          5, 6, false, false },
+    { "F2",          6, 6, false, false },
+};
+
+// Custom bindings, indexed like KM_CHARS; -1 (or 0) = no binding. Zero-init
+// is safe — VK_NONE (0) never arrives as a real keypress — and the real
+// content is loaded from NVS in setup() via supervisor_load_keymap().
+static int16_t km_table[KM_COUNT];
+
+static int km_find(int16_t vk) {
+    for (int i = 0; i < KM_COUNT; i++) {
+        if (km_table[i] == vk) return i;
+    }
+    return -1;
+}
+
+const char* hal_keyboard_remap_label(uint8_t idx) {
+    return (idx < KM_COUNT) ? KM_CHARS[idx].label : "";
+}
+
+int16_t* hal_keyboard_remap_table(void) {
+    return km_table;
+}
+
+void hal_keyboard_remap_set(uint8_t idx, int16_t vk) {
+    if (idx >= KM_COUNT) return;
+    if (vk > 0) {
+        // One physical key drives at most one CoCo key — steal it if bound.
+        for (int i = 0; i < KM_COUNT; i++) {
+            if (km_table[i] == vk) km_table[i] = -1;
+        }
+    }
+    km_table[idx] = vk;
+}
+
+void hal_keyboard_remap_clear_all(void) {
+    for (int i = 0; i < KM_COUNT; i++) km_table[i] = -1;
+}
+
+// CoCo matrix cell names for the test screen, indexed [row][col].
+static const char* const MATRIX_NAME[7][8] = {
+    { "@", "A", "B", "C", "D", "E", "F", "G" },
+    { "H", "I", "J", "K", "L", "M", "N", "O" },
+    { "P", "Q", "R", "S", "T", "U", "V", "W" },
+    { "X", "Y", "Z", "UP", "DOWN", "LEFT", "RIGHT", "SPACE" },
+    { "0", "1", "2", "3", "4", "5", "6", "7" },
+    { "8", "9", ":", ";", ",", "-", ".", "/" },
+    { "ENTER", "CLEAR", "BREAK", "ALT", "CTRL", "F1", "F2", "SHIFT" },
+};
+
+bool hal_keyboard_describe_vk(int16_t vk, char* buf, size_t buflen) {
+    int km = (vk > 0) ? km_find(vk) : -1;
+    if (km >= 0) {
+        snprintf(buf, buflen, "%s (custom)", KM_CHARS[km].label);
+        return true;
+    }
+    const VkMap* k = (vk > 0) ? find_vk_mapping((fabgl::VirtualKey)vk) : nullptr;
+    if (!k || k->row >= 7) {
+        snprintf(buf, buflen, "(nothing)");
+        return false;
+    }
+    // Prefer the remap label when the combo matches one ("#" over "SHIFT+3").
+    for (int i = 0; i < KM_COUNT; i++) {
+        if (KM_CHARS[i].col == k->col && KM_CHARS[i].row == k->row &&
+            KM_CHARS[i].needs_shift == k->needs_shift) {
+            snprintf(buf, buflen, "%s", KM_CHARS[i].label);
+            return true;
+        }
+    }
+    snprintf(buf, buflen, "%s%s", k->needs_shift ? "SHIFT+" : "",
+             MATRIX_NAME[k->row][k->col]);
+    return true;
+}
+
 static void process_vk(const fabgl::VirtualKeyItem& it) {
     bool pressed = (it.down != 0);
     fabgl::VirtualKey vk = it.vk;
@@ -235,6 +382,12 @@ static void process_vk(const fabgl::VirtualKeyItem& it) {
     // Supervisor / hotkey gate — F3 always toggles supervisor.
     if (vk == fabgl::VK_F3 && pressed) { supervisor_toggle(); return; }
     if (supervisor_is_active()) {
+        // Key Mapper capture/test screens need the raw VirtualKey — the HID
+        // translation below is lossy (most symbol keys map to usage 0).
+        if (sv_keymap_wants_raw_vk()) {
+            sv_keymap_on_raw_vk((int16_t)vk, pressed);
+            return;
+        }
         // Supervisor takes all input. Translate to HID usage IDs so the
         // supervisor's existing key handler (HID-keyed) keeps working.
         uint8_t usage = vk_to_hid_usage(vk);
@@ -268,7 +421,17 @@ static void process_vk(const fabgl::VirtualKeyItem& it) {
         }
     }
 
-    const VkMap* k = find_vk_mapping(vk);
+    // User remap first — a custom-bound key replaces its default meaning.
+    VkMap custom_map;
+    const VkMap* k = nullptr;
+    int km = km_find((int16_t)vk);
+    if (km >= 0) {
+        custom_map = { vk, KM_CHARS[km].col, KM_CHARS[km].row,
+                       KM_CHARS[km].needs_shift, KM_CHARS[km].suppress_shift };
+        k = &custom_map;
+    } else {
+        k = find_vk_mapping(vk);
+    }
     if (!k) {
 #if KBD_DEBUG_KEYS
         if (pressed) DEBUG_PRINTF("[KBD] vk=%d UNMAPPED", (int)vk);
@@ -303,16 +466,35 @@ void hal_keyboard_init(void) {
     s_ps2.begin(fabgl::PS2Preset::KeyboardPort0_MousePort1,
                 fabgl::KbdMode::CreateVirtualKeysQueue);
 
-    // Select keyboard layout. FabGL defaults to US; switch to Spanish here
-    // to match the physical keys on a Spanish (Latin American) keyboard.
-    // Available built-in layouts: USLayout, UKLayout, GermanLayout,
-    // ItalianLayout, SpanishLayout, FrenchLayout, BelgianLayout,
-    // NorwegianLayout, JapaneseLayout.
-    fabgl::Keyboard* kbd = fabgl::PS2Controller::keyboard();
-    if (kbd) kbd->setLayout(&fabgl::SpanishLayout);
+    // Apply the active layout (g_kbd_layout is seeded from NVS in setup()
+    // before hal_init, so the keyboard starts in the user's chosen layout).
+    hal_keyboard_set_layout(g_kbd_layout);
 
-    DEBUG_PRINTF("  Keyboard: FabGL PS/2 on CLK=GPIO%d DATA=GPIO%d (Spanish layout)",
-                 PIN_PS2_KBD_CLK, PIN_PS2_KBD_DATA);
+    DEBUG_PRINTF("  Keyboard: FabGL PS/2 on CLK=GPIO%d DATA=GPIO%d (%s layout)",
+                 PIN_PS2_KBD_CLK, PIN_PS2_KBD_DATA,
+                 hal_keyboard_layout_name(g_kbd_layout));
+}
+
+KbdLayout g_kbd_layout = (KbdLayout)KBD_LAYOUT_FIRST_BOOT_DEFAULT;
+
+void hal_keyboard_set_layout(KbdLayout layout) {
+    if (layout >= KBD_LAYOUT_COUNT) layout = (KbdLayout)KBD_LAYOUT_FIRST_BOOT_DEFAULT;
+    g_kbd_layout = layout;
+    // FabGL translates scancodes → VirtualKeys through the layout, so a live
+    // switch is enough: the CoCo matrix mapping consumes post-layout keys.
+    fabgl::Keyboard* kbd = fabgl::PS2Controller::keyboard();
+    if (kbd) kbd->setLayout(layout == KBD_LAYOUT_ES_LATAM ? &LatamLayout
+                                                          : &fabgl::USLayout);
+#if KBD_DEBUG_KEYS
+    // Diagnostic: confirm the layout FabGL actually holds matches g_kbd_layout.
+    DEBUG_PRINTF("[KBD] set_layout(%d \"%s\") -> FabGL active layout: \"%s\"",
+                 (int)layout, hal_keyboard_layout_name(layout),
+                 kbd ? kbd->getLayout()->desc : "(kbd null!)");
+#endif
+}
+
+const char* hal_keyboard_layout_name(KbdLayout layout) {
+    return (layout == KBD_LAYOUT_ES_LATAM) ? "Spanish Latam" : "US English";
 }
 
 void hal_keyboard_tick(void) {

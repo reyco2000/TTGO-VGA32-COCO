@@ -72,4 +72,17 @@ void sv_render_confirm_dialog(const char* message, bool yes_highlighted);
 void sv_render_clear_content(void);
 void sv_render_centered_item(int index, const char* text, uint16_t color);
 
+// Mouse Sensitivity screen: draws the pad box with a live cursor at
+// (cursor_x, cursor_y) in 0..63 logical space, plus the sensitivity bar
+// (level 1..10) and the Invert-Y value. Caller renders the frame first.
+void sv_render_joystick_pad(uint8_t cursor_x, uint8_t cursor_y,
+                            uint8_t level, bool invert_y);
+
+// Incremental cursor move for the Mouse Sensitivity pad: erases the cursor at
+// its old logical position (0..63) and redraws it at the new one, without
+// repainting the box/bar/labels (avoids flicker). Pass old coords > 63 to skip
+// the erase on the first draw.
+void sv_render_joystick_cursor(uint8_t old_x, uint8_t old_y,
+                               uint8_t new_x, uint8_t new_y);
+
 #endif // SV_RENDER_H

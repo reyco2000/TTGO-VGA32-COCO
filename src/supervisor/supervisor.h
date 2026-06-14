@@ -25,6 +25,7 @@
 #include <stdbool.h>
 #include "../core/machine.h"
 #include "../utils/debug.h"   // SerialPortMode
+#include "../hal/hal.h"       // KbdLayout
 #include "sv_disk.h"
 
 enum SV_State : uint8_t {
@@ -36,7 +37,12 @@ enum SV_State : uint8_t {
     SV_ABOUT,
     SV_DEBUG_MENU,
     SV_DEBUG_DUMP,
+    SV_DEBUG_DUMP_NAME,   // Memory-dump filename entry / save / result screen
     SV_CONFIRM_DIALOG,
+    SV_KEYMAP_LIST,
+    SV_KEYMAP_CAPTURE,
+    SV_KEYMAP_TEST,
+    SV_JOY_SENSE,        // Mouse Sensitivity adjust screen
 };
 
 struct SV_FileEntry;
@@ -108,6 +114,23 @@ void supervisor_set_machine_type(uint8_t machine_type);
 // Called from setup() before the boot banner so the banner respects the mode.
 SerialPortMode supervisor_load_serial_mode(void);
 void       supervisor_save_serial_mode(SerialPortMode mode);
+
+// Mouse sensitivity (level 1..10) + invert-Y, persisted in NVS ("sv").
+void supervisor_save_joystick(uint8_t level, bool invert);
+void supervisor_load_joystick(void);   // reads NVS, applies to HAL
+
+// PS/2 keyboard-layout persistence (NVS "sv" namespace, key "kbd_layout").
+// load returns the stored layout, or KBD_LAYOUT_FIRST_BOOT_DEFAULT if unset.
+// Called from setup() before hal_init() so the keyboard starts in the
+// user's chosen layout.
+KbdLayout supervisor_load_kbd_layout(void);
+void      supervisor_save_kbd_layout(KbdLayout layout);
+
+// Key Mapper persistence (NVS "sv" namespace, key "keymap"): the whole
+// hal_keyboard remap table as one blob. load fills the table (all-default
+// if NVS has nothing); called from setup() before the emulator runs.
+void supervisor_load_keymap(void);
+void supervisor_save_keymap(void);
 
 // Access global supervisor (for disk manager sub-screens)
 Supervisor_t* supervisor_get(void);

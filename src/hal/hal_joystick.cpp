@@ -35,6 +35,13 @@ static int16_t s_pos_x    = 32;   // 6-bit logical position, range 0..63
 static int16_t s_pos_y    = 32;
 static bool    s_btn_left = false;
 
+// Runtime-adjustable mouse tunables (Supervisor -> Settings -> Mouse Sensitivity).
+// Seeded from the config.h compile-time defaults; overridden at boot from NVS.
+//   s_scale  : raw mouse counts are divided by this. Lower = more sensitive.
+//   s_invert : true flips the Y axis.
+static int  s_scale  = JOYSTICK_MOUSE_SCALE;
+static bool s_invert = (JOYSTICK_MOUSE_INVERT_Y != 0);
+
 void hal_joystick_init(void) {
     // The PS2Controller itself is brought up in hal_keyboard_init() via
     // PS2Preset::KeyboardPort0_MousePort1. Here we just verify the Mouse
@@ -55,15 +62,16 @@ void hal_joystick_update(void) {
         fabgl::MouseDelta d;
         if (!m->getNextDelta(&d, 0)) break;
 
-        int dx = (int)d.deltaX / JOYSTICK_MOUSE_SCALE;
-        int dy = (int)d.deltaY / JOYSTICK_MOUSE_SCALE;
+        int divisor = (s_scale < 1) ? 1 : s_scale;
+        int dx = (int)d.deltaX / divisor;
+        int dy = (int)d.deltaY / divisor;
 
         s_pos_x += dx;
-#if JOYSTICK_MOUSE_INVERT_Y
-        s_pos_y += dy;
-#else
-        s_pos_y -= dy;   // FabGL Y is positive-up; CoCo Y is positive-down
-#endif
+        if (s_invert) {
+            s_pos_y += dy;
+        } else {
+            s_pos_y -= dy;   // FabGL Y is positive-up; CoCo Y is positive-down
+        }
 
         if (s_pos_x < 0)  s_pos_x = 0;
         if (s_pos_x > 63) s_pos_x = 63;
@@ -90,4 +98,35 @@ bool hal_joystick_compare(int port, int axis, uint8_t dac_value) {
     // 6-bit (0..63) → 8-bit DAC space (2..254), matches the inline math at
     // the PIA0 PA read site in machine.cpp.
     return (v * 4 + 2) >= (int)dac_value;
+}
+
+// ---- Runtime tunables API (Supervisor Mouse Sensitivity screen) ----
+//
+// Level is the user-facing 1..10 value; divisor is JOYSTICK_MOUSE_SCALE.
+// Higher level = lower divisor = more sensitive:  divisor = 11 - level.
+
+void hal_joystick_set_sensitivity(uint8_t level) {
+    if (level < 1)  level = 1;
+    if (level > 10) level = 10;
+    s_scale = 11 - (int)level;          // level 10 -> 1, level 1 -> 10
+}
+
+uint8_t hal_joystick_get_sensitivity(void) {
+    int level = 11 - s_scale;
+    if (level < 1)  level = 1;
+    if (level > 10) level = 10;
+    return (uint8_t)level;
+}
+
+void hal_joystick_set_invert_y(bool on) {
+    s_invert = on;
+}
+
+bool hal_joystick_get_invert_y(void) {
+    return s_invert;
+}
+
+void hal_joystick_get_pos(uint8_t* x, uint8_t* y) {
+    if (x) *x = (uint8_t)s_pos_x;
+    if (y) *y = (uint8_t)s_pos_y;
 }

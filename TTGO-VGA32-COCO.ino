@@ -77,6 +77,16 @@ void setup() {
     DEBUG_PRINT("-------------------------");
     DEBUG_PRINT("=================================");
 
+    // Seed the PS/2 keyboard layout from NVS BEFORE hal_init() so
+    // hal_keyboard_init() applies the user's chosen layout.
+    g_kbd_layout = supervisor_load_kbd_layout();
+
+    // Load the user's custom key mappings (Key Mapper, supervisor Settings).
+    supervisor_load_keymap();
+
+    // Apply the saved mouse sensitivity / invert before the joystick HAL is used.
+    supervisor_load_joystick();
+
     // Initialize HAL (storage, audio, keyboard, joystick — but NOT video yet)
     hal_init();
 

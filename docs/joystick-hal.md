@@ -183,18 +183,61 @@ Port 1 reads are identical to the original VGA32 stub: axis = 32 (center), butto
 
 ### Configuration
 
-Two macros in `config.h` (VGA32 block):
+`JOYSTICK_MOUSE_SCALE` and `JOYSTICK_MOUSE_INVERT_Y` in `config.h` (VGA32 block) are now **first-boot defaults only**:
 
 ```c
-// Each raw mouse count is divided by this before being added to the
-// joystick accumulator. Lower = more sensitive.
+// First-boot default divisor (see "Runtime Sensitivity" below).
 #define JOYSTICK_MOUSE_SCALE     4
 
-// Set to 1 if Y feels inverted in-game.
+// First-boot default for Invert-Y.
 #define JOYSTICK_MOUSE_INVERT_Y  0
 ```
 
-Change in `config.h` and reflash. No runtime UI.
+These macros seed the runtime values on a fresh device (no saved NVS settings). Once the user adjusts sensitivity via the Supervisor (Settings -> Mouse Sensitivity), the runtime values are persisted to NVS and override the macros on every subsequent boot.
+
+### Runtime Sensitivity
+
+`hal_joystick.cpp` holds two runtime variables, seeded from the `config.h` macros above and overridden at boot from NVS (see `supervisor_load_joystick()`):
+
+```c
+static int  s_scale  = JOYSTICK_MOUSE_SCALE;   // divisor applied to raw mouse deltas
+static bool s_invert = JOYSTICK_MOUSE_INVERT_Y;
+```
+
+`hal_joystick_update()` uses `s_scale` and `s_invert` in place of the old compile-time macros when scaling `deltaX`/`deltaY` and applying the Y-axis flip.
+
+**Level <-> divisor mapping:**
+
+| Level | Divisor (`s_scale`) | Notes |
+|---|---|---|
+| 1 | 10 | Least sensitive |
+| 7 | 4 | Default (matches old `JOYSTICK_MOUSE_SCALE`) |
+| 10 | 1 | Most sensitive (clamped, divisor never goes below 1) |
+
+Formula: `divisor = 11 - level`, clamped so `divisor >= 1`. Higher level = smaller divisor = more sensitive.
+
+**HAL API** (`src/hal/hal.h`):
+
+| Function | Description |
+|---|---|
+| `void hal_joystick_set_sensitivity(uint8_t level)` | Sets `s_scale` from a 1..10 level using the formula above |
+| `uint8_t hal_joystick_get_sensitivity(void)` | Returns the current level (inverse of the formula) |
+| `void hal_joystick_set_invert_y(bool invert)` | Sets `s_invert` |
+| `bool hal_joystick_get_invert_y(void)` | Returns `s_invert` |
+| `void hal_joystick_get_pos(uint8_t* x, uint8_t* y)` | Returns the live `s_pos_x`/`s_pos_y` (0..63), used to draw the live cursor in the Mouse Sensitivity screen |
+
+### NVS Persistence
+
+Namespace `"sv"` (same as the rest of the supervisor's persisted settings):
+
+| Key | Type | Description |
+|---|---|---|
+| `joyLevel` | UChar | Sensitivity level 1..10 |
+| `joyInv` | Bool | Invert-Y flag |
+
+`supervisor_save_joystick(level, invert)` writes both keys; `supervisor_load_joystick()` reads them back and applies them via the HAL setters above. `supervisor_load_joystick()` is called at boot in `TTGO-VGA32-COCO.ino`, immediately after `supervisor_load_keymap()`. If no saved values exist, the `config.h` macro defaults remain in effect (level 7 / divisor 4, Invert-Y off).
+
+The runtime sensitivity is adjusted interactively from **Supervisor -> Settings -> Mouse Sensitivity** — see `supervisor.md`.
 
 ### Button Mapping
 

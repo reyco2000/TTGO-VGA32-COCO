@@ -123,8 +123,56 @@ void hal_audio_commit_frame(void);
 // Keyboard subsystem
 // ============================================================
 
+// Physical PS/2 keyboard layout (FabGL VirtualKey translation).
+// Values are persisted in NVS — keep them stable.
+typedef enum : uint8_t {
+    KBD_LAYOUT_US       = 0,  // US English (fabgl::USLayout)
+    KBD_LAYOUT_ES_LATAM = 1,  // Spanish Latam (fabgl::SpanishLayout)
+    KBD_LAYOUT_COUNT
+} KbdLayout;
+
+// Active PS/2 layout. Seeded from NVS in setup() before hal_init();
+// falls back to KBD_LAYOUT_FIRST_BOOT_DEFAULT (config.h).
+extern KbdLayout g_kbd_layout;
+
 // Initialize keyboard input
 void hal_keyboard_init(void);
+
+// Switch the PS/2 layout at runtime (live, no reboot) and update
+// g_kbd_layout. Does NOT persist — callers that want the choice
+// remembered also call supervisor_save_kbd_layout().
+void hal_keyboard_set_layout(KbdLayout layout);
+
+// Human-readable layout name for the OSD/debug log.
+const char* hal_keyboard_layout_name(KbdLayout layout);
+
+// ------------------------------------------------------------
+// Key Mapper — user-remappable CoCo keys (supervisor Settings)
+// ------------------------------------------------------------
+
+// Remappable CoCo keys. The first KM_COCO2_COUNT entries apply to every
+// machine; the rest (ALT/CTRL/CLEAR/F1/F2) only exist on the CoCo 3 matrix.
+#define KM_COCO2_COUNT  26
+#define KM_COUNT        31
+
+// Display label of remappable key `idx` ("!", "ARROW UP", "ALT", ...).
+const char* hal_keyboard_remap_label(uint8_t idx);
+
+// Custom-binding table: one FabGL VirtualKey per remappable key, -1 = none.
+// Exposed directly so the supervisor can persist it as a single NVS blob
+// (supervisor_load_keymap / supervisor_save_keymap).
+int16_t* hal_keyboard_remap_table(void);
+
+// Bind physical key `vk` to remappable key `idx` (stealing `vk` from any
+// other entry), or clear one binding with vk = -1. Not persisted — callers
+// that want it remembered also call supervisor_save_keymap().
+void hal_keyboard_remap_set(uint8_t idx, int16_t vk);
+void hal_keyboard_remap_clear_all(void);
+
+// For the Key Mapper test screen: describe what pressing `vk` would type,
+// e.g. "# (custom)", "SHIFT+3", "A" or "(nothing)". Returns false if the
+// key maps to nothing.
+bool hal_keyboard_describe_vk(int16_t vk, char* buf, size_t buflen);
 
 // Scan keyboard matrix for a given column
 //   column: 0-7 (active low)
@@ -160,6 +208,15 @@ bool hal_joystick_compare(int port, int axis, uint8_t dac_value);
 
 // Update joystick ADC readings (call once per frame)
 void hal_joystick_update(void);
+
+// ---- Runtime mouse tunables (Supervisor Mouse Sensitivity screen) ----
+// Sensitivity level is 1..10 (higher = more sensitive). Values are clamped.
+void    hal_joystick_set_sensitivity(uint8_t level);
+uint8_t hal_joystick_get_sensitivity(void);
+void    hal_joystick_set_invert_y(bool on);
+bool    hal_joystick_get_invert_y(void);
+// Current live logical position, each axis 0..63 (center 32).
+void    hal_joystick_get_pos(uint8_t* x, uint8_t* y);
 
 // Set machine pointer for keyboard hotkeys (F2 reset, etc.)
 struct Machine;

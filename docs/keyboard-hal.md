@@ -69,15 +69,14 @@ The Mouse path on the same `PS2Controller` (GPIO26 CLK / GPIO27 DATA) is documen
 s_ps2.begin(fabgl::PS2Preset::KeyboardPort0_MousePort1,
             fabgl::KbdMode::CreateVirtualKeysQueue);
 
-fabgl::Keyboard* kbd = fabgl::PS2Controller::keyboard();
-if (kbd) kbd->setLayout(&fabgl::SpanishLayout);
+hal_keyboard_set_layout(g_kbd_layout);
 ```
 
 **Why the preset and not the explicit-pin overload:** the explicit-pin `PS2Controller::begin(clk, data, ...)` only configures the GPIOs and starts the ULP scancode shifter — it does **not** allocate the `Keyboard` (or `Mouse`) object. Without that allocation, the VirtualKey queue is never populated and the keyboard silently does nothing. Use the **preset variants** (`KeyboardPort0`, `KeyboardPort0_MousePort1`, ...) which allocate the device objects internally and call their `begin()` for you.
 
 `PS2Preset::KeyboardPort0_MousePort1` defaults map keyboard to GPIO33/32 and mouse to GPIO26/27 — the wiring the TTGO VGA32 v1.4 board provides on its two PS/2 headers. We also use this preset so `hal_joystick.cpp` can pick up `PS2Controller::mouse()` without duplicating PS/2 setup.
 
-**Layout selection:** `fabgl::SpanishLayout` is set as the default to match a Spanish (Latin American) keyboard. Switch to any of FabGL's built-in layouts (`USLayout`, `UKLayout`, `GermanLayout`, `ItalianLayout`, `FrenchLayout`, `BelgianLayout`, `NorwegianLayout`, `JapaneseLayout`) by changing this one line and reflashing. The layout is what translates raw PS/2 scancodes into FabGL's `VirtualKey` enum values, and resolves SHIFT/AltGr combinations into the appropriate "shifted-symbol" virtual keys (`VK_HASH`, `VK_DOLLAR`, …).
+**Layout selection:** the active layout is a runtime setting (`KbdLayout g_kbd_layout`, hal.h). Two layouts are exposed: `KBD_LAYOUT_US` (US English, `fabgl::USLayout`) and `KBD_LAYOUT_ES_LATAM` (Spanish Latam, `fabgl::SpanishLayout` — FabGL's closest built-in to a Latam keyboard). The first-boot default is `KBD_LAYOUT_FIRST_BOOT_DEFAULT` (config.h, US English); the user's choice is persisted in NVS (`"sv"` / `"kbd_layout"`) and changed live — no reboot — from the supervisor **Settings → Keyboard** row, which calls `hal_keyboard_set_layout()` + `supervisor_save_kbd_layout()`. The layout is what translates raw PS/2 scancodes into FabGL's `VirtualKey` enum values, and resolves SHIFT/AltGr combinations into the appropriate "shifted-symbol" virtual keys (`VK_HASH`, `VK_DOLLAR`, …).
 
 ---
 
@@ -262,7 +261,7 @@ Power and pull-ups are provided by the board's PS/2 connector. No external wirin
 ## Troubleshooting
 
 ### Keys not registering at all
-1. Check serial boot log for the `Keyboard: FabGL PS/2 on CLK=GPIO33 DATA=GPIO32 (Spanish layout)` line — confirms init reached the right path.
+1. Check serial boot log for the `Keyboard: FabGL PS/2 on CLK=GPIO33 DATA=GPIO32 (US English layout)` line (layout name reflects the active setting) — confirms init reached the right path.
 2. Drop a temporary debug print in `hal_keyboard_tick()` before `getNextVirtualKey()` and confirm `virtualKeyAvailable() > 0` while you're typing. If it stays at 0, FabGL isn't seeing scancodes — check the PS/2 cable, keyboard power (5V), and that the keyboard supports PS/2 mode (some USB→PS/2 adapter cables only carry data when the keyboard speaks PS/2).
 3. Confirm `PS2Controller::keyboard()` is non-null. If it's null, `hal_keyboard_init()` used the explicit-pin overload by mistake — the explicit-pin variant does **not** allocate the Keyboard object. Use the `PS2Preset::KeyboardPort0_MousePort1` preset.
 
@@ -270,7 +269,7 @@ Power and pull-ups are provided by the board's PS/2 connector. No external wirin
 The layout pre-resolves shifted keys into "symbol" VKs (`VK_HASH`, `VK_DOLLAR`, ...). If the symbol isn't in `VK_MAP[]`, the HAL prints `[KBD] vk=N UNMAPPED` on key-down — grep the log for the VK number, look it up in `~/Arduino/libraries/FabGL/src/fabutils.h`, and add an entry to `VK_MAP[]`.
 
 ### Wrong layout (e.g. Spanish keys produce US characters)
-Edit the `kbd->setLayout(&fabgl::XxxLayout)` line in `hal_keyboard_init()` and reflash. Layouts available: `USLayout`, `UKLayout`, `GermanLayout`, `ItalianLayout`, `SpanishLayout` (default), `FrenchLayout`, `BelgianLayout`, `NorwegianLayout`, `JapaneseLayout`.
+Open the supervisor (F1) → **Settings → Keyboard** and press ENTER to cycle between **US English** and **Spanish Latam**. The change applies immediately and is persisted in NVS. To expose another FabGL built-in layout (`UKLayout`, `GermanLayout`, `ItalianLayout`, `FrenchLayout`, `BelgianLayout`, `NorwegianLayout`, `JapaneseLayout`), extend the `KbdLayout` enum in hal.h and the switch in `hal_keyboard_set_layout()`.
 
 ### Every keyboard column shows `@` or `A` permanently pressed
 The joystick button polarity is inverted. `hal_joystick_read_button(port)` must return **0 = not pressed**. See `joystick-hal.md` Lessons Learned.

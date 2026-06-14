@@ -23,6 +23,8 @@
 #include "sv_filebrowser.h"
 #include "sv_disk.h"
 #include "sv_debug.h"
+#include "sv_keymap.h"
+#include "sv_joystick.h"
 #include "sv_render.h"
 #include "../hal/hal.h"
 #include "../utils/debug.h"
@@ -333,9 +335,24 @@ void supervisor_on_key(uint8_t hid_usage, bool pressed) {
             sv_debug_on_key(&sv, hid_usage, pressed);
             break;
 
+        case SV_DEBUG_DUMP_NAME:
+            sv_debug_dump_on_key(&sv, hid_usage, pressed);
+            break;
+
         case SV_CONFIRM_DIALOG:
             confirm_on_key(&sv, hid_usage, pressed);
             break;
+
+        case SV_KEYMAP_LIST:
+            sv_keymap_on_key(&sv, hid_usage, pressed);
+            break;
+
+        case SV_JOY_SENSE:
+            sv_joystick_on_key(&sv, hid_usage, pressed);
+            break;
+
+        // SV_KEYMAP_CAPTURE / SV_KEYMAP_TEST take raw VKs directly via
+        // sv_keymap_on_raw_vk() — events never reach this HID route.
 
         default:
             break;
@@ -344,6 +361,10 @@ void supervisor_on_key(uint8_t hid_usage, bool pressed) {
 
 bool supervisor_update_and_render(void) {
     if (sv.state == SV_INACTIVE) return false;
+
+    if (sv.state == SV_JOY_SENSE) {
+        sv_joystick_tick(&sv);   // polls mouse, sets needs_redraw
+    }
 
     if (!sv.needs_redraw) {
         delay(16);  // ~60 fps cap while in supervisor
@@ -381,8 +402,28 @@ bool supervisor_update_and_render(void) {
             sv_debug_render(&sv);
             break;
 
+        case SV_DEBUG_DUMP_NAME:
+            sv_debug_dump_render(&sv);
+            break;
+
         case SV_CONFIRM_DIALOG:
             sv_render_confirm_dialog(sv.confirm_message, sv.confirm_yes_selected);
+            break;
+
+        case SV_KEYMAP_LIST:
+            sv_keymap_render(&sv);
+            break;
+
+        case SV_KEYMAP_CAPTURE:
+            sv_keymap_capture_render(&sv);
+            break;
+
+        case SV_KEYMAP_TEST:
+            sv_keymap_test_render(&sv);
+            break;
+
+        case SV_JOY_SENSE:
+            sv_joystick_render(&sv);
             break;
 
         default:
@@ -463,11 +504,67 @@ SerialPortMode supervisor_load_serial_mode(void) {
     return (SerialPortMode)sm;
 }
 
+void supervisor_load_keymap(void) {
+    int16_t* table = hal_keyboard_remap_table();
+    hal_keyboard_remap_clear_all();
+    Preferences prefs;
+    prefs.begin("sv", true);
+    // Only accept a blob of the exact current size — a layout-table size
+    // change across firmware versions falls back to all-default bindings.
+    if (prefs.getBytesLength("keymap") == KM_COUNT * sizeof(int16_t)) {
+        prefs.getBytes("keymap", table, KM_COUNT * sizeof(int16_t));
+    }
+    prefs.end();
+}
+
+void supervisor_save_keymap(void) {
+    Preferences prefs;
+    prefs.begin("sv", false);
+    prefs.putBytes("keymap", hal_keyboard_remap_table(),
+                   KM_COUNT * sizeof(int16_t));
+    prefs.end();
+}
+
+KbdLayout supervisor_load_kbd_layout(void) {
+    Preferences prefs;
+    prefs.begin("sv", true);
+    uint8_t kl = prefs.getUChar("kbd_layout", (uint8_t)KBD_LAYOUT_FIRST_BOOT_DEFAULT);
+    prefs.end();
+    if (kl >= KBD_LAYOUT_COUNT) kl = KBD_LAYOUT_FIRST_BOOT_DEFAULT;
+    return (KbdLayout)kl;
+}
+
+void supervisor_save_kbd_layout(KbdLayout layout) {
+    Preferences prefs;
+    prefs.begin("sv", false);
+    prefs.putUChar("kbd_layout", (uint8_t)layout);
+    prefs.end();
+}
+
 void supervisor_save_serial_mode(SerialPortMode mode) {
     Preferences prefs;
     prefs.begin("sv", false);
     prefs.putUChar("serial_mode", (uint8_t)mode);
     prefs.end();
+}
+
+void supervisor_save_joystick(uint8_t level, bool invert) {
+    Preferences prefs;
+    prefs.begin("sv", false);
+    prefs.putUChar("joyLevel", level);
+    prefs.putBool("joyInv", invert);
+    prefs.end();
+}
+
+void supervisor_load_joystick(void) {
+    Preferences prefs;
+    prefs.begin("sv", true);
+    // Default level 7 == config.h divisor 4 (11 - 7 == 4).
+    uint8_t level  = prefs.getUChar("joyLevel", 7);
+    bool    invert = prefs.getBool("joyInv", false);
+    prefs.end();
+    hal_joystick_set_sensitivity(level);   // clamps internally
+    hal_joystick_set_invert_y(invert);
 }
 
 void supervisor_set_machine_type(uint8_t machine_type) {

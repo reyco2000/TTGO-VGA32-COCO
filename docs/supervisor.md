@@ -23,7 +23,7 @@ The OSD is rendered into the FabGL VGA framebuffer through the **OSD canvas** (`
 | `sv_filebrowser.h/.cpp` | SD card directory browser for mounting .DSK/.VDK images |
 | `sv_disk.h/.cpp` | WD1793 FDC emulation, PSRAM disk caching, mount/eject/flush |
 | `sv_render.h/.cpp` | Rendering primitives (frame, menu items, file entries, dialogs). Paints through `osd_canvas` into the FabGL framebuffer. |
-| `sv_debug.h/.cpp` | Debug memory dump to serial (Motorola S-Record / Intel HEX) |
+| `sv_debug.h/.cpp` | Debug screens (CPU/GIME status, hex dump, RS-232) + "Dump RAM to SD" full-memory dump to hex-text files |
 
 ---
 
@@ -54,11 +54,16 @@ States are defined in `supervisor.h` as `SV_State` enum:
 | `SV_MAIN_MENU` | Top-level menu with 6 items |
 | `SV_FILE_BROWSER` | **Disk Manager**: 2-row drive strip (all 4 drives) + file browser below. Left/Right selects active drive; Enter mounts; U ejects; F flushes. Also used as the stand-alone file browser. |
 | `SV_MACHINE_SELECT` | Machine type submenu (CoCo 2 / CoCo 3 with `(current)` marker) |
-| `SV_SETTINGS` | Settings submenu: Debug Log / RS-232 Pak toggles (mutually exclusive; share UART0) |
+| `SV_SETTINGS` | Settings submenu: Debug Log / RS-232 Pak toggles (mutually exclusive; share UART0), Keyboard layout (US English / Spanish Latam), Key Mapper, Mouse Sensitivity |
+| `SV_JOY_SENSE` | Mouse Sensitivity: live cursor pad tracking the PS/2 mouse, sensitivity bar (1-10), Invert-Y toggle |
 | `SV_ABOUT` | Info screen (version, free heap) |
-| `SV_DEBUG_MENU` | Debug submenu picker: CPU/GIME Status, Memory Hex Dump, RS-232 Pak |
+| `SV_DEBUG_MENU` | Debug submenu picker: CPU/GIME Status, Memory Hex Dump, RS-232 Pak, Dump RAM to SD |
 | `SV_DEBUG_DUMP` | Active debug screen (dispatched from `SV_DEBUG_MENU`) |
-| `SV_CONFIRM_DIALOG` | Yes/No dialog (used by Reset Machine and machine type change) |
+| `SV_DEBUG_DUMP_NAME` | "Dump RAM to SD": filename entry → blocking save → result screen |
+| `SV_CONFIRM_DIALOG` | Yes/No dialog (used by Reset Machine, machine type change, Key Mapper clear-all) |
+| `SV_KEYMAP_LIST` | Key Mapper: scrollable list — Test Mappings, Clear All Mappings, then one row per remappable CoCo key with its current binding |
+| `SV_KEYMAP_CAPTURE` | Key Mapper: waits for the next raw keypress to bind (DEL clears the binding, ESC cancels) |
+| `SV_KEYMAP_TEST` | Key Mapper: shows what each pressed key would type, without injecting into the CoCo |
 
 **Transitions** are driven by `sv.state` assignment. `sv.prev_state` tracks where to return on ESC/cancel.
 
@@ -122,7 +127,7 @@ The OSD uses a **dirty-flag** redraw approach:
 | 1 | Machine: CoCo 3 | Opens machine-select submenu (CoCo 2 / CoCo 3) |
 | 2 | Settings | Opens settings submenu (Debug Log / RS-232 Pak toggles) |
 | 3 | Reset Machine | Confirm dialog → `sv_disk_flush_all()` → `machine_reset()` |
-| 4 | Debug | Opens debug submenu picker (CPU/GIME Status, Hex Dump, RS-232 Pak) |
+| 4 | Debug | Opens debug submenu picker (CPU/GIME Status, Hex Dump, RS-232 Pak, Dump RAM to SD) |
 | 5 | About | Info screen (version, free heap) |
 
 **Key handling:** Up/Down move cursor, Enter executes action, ESC/F1 close.
@@ -262,6 +267,50 @@ S9033C00xx
 - `hex_digit` — nibble cursor position (0-3) within address field
 - `dumping` — true during serial output (shows "Dumping..." on screen)
 
+#### Dump RAM to SD (`SV_DEBUG_DUMP_NAME`)
+
+The last row of the Debug submenu ("Dump RAM to SD") is an action, not a page: ENTER on it calls `sv_debug_begin_dump()` and enters the `SV_DEBUG_DUMP_NAME` state instead of opening a debug page. The screen has three sub-phases tracked by `SV_DumpPhase` in `SV_DebugState`:
+
+- **`SV_DUMP_INPUT`** — filename entry. Type an up-to-8-char base name (defaults to `COCODUMP`); the supervisor HID route only delivers uppercase letters, digits, BACKSPACE, ENTER and ESC, which keeps names FAT-friendly. ENTER (non-empty) starts the save; ESC returns to the Debug submenu.
+- **`SV_DUMP_SAVING`** — the render draws a "Saving…" banner first (FabGL scans the framebuffer out continuously, so it is on screen immediately), then performs the **blocking** write, then flips to the result phase. Emulation is already paused while the supervisor is open.
+- **`SV_DUMP_RESULT`** — shows the saved file paths and sizes (or an error in red). Any key returns to the Debug submenu.
+
+**Output:** two hex-text files are written under `/DUMPS/` on the SD card (created if missing), both in the same `AAAAA: bb bb … |ascii|` layout as the serial hex dump:
+
+| File | Contents |
+|---|---|
+| `/DUMPS/<NAME>-CPU.txt` | 64KB CPU address space via `machine_read($0000–$FFFF)` — RAM through the current MMU map, plus mapped ROM and I/O (what the 6809 sees now). 4-digit addresses. |
+| `/DUMPS/<NAME>-RAM.txt` | Full physical RAM straight from `m->ram_physical`: 512KB on CoCo 3 (5-digit addresses), 64KB on CoCo 2. |
+
+Lines are batched through a 4KB static buffer (`s_dump_buf`) so a 512KB dump becomes ~256 bulk SD writes rather than 32K per-line writes. The RAM hex file is ~2.4 MB and the write blocks for roughly 20–30s on the 4 MHz SD bus; serial logging reports progress.
+
+### sv_keymap.cpp — Key Mapper
+
+Reached from **Settings → Key Mapper**. Lets the user bind any physical key to one of the remappable CoCo keys defined in `hal_keyboard.cpp` (`KM_CHARS`): the CoCo 2 set (`! " # $ % & ' ( ) : * - = @ + ; < > , . ? /` and the four arrows) plus, on CoCo 3 only, ALT / CTRL / CLEAR / F1 / F2.
+
+- **List screen** (`SV_KEYMAP_LIST`): two action rows (Test Mappings, Clear All Mappings) then one row per key showing its binding (`default` or the FabGL key name). ENTER on a key opens capture; ESC returns to Settings. Scrolls like the file browser.
+- **Capture screen** (`SV_KEYMAP_CAPTURE`): the next key-down opens a Yes/No confirm dialog (`Map ! to key F7 ?`); on Yes the binding is applied **live** (no machine reset needed) and saved, then the list screen returns. DEL clears the binding; ESC cancels. SHIFT and the host hotkeys F3–F6 are rejected as sources. A key already bound elsewhere is stolen from that entry.
+- **Test screen** (`SV_KEYMAP_TEST`): each press shows `KEYNAME -> result`, e.g. `HASH -> # (custom)`; nothing reaches the CoCo.
+
+Capture/test receive **raw VirtualKeys**: `process_vk()` (hal_keyboard.cpp) calls `sv_keymap_on_raw_vk()` while `sv_keymap_wants_raw_vk()` is true, bypassing the lossy VK→HID-usage translation used by the other menus. At runtime the custom table is checked **before** `VK_MAP`, so a binding replaces the key's default meaning. Bindings persist immediately via `supervisor_save_keymap()` and load at boot from `setup()`.
+
+### sv_joystick.cpp — Mouse Sensitivity
+
+Reached from **Settings -> Mouse Sensitivity** (`SV_JOY_SENSE`). Lets the user tune the PS/2-mouse-as-joystick behavior described in `joystick-hal.md`.
+
+- **Live cursor pad:** a bordered box shows a cursor that tracks the live mouse position via `hal_joystick_get_pos()`.
+  - **Flicker-free redraw (no double-buffer):** the OSD draws straight to the VGA framebuffer, so repainting the whole frame every tick flickers. Instead, the static frame/box/bar/labels are painted **once** by `sv_render_joystick_pad()` (in `sv_render.cpp`) when `s_full_redraw` is set — on open, and on any level/Invert-Y change. Between frames the cursor moves **incrementally** via `sv_render_joystick_cursor()`, which erases only the old cursor square and draws the new one (the box border is never touched).
+  - **Idle when still:** `sv_joystick_tick()` calls `hal_joystick_update()` and requests a redraw (`sv.needs_redraw`) **only when the cursor actually moved** (tracked by `s_drawn_x`/`s_drawn_y`) or a full repaint is pending. A motionless mouse leaves the screen idle, so there is nothing to flicker. `sv_joystick_tick()` runs from `supervisor_update_and_render()` before the `needs_redraw` idle check.
+- **Sensitivity bar:** a 10-segment bar reflecting the current level (1-10, via `hal_joystick_get_sensitivity()`/`hal_joystick_set_sensitivity()`). Labels/values use the compact `setTextFont(1)` (8x8) to keep the screen uncluttered.
+- **Invert-Y value:** shows the current Invert-Y state (`hal_joystick_get_invert_y()`/`hal_joystick_set_invert_y()`).
+
+**Key handling:**
+| Key | Action |
+|---|---|
+| Left/Right | Adjust sensitivity level (1..10) |
+| Up/Down | Toggle Invert-Y |
+| ESC | Save level + Invert-Y to NVS via `supervisor_save_joystick()`, return to Settings |
+
 ### sv_render.cpp — Rendering Engine
 
 Renders using Font 2 (16 px) through `src/hal/osd_canvas.{h,cpp}` (which maps Font 2 → FabGL `FONT_8x14`) into the FabGL VGA framebuffer. Layout coordinates fit inside the 256×192 area `(32,24)-(288,216)` — see the coordinate-space caveat in the Overview.
@@ -306,6 +355,12 @@ Namespace: `"sv"`. Stored in NVS flash.
 | `last_dir` | String | Last browsed directory path |
 | `d0_path` .. `d3_path` | String | Mounted disk paths per drive |
 | `auto_mount` | Bool | Auto-mount on boot (default true) |
+| `machine_type` | UChar | Runtime machine selection (3 = CoCo 2, 4 = CoCo 3) |
+| `serial_mode` | UChar | UART0 ownership: 0 = off, 1 = Debug Log, 2 = RS-232 Pak |
+| `kbd_layout` | UChar | PS/2 layout: 0 = US English, 1 = Spanish Latam |
+| `keymap` | Bytes | Key Mapper bindings: `int16_t[KM_COUNT]` blob, one FabGL VirtualKey per remappable CoCo key (-1 = default) |
+| `joyLevel` | UChar | Mouse-as-joystick sensitivity level, 1..10 (default 7) |
+| `joyInv` | Bool | Mouse-as-joystick Invert-Y flag (default false) |
 
 - `supervisor_save_state()` — writes current dir + all mounted disk paths
 - `supervisor_load_state()` — restores dir + auto-mounts disks on boot

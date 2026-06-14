@@ -117,6 +117,11 @@
 #define PIN_PS2_KBD_CLK         33
 #define PIN_PS2_KBD_DATA        32
 
+// Keyboard layout at first boot, used when NVS has no stored value.
+// Numeric to avoid depending on the KbdLayout enum (declared in hal/hal.h):
+//   0 = US English, 1 = Spanish Latam
+#define KBD_LAYOUT_FIRST_BOOT_DEFAULT   0
+
 // PS/2 mouse (optional — used as CoCo joystick 1)
 #define PIN_PS2_MOUSE_CLK       26
 #define PIN_PS2_MOUSE_DATA      27

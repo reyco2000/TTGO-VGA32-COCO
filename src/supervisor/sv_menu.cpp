@@ -20,6 +20,8 @@
 #include "sv_filebrowser.h"
 #include "sv_render.h"
 #include "sv_debug.h"
+#include "sv_keymap.h"
+#include "sv_joystick.h"
 #include "../hal/hal.h"
 #include "../../config.h"
 
@@ -99,7 +101,7 @@ static void execute_action(Supervisor_t* sv, SV_MenuAction action) {
             sv->prev_state = sv->state;
             sv->state = SV_SETTINGS;
             sv->menu_cursor = 0;
-            sv->menu_item_count = 2;   // Debug Log, RS-232 Pak
+            sv->menu_item_count = 4;   // Debug Log, RS-232 Pak, Keyboard, Key Mapper
             sv->needs_redraw = true;
             break;
 
@@ -267,18 +269,40 @@ void sv_machine_select_render(Supervisor_t* sv) {
 }
 
 // ============================================================
-// Settings submenu — Debug Log / RS-232 Pak (mutually exclusive)
+// Settings submenu — Debug Log / RS-232 Pak / Keyboard layout
 // ============================================================
 //
-// Both toggles map onto the single serial-port mode (they share UART0):
+// Rows 0-1 map onto the single serial-port mode (they share UART0):
 //   row 0 Debug Log : ON  -> SERIAL_MODE_DEBUG  (forces RS-232 off)
 //                     OFF -> SERIAL_MODE_OFF
 //   row 1 RS-232 Pak: ON  -> SERIAL_MODE_RS232  (forces Debug off)
 //                     OFF -> SERIAL_MODE_OFF
+// Row 2 cycles the PS/2 keyboard layout (US English / Spanish Latam);
+// applied live via FabGL setLayout(), persisted in NVS.
+// Row 3 opens the Key Mapper screens (sv_keymap.cpp).
 
-static const char* const SETTINGS_LABELS[2] = { "Debug Log", "RS-232 Pak" };
+#define SETTINGS_COUNT 5
+static const char* const SETTINGS_LABELS[SETTINGS_COUNT] = {
+    "Debug Log", "RS-232 Pak", "Keyboard", "Key Mapper", "Mouse Sensitivity"
+};
 
 static void settings_toggle(Supervisor_t* sv, int row) {
+    if (row == 4) {  // Mouse Sensitivity — opens its own live screen
+        sv_joystick_open(sv);
+        return;
+    }
+    if (row == 3) {  // Key Mapper — opens its own screen
+        sv_keymap_open(sv);
+        return;
+    }
+    if (row == 2) {  // Keyboard layout — takes effect immediately, no reboot
+        KbdLayout next = (g_kbd_layout == KBD_LAYOUT_US) ? KBD_LAYOUT_ES_LATAM
+                                                         : KBD_LAYOUT_US;
+        hal_keyboard_set_layout(next);
+        supervisor_save_kbd_layout(next);
+        sv->needs_redraw = true;
+        return;
+    }
     SerialPortMode next;
     if (row == 0) {  // Debug Log
         next = (g_serial_mode == SERIAL_MODE_DEBUG) ? SERIAL_MODE_OFF
@@ -304,7 +328,7 @@ void sv_settings_on_key(Supervisor_t* sv, uint8_t hid_usage, bool pressed) {
             break;
 
         case HID_DOWN:
-            if (sv->menu_cursor < 1) {
+            if (sv->menu_cursor < SETTINGS_COUNT - 1) {
                 sv->menu_cursor++;
                 sv->needs_redraw = true;
             }
@@ -328,16 +352,21 @@ void sv_settings_render(Supervisor_t* sv) {
     sv_render_frame("Settings", "Up/Dn  ENTER Toggle  ESC");
 
     int content_rows = (SV_BORDER_H - SV_TITLE_H - SV_FOOTER_H - 8) / SV_ITEM_H;
-    int offset = (content_rows - 2) / 2;
+    int offset = (content_rows - SETTINGS_COUNT) / 2;
     if (offset < 0) offset = 0;
 
-    const bool on[2] = {
-        g_serial_mode == SERIAL_MODE_DEBUG,
-        g_serial_mode == SERIAL_MODE_RS232,
+    char sens_str[8];
+    snprintf(sens_str, sizeof(sens_str), "%u", (unsigned)hal_joystick_get_sensitivity());
+    const char* values[SETTINGS_COUNT] = {
+        (g_serial_mode == SERIAL_MODE_DEBUG) ? "ON" : "OFF",
+        (g_serial_mode == SERIAL_MODE_RS232) ? "ON" : "OFF",
+        hal_keyboard_layout_name(g_kbd_layout),
+        NULL,            // Key Mapper (opens sub-screen)
+        sens_str,        // Mouse Sensitivity (current level 1..10)
     };
 
-    for (int i = 0; i < 2; i++) {
-        sv_render_menu_item(i + offset, SETTINGS_LABELS[i], on[i] ? "ON" : "OFF",
+    for (int i = 0; i < SETTINGS_COUNT; i++) {
+        sv_render_menu_item(i + offset, SETTINGS_LABELS[i], values[i],
                             i == sv->menu_cursor);
     }
 }
@@ -352,6 +381,11 @@ static const char* const DEBUG_PAGE_LABELS[SV_DBG_PAGE_COUNT] = {
     "RS-232 Pak",
 };
 
+// The Debug submenu lists the 3 debug pages plus one action row that dumps
+// all of memory to the SD card. The action row is the last index.
+#define DEBUG_MENU_COUNT   (SV_DBG_PAGE_COUNT + 1)
+static const char* const DEBUG_DUMP_ROW = "Dump RAM to SD";
+
 void sv_debug_menu_on_key(Supervisor_t* sv, uint8_t hid_usage, bool pressed) {
     if (!pressed) return;
 
@@ -364,17 +398,22 @@ void sv_debug_menu_on_key(Supervisor_t* sv, uint8_t hid_usage, bool pressed) {
             break;
 
         case HID_DOWN:
-            if (sv->menu_cursor < SV_DBG_PAGE_COUNT - 1) {
+            if (sv->menu_cursor < DEBUG_MENU_COUNT - 1) {
                 sv->menu_cursor++;
                 sv->needs_redraw = true;
             }
             break;
 
         case HID_ENTER:
-            sv_debug_set_page((SV_DebugPage)sv->menu_cursor);
-            sv->prev_state = sv->state;
-            sv->state = SV_DEBUG_DUMP;
-            sv->needs_redraw = true;
+            if (sv->menu_cursor < SV_DBG_PAGE_COUNT) {
+                sv_debug_set_page((SV_DebugPage)sv->menu_cursor);
+                sv->prev_state = sv->state;
+                sv->state = SV_DEBUG_DUMP;
+                sv->needs_redraw = true;
+            } else {
+                // Action row — open the "Dump RAM to SD" filename screen.
+                sv_debug_begin_dump(sv);
+            }
             break;
 
         case HID_ESC:
@@ -391,11 +430,12 @@ void sv_debug_menu_render(Supervisor_t* sv) {
     sv_render_frame("Debug", "Up/Dn  ENTER Open  ESC");
 
     int content_rows = (SV_BORDER_H - SV_TITLE_H - SV_FOOTER_H - 8) / SV_ITEM_H;
-    int offset = (content_rows - SV_DBG_PAGE_COUNT) / 2;
+    int offset = (content_rows - DEBUG_MENU_COUNT) / 2;
     if (offset < 0) offset = 0;
 
-    for (int i = 0; i < SV_DBG_PAGE_COUNT; i++) {
-        sv_render_menu_item(i + offset, DEBUG_PAGE_LABELS[i], NULL,
-                            i == sv->menu_cursor);
+    for (int i = 0; i < DEBUG_MENU_COUNT; i++) {
+        const char* label = (i < SV_DBG_PAGE_COUNT) ? DEBUG_PAGE_LABELS[i]
+                                                    : DEBUG_DUMP_ROW;
+        sv_render_menu_item(i + offset, label, NULL, i == sv->menu_cursor);
     }
 }
