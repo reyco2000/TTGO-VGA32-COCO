@@ -8,20 +8,21 @@ A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the **L
 
 ## Features
 
-- **Complete MC6809 CPU** emulation with accurate cycle counts
-- **CoCo 2 mode:** MC6847 VDG video — text and all semigraphics/graphics modes
-- **CoCo 3 mode:** TCC1014 GIME — 512 KB RAM with MMU, 16-color palette, native graphics up to 640px
-- **Dual 6821 PIA** chips for keyboard, joystick, and audio I/O
-- **SAM6883** address multiplexer (CoCo 2) / GIME integrated MMU (CoCo 3)
-- **WD1793 floppy disk controller** with `.DSK` and `.VDK` image support
-- **VGA output** at 640×200 @ 70 Hz via FabGL (64-color direct mode)
-- **PS/2 keyboard** input with selectable layout (US English / Spanish Latam), switchable live from the supervisor Settings menu — no reboot required
-- **Custom key mapping** — remap any physical key to a CoCo key (including CoCo 3-only keys: ALT, CTRL, CLEAR, F1, F2) via the supervisor Key Mapper
-- **Joystick/mouse sensitivity adjustment** — live, on-screen sensitivity tuning for joystick 1 (PS/2 mouse), persisted in NVS
-- **Audio** via the ESP32 internal 8-bit DAC on GPIO25 (3.5 mm jack)
-- **On-Screen Display (OSD)** supervisor for disk mounting, machine reset, settings, and status
-- **PSRAM disk caching** — entire disk images loaded into PSRAM for zero-latency access
-- **Runtime CoCo 2 / CoCo 3 switching** — chosen at boot from NVS, settable from the supervisor menu
+- **One firmware, two CoCos** — CoCo 2 and CoCo 3 live in the same binary. Pick your machine at boot from NVS or flip it live in the supervisor menu.
+- **Cycle-accurate to the chip** — full MC6809 CPU emulation with accurate cycle counts, faithful enough to run the software that matters.
+- **Authentic video, both eras** — MC6847 VDG for CoCo 2 (text plus every semigraphics and graphics mode) and the TCC1014 GIME for CoCo 3 (512 KB RAM with MMU, 16-color palette, native graphics up to 640 px), output over crisp VGA at 640×200 @ 70 Hz via FabGL in 64-color direct mode.
+- **Real disk drives** — WD1793 floppy controller with `.DSK` and `.VDK` support, and entire disk images cached in PSRAM for zero-latency access.
+- **Complete hardware soul** — dual 6821 PIAs (keyboard, joystick, audio I/O), SAM6883 multiplexer on CoCo 2, GIME-integrated MMU on CoCo 3.
+
+### Built for Real Use
+
+- **Multi-language keyboards** — PS/2 input with US English and Spanish Latam layouts, switchable live from Settings with no reboot.
+- **Remap anything** — the supervisor Key Mapper lets you bind any physical key to any CoCo key, including the CoCo 3-only ALT, CTRL, CLEAR, F1 and F2.
+- **Joystick via PS/2 mouse** — with live, on-screen sensitivity tuning persisted in NVS.
+- **Real audio out** — ESP32 internal 8-bit DAC on GPIO25, straight to a 3.5 mm jack.
+- **Supervisor OSD** — mount disks, reset the machine, change settings, and check status without ever leaving your seat.
+- **Online debugging** — inspect and troubleshoot the running emulator remotely.
+- **Experimental RS-232 Pak support** — for the serial tinkerers.
 
 ## Hardware Requirements
 
