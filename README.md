@@ -174,8 +174,6 @@ Press **F3** to open the supervisor overlay. From here you can:
 - **Reset Machine** — warm or cold reset with confirmation
 - **About** — version info and free memory
 
-> The supervisor's OSD was originally written against the TFT_eSPI API. Under this VGA32 port it draws into the FabGL framebuffer through `src/hal/tft_compat.{h,cpp}` — a thin shim that re-implements the subset of TFT_eSPI primitives the supervisor uses (`fillRect`, `drawString`, `setTextFont`, datum-based alignment, etc.) on top of FabGL's `Canvas`. The supervisor code itself is unchanged.
-
 ## Architecture
 
 The emulator runs on the ESP32-WROVER's **dual cores**, though under FabGL the video DMA is what consumes Core 1 timing — the emulation lives alongside it.
@@ -222,28 +220,35 @@ src/
 │   ├── mc6809_opcodes.h      Opcode table and cycle counts
 │   ├── mc6821.h/cpp          6821 PIA — peripheral I/O
 │   ├── mc6847.h/cpp          MC6847 VDG — scanline video rendering (CoCo 2)
+│   ├── mc6551.h/cpp          MC6551 ACIA — RS-232 Pak chip emulation ($FF68-$FF6B)
 │   ├── tcc1014.h/cpp         TCC1014 GIME — MMU, video, interrupts (CoCo 3)
-│   └── sam6883.h/cpp         SAM — address multiplexing and clock control
+│   ├── sam6883.h/cpp         SAM — address multiplexing and clock control
+│   └── font_gime.h           GIME font ROM — 128 chars × 12 rows (PROGMEM)
 ├── hal/                    Hardware Abstraction Layer
 │   ├── hal.h/cpp             HAL dispatcher (init, input, render)
-│   ├── hal_video.cpp         FabGL VGAController (640×200 @ 70 Hz, 64-color)
+│   ├── hal_video.cpp         FabGL VGAController (640×200 @ 60 Hz, 64-color)
 │   ├── hal_audio.cpp         Internal DAC1 on GPIO25 via timer ISR
 │   ├── hal_keyboard.cpp      FabGL PS/2 VirtualKey → CoCo matrix mapping
 │   ├── hal_joystick.cpp      PS/2 mouse → CoCo joystick 1 (GPIO26/27); joystick 2 stub
+│   ├── hal_rs232.h/cpp       RS-232 HAL — bridges MC6551 ACIA to UART0 (Serial)
 │   ├── hal_storage.cpp       SD card access on dedicated HSPI
-│   └── tft_compat.h/cpp      TFT_eSPI API shim backed by FabGL Canvas (supervisor OSD)
-├── supervisor/             On-Screen Display system (HAL-agnostic via tft_compat)
+│   └── osd_canvas.h/cpp      OSD drawing API backed by FabGL Canvas (supervisor OSD)
+├── supervisor/             On-Screen Display system (HAL-agnostic via osd_canvas)
 │   ├── supervisor.h/cpp      OSD lifecycle and state machine
 │   ├── sv_menu.h/cpp         Menu definitions and actions
 │   ├── sv_disk.h/cpp         WD1793 FDC emulation and PSRAM cache
 │   ├── sv_filebrowser.h/cpp  SD card file browser
-│   └── sv_render.h/cpp       OSD rendering (green phosphor theme)
+│   ├── sv_render.h/cpp       OSD rendering (green phosphor theme)
+│   ├── sv_debug.h/cpp        Debug overlay — CPU status, GIME state, memory dump
+│   ├── sv_joystick.h/cpp     Mouse sensitivity screen — live cursor + adjust
+│   └── sv_keymap.h/cpp       Key mapper UI — remap physical keys to CoCo characters
 ├── roms/
 │   └── rom_loader.h/cpp      ROM loading with CRC-32 validation
 ├── tests/
 │   └── integration_test.h/cpp  LOADM binary verification
 └── utils/
-    └── debug.h               Debug output macros
+    ├── debug.h               Debug output macros
+    └── perf_probe.h/cpp      Lightweight esp_timer-based hot-path profiler
 ```
 
 ## Documentation
@@ -264,9 +269,6 @@ All technical documentation is in the `docs/` directory:
 | [performance.md](docs/performance.md) | FPS analysis, optimization log, methodology |
 | [cpu-enhancements.md](docs/cpu-enhancements.md) | MC6809 correctness/performance analysis |
 | [runtime-machine-switch.md](docs/runtime-machine-switch.md) | Runtime CoCo 2 / CoCo 3 switching, NVS state |
-| [dragon-support.md](docs/dragon-support.md) | Future: Dragon 32 support plan |
-| [os9-keys-issue.md](docs/os9-keys-issue.md) | NitrOS-9 keyboard compatibility notes |
-| [xroar-analysis.md](docs/xroar-analysis.md) | Original XRoar 0.32.0 port analysis (historical reference) |
 
 ## Known Limitations
 
