@@ -404,38 +404,6 @@ After Phase 5 features were implemented, live hardware testing on an ESP32-S3 (t
 
 ---
 
-## ROM Requirements
-
-| File | Size | Purpose | SD Card Path |
-|------|------|---------|-------------|
-| `coco3.rom` | 32 KB | Super Extended Color BASIC (internal ROM) | `/roms/coco3.rom` |
-| `disk11.rom` | 8 KB | Disk BASIC (external cartridge ROM, starts with 'DK') | `/roms/disk11.rom` |
-
-Both placed in `/roms/` on the SD card. CRC-32 validation on load.
-
----
-
-## Build Notes
-
-### Compile / Upload (TTGO VGA32 — current target)
-
-```bash
-# Requires esp32:esp32@2.0.x (FabGL 1.0.9 is incompatible with core 3.x).
-arduino-cli compile --fqbn esp32:esp32:esp32wrover:PartitionScheme=huge_app \
-  TTGO-VGA32-COCO/
-
-arduino-cli upload --fqbn esp32:esp32:esp32wrover:PartitionScheme=huge_app \
-  -p /dev/ttyACM0 TTGO-VGA32-COCO/
-```
-
-### ESP32-S3 Build (removed)
-
-The historical ESP32-S3 + TFT build target (`BOARD_TYPE_S3_TFT`) has been removed from the codebase. Only the TTGO VGA32 target remains.
-
-**Final binary size (VGA32 build, May 2026):** ~567 KB flash (18% of huge_app), ~34 KB SRAM globals (10%).
-
----
-
 ## XRoar Code Reference
 
 ### Function-to-Function Mapping

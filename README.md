@@ -285,8 +285,7 @@ All technical documentation is in the `docs/` directory:
 | [video.md](docs/video.md) | Video rendering pipeline, scale modes, palette |
 | [audio-hal.md](docs/audio-hal.md) | Audio path, ISR, PIA DAC routing |
 | [joystick-hal.md](docs/joystick-hal.md) | Joystick HAL — PS/2 mouse as CoCo joystick 1, comparator emulation, lessons learned |
-| [performance.md](docs/performance.md) | FPS analysis, optimization log, methodology |
-| [cpu-enhancements.md](docs/cpu-enhancements.md) | MC6809 correctness/performance analysis |
+| [rs232-hal.md](docs/rs232-hal.md) | RS-232 Pak emulation, MC6551 ACIA, HAL bridge |
 | [runtime-machine-switch.md](docs/runtime-machine-switch.md) | Runtime CoCo 2 / CoCo 3 switching, NVS state |
 
 ## Known Limitations
