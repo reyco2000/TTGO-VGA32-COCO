@@ -290,13 +290,18 @@ All technical documentation is in the `docs/` directory:
 
 ## Known Limitations
 
-- VGA mode `640×200 @ 70 Hz` may not sync on some modern LCD monitors — older CRTs and most VGA→HDMI scalers accept it
 - DMK disk format is recognized but not mountable
 - Max 128 file entries in the SD card browser
 - Joystick 2 (left port) is a stub — returns centered, button released; only Joystick 1 is active via PS/2 mouse
 - Audio frequency does not exactly match original CoCo hardware
 - NTSC TV emulation is a stub only
 - Supervisor OSD was sized for 320×240; on the 640×200 VGA surface its layout sits in the upper-left region
+
+## Planned
+
+- Improved sound
+- Testing and adjustment of RS-232 Pak support
+- Implementing an MCP server on the emulator to allow LLMs to live-debug the running machine
 
 ## Credits
 
