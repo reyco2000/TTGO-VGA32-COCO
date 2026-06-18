@@ -95,6 +95,25 @@ ROM files are validated by CRC-32 on startup.
 
 ## Build & Flash
 
+### Quick Flash (Pre-built Firmware)
+
+If you just want to flash the emulator without building from source, use the pre-built firmware binary and the browser-based ESP Web Flasher:
+
+1. Connect your TTGO VGA32 board via USB
+2. Open [ESP Web Tool](https://esptool.spacehuhn.com/) in a Chrome or Edge browser
+3. Click **Connect** and select the board's serial port
+4. Set the flash offset to **0x0000**
+5. Choose the file `TTGO-VGA32-CoCo-0.6-firmware.bin` from this repository
+6. Click **Program** and wait for the flash to complete
+
+> Hold the **BOOT** button on the board while clicking Connect if the browser cannot reach the device.
+
+Once flashed, prepare your SD card with the required ROM files (see [SD Card Setup](#sd-card-setup) above) and power-cycle the board.
+
+---
+
+### Building from Source
+
 ### 1. Install Arduino-CLI (or Arduino IDE 2.x)
 
 This guide uses `arduino-cli`. The same FQBN and library list applies inside Arduino IDE.
