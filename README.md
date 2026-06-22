@@ -4,13 +4,13 @@
 
 A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the **LilyGo TTGO VGA32 v1.4** board (ESP32-WROVER). Ported from the [XRoar](http://www.6809.org.uk/xroar/) emulator by Ciaran Anscomb.
 
-**v0.6 — June 15, 2026** (LilyGo TTGO VGA32 port)
+**v0.6 — June 22, 2026** (LilyGo TTGO VGA32 port)
 
 ## Features
 
 - **One firmware, two CoCos** — CoCo 2 and CoCo 3 live in the same binary. Pick your machine at boot from NVS or flip it live in the supervisor menu.
 - **Cycle-accurate to the chip** — full MC6809 CPU emulation with accurate cycle counts, faithful enough to run the software that matters.
-- **Authentic video, both eras** — MC6847 VDG for CoCo 2 (text plus every semigraphics and graphics mode) and the TCC1014 GIME for CoCo 3 (512 KB RAM with MMU, 16-color palette, native graphics up to 640 px), output over crisp VGA at 640×200 @ 70 Hz via FabGL in 64-color direct mode.
+- **Authentic video, both eras** — MC6847 VDG for CoCo 2 (text plus every semigraphics and graphics mode) and the TCC1014 GIME for CoCo 3 (512 KB RAM with MMU, 16-color palette, native graphics up to 640 px), output over crisp VGA at 640×200 @ 60 Hz via FabGL in 64-color direct mode.
 - **Real disk drives** — WD1793 floppy controller with `.DSK` and `.VDK` support, and entire disk images cached in PSRAM for zero-latency access.
 - **Complete hardware soul** — dual 6821 PIAs (keyboard, joystick, audio I/O), SAM6883 multiplexer on CoCo 2, GIME-integrated MMU on CoCo 3.
 
@@ -27,7 +27,7 @@ A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the **L
 ## Hardware Requirements
 
 - **LilyGo TTGO VGA32 v1.4** (ESP32-WROVER-E, 4 MB PSRAM, 4 MB flash)
-- **VGA monitor** capable of 640×200 @ 70 Hz (most VGA CRTs and adapters; some modern LCDs accept this mode, others won't sync)
+- **VGA monitor** capable of 640×200 @ 60 Hz (most VGA CRTs and adapters; some modern LCDs accept this mode, others won't sync)
 - **PS/2 keyboard** plugged into the board's mini-DIN PS/2 jack
 - **MicroSD card** (FAT32 formatted) inserted in the on-board socket
 - **3.5 mm audio output** (mono) on the board's jack
