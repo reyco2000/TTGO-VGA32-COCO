@@ -31,6 +31,7 @@ enum SV_MenuAction : uint8_t {
     SV_ACT_ABOUT,
     SV_ACT_DEBUG,
     SV_ACT_RESUME,
+    SV_ACT_RESET_ESP32  // Restart the ESP32 (not the emulated machine)
 };
 
 struct SV_MenuItem {

@@ -116,3 +116,22 @@ void hal_audio_debug_tick(void) {}
 void hal_audio_write_dac(uint8_t dac6) {
     audio_current_level = (dac6 << 2) | (dac6 >> 4);
 }
+
+/*********************************************
+ * Stops audio playback and disables the DAC output.
+ * 
+ */
+void hal_audio_shutdown(void) {
+    if (audio_timer) {
+        timerAlarmDisable(audio_timer);
+        timerDetachInterrupt(audio_timer);
+        timerEnd(audio_timer);
+        audio_timer = nullptr;
+    }
+    dac_output_voltage(AUDIO_DAC_CHANNEL, 128);
+    dac_output_disable(AUDIO_DAC_CHANNEL);
+
+    // Libera GPIO25 completamente para o próximo app
+    gpio_reset_pin(GPIO_NUM_25);
+    gpio_set_direction(GPIO_NUM_25, GPIO_MODE_INPUT);
+}

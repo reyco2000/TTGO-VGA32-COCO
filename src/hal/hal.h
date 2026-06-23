@@ -39,6 +39,10 @@ static inline bool rs232_pak_enabled(void) {
 // want the choice remembered also call supervisor_save_serial_mode().
 void serial_mode_apply(SerialPortMode mode);
 
+/* Bootloader compatible functions. Stops audio and video output */
+void hal_video_shutdown(void);
+void hal_audio_shutdown(void);
+
 // ============================================================
 // Top-level HAL control
 // ============================================================
@@ -55,6 +59,9 @@ void hal_render_frame(void);
 // ============================================================
 // Video subsystem
 // ============================================================
+
+
+
 
 // Initialize the display hardware
 void hal_video_init(void);
