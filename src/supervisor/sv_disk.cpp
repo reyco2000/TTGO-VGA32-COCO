@@ -463,10 +463,15 @@ static void fdc_write_data(SV_DiskController* fdc, uint8_t value) {
 // DSKREG write ($FF40) — matches XRoar rsdos.c ff40_write()
 static void fdc_write_drive_select(SV_DiskController* fdc, uint8_t value) {
     // FDC_TRACE for DSKREG is intentionally disabled — fires every CPU cycle in wait loops
-    // Drive select: bits 0-2 are individual drive select lines
+    // Drive select: bits 0-2 are individual drive select lines for drives
+    // 0-2. Bit 6 is overloaded: it selects drive 3 when no lower drive line
+    // is asserted, otherwise it is the side-select line. (XRoar rsdos.c:
+    // "else if (D & 0x40) { new_drive_select = 3; D &= ~0x40; }")
+    bool drive3 = false;
     if (value & 0x01)      fdc->drive_select = 0;
     else if (value & 0x02) fdc->drive_select = 1;
     else if (value & 0x04) fdc->drive_select = 2;
+    else if (value & 0x40) { fdc->drive_select = 3; drive3 = true; }
     else                   fdc->drive_select = 0;
 
     if (fdc->drive_select >= SV_DISK_MAX_DRIVES)
@@ -474,8 +479,9 @@ static void fdc_write_drive_select(SV_DiskController* fdc, uint8_t value) {
 
     fdc->motor_on = (value & 0x08) != 0;
 
-    // Side select: bit 6 of DSKREG
-    fdc->side = (value >> 6) & 0x01;
+    // Side select: bit 6 of DSKREG — but when bit 6 was consumed to select
+    // drive 3, it must NOT also be read as side select (force side 0).
+    fdc->side = drive3 ? 0 : ((value >> 6) & 0x01);
 
     // Density bit with XOR (matching XRoar: octet ^= 0x20)
     // This inverts bit 5 so that the "normal" CoCo setting (bit5=1)

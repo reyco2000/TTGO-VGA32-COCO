@@ -119,12 +119,6 @@ Toggled via `hal_video_toggle_fps_overlay()` (mapped to F5 in the supervisor).
 
 Counts emulated frames and updates the FPS value once per second. On the VGA32 build the overlay is **not yet drawn into the framebuffer** — the counter runs and you can read it from the serial debug printout, but the visible-on-screen FPS overlay still needs to be wired through the FabGL canvas. See "Known Gaps" below.
 
-## Adjacent-Pixel Blend (640 → 320 downscale)
-
-The earlier SPI/TFT variant of this project downscaled GIME 640-wide modes to its 320-wide sprite using either nearest-neighbor or a box-filter blend.
-
-**This downscale never happens on the VGA32 build** — the framebuffer is 640 wide so 640-pixel modes are written 1:1.
-
 ## OSD Canvas
 
 The supervisor OSD code (`sv_render.cpp`, `sv_debug.cpp`, etc.) draws into the FabGL framebuffer through `src/hal/osd_canvas.{h,cpp}`:
@@ -186,4 +180,3 @@ Scanline 7+N:  lcount increments each scanline
 - **FPS overlay** counter runs but is not drawn into the framebuffer yet — needs a `OSDCanvas::drawString` call once per frame wired into `hal_video_present()`.
 - **OSD coordinate space** — the supervisor was laid out for 320×240. On a 640×200 surface the OSD currently sits in the upper-left ~half of the screen. A coordinate-mapping pass in `sv_render.cpp` (or in `osd_canvas`) would re-center it.
 - **CoCo 2 VDG palette colors** are approximated to the closest RGB222 (2 bits per channel = only 4 levels) — fine for distinguishability but visually coarser than the original RGB565 table.
-- **640×200 @ 70 Hz** is a "retro" VGA modeline. Many modern LCD monitors won't sync; CRT monitors and most VGA→HDMI scalers handle it fine.

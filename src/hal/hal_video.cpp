@@ -8,7 +8,7 @@
  *   MIT License
  * ============================================================
  *  File   : hal_video.cpp
- *  Module : Video HAL — FabGL VGAController, 640x200 @ 70 Hz
+ *  Module : Video HAL — FabGL VGAController, 640x200 @ 60 Hz
  * ============================================================
 */
 
@@ -119,7 +119,7 @@ void hal_video_init(void) {
                 (gpio_num_t)PIN_VGA_G1, (gpio_num_t)PIN_VGA_G0,
                 (gpio_num_t)PIN_VGA_B1, (gpio_num_t)PIN_VGA_B0,
                 (gpio_num_t)PIN_VGA_HSYNC, (gpio_num_t)PIN_VGA_VSYNC);
-    s_vga.setResolution(VGA_640x200_70Hz);
+    s_vga.setResolution(VGA_640x200_60HzD);
     s_canvas.setBrushColor(fabgl::Color::Black);
     s_canvas.clear();
     init_gime_lut();

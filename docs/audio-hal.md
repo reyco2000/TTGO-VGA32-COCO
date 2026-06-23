@@ -222,12 +222,6 @@ The MUX only controls the speaker path; the joystick comparator always reads the
 
 ---
 
-## ESP32-S3 Variant (removed)
-
-The historical ESP32-S3 build used LEDC PWM on GPIO17 (ESP32-S3 has no internal DAC): 78.125 kHz PWM, 8-bit duty, same timer-ISR + scanline-buffer model, with direct register writes for minimum ISR latency. That backend and its `BOARD_TYPE_S3_TFT` guard have been removed from the codebase.
-
----
-
 ## Lessons Learned
 
 1. **Shared PIA resources are a CoCo design signature.** The CoCo reuses PIAs extensively for cost. Same bits that produce audio also read joysticks. Same MUX select lines that choose audio source also select joystick port/axis. Always check full hardware context before assuming a PIA bit has a single purpose.

@@ -4,29 +4,30 @@
 
 A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the **LilyGo TTGO VGA32 v1.4** board (ESP32-WROVER). Ported from the [XRoar](http://www.6809.org.uk/xroar/) emulator by Ciaran Anscomb.
 
-**v0.6 — June 15, 2026** (LilyGo TTGO VGA32 port)
+**v0.6 — June 22, 2026** (LilyGo TTGO VGA32 port)
 
 ## Features
 
-- **Complete MC6809 CPU** emulation with accurate cycle counts
-- **CoCo 2 mode:** MC6847 VDG video — text and all semigraphics/graphics modes
-- **CoCo 3 mode:** TCC1014 GIME — 512 KB RAM with MMU, 16-color palette, native graphics up to 640px
-- **Dual 6821 PIA** chips for keyboard, joystick, and audio I/O
-- **SAM6883** address multiplexer (CoCo 2) / GIME integrated MMU (CoCo 3)
-- **WD1793 floppy disk controller** with `.DSK` and `.VDK` image support
-- **VGA output** at 640×200 @ 70 Hz via FabGL (64-color direct mode)
-- **PS/2 keyboard** input with selectable layout (US English / Spanish Latam), switchable live from the supervisor Settings menu — no reboot required
-- **Custom key mapping** — remap any physical key to a CoCo key (including CoCo 3-only keys: ALT, CTRL, CLEAR, F1, F2) via the supervisor Key Mapper
-- **Joystick/mouse sensitivity adjustment** — live, on-screen sensitivity tuning for joystick 1 (PS/2 mouse), persisted in NVS
-- **Audio** via the ESP32 internal 8-bit DAC on GPIO25 (3.5 mm jack)
-- **On-Screen Display (OSD)** supervisor for disk mounting, machine reset, settings, and status
-- **PSRAM disk caching** — entire disk images loaded into PSRAM for zero-latency access
-- **Runtime CoCo 2 / CoCo 3 switching** — chosen at boot from NVS, settable from the supervisor menu
+- **One firmware, two CoCos** — CoCo 2 and CoCo 3 live in the same binary. Pick your machine at boot from NVS or flip it live in the supervisor menu.
+- **Cycle-accurate to the chip** — full MC6809 CPU emulation with accurate cycle counts, faithful enough to run the software that matters.
+- **Authentic video, both eras** — MC6847 VDG for CoCo 2 (text plus every semigraphics and graphics mode) and the TCC1014 GIME for CoCo 3 (512 KB RAM with MMU, 16-color palette, native graphics up to 640 px), output over crisp VGA at 640×200 @ 60 Hz via FabGL in 64-color direct mode.
+- **Real disk drives** — WD1793 floppy controller with `.DSK` and `.VDK` support, and entire disk images cached in PSRAM for zero-latency access.
+- **Complete hardware soul** — dual 6821 PIAs (keyboard, joystick, audio I/O), SAM6883 multiplexer on CoCo 2, GIME-integrated MMU on CoCo 3.
+
+### Built for Real Use
+
+- **Multi-language keyboards** — PS/2 input with US English and Spanish Latam layouts, switchable live from Settings with no reboot.
+- **Remap anything** — the supervisor Key Mapper lets you bind any physical key to any CoCo key, including the CoCo 3-only ALT, CTRL, CLEAR, F1 and F2.
+- **Joystick via PS/2 mouse** — with live, on-screen sensitivity tuning persisted in NVS.
+- **Real audio out** — ESP32 internal 8-bit DAC on GPIO25, straight to a 3.5 mm jack.
+- **Supervisor OSD** — mount disks, reset the machine, change settings, and check status without ever leaving your seat.
+- **Online debugging** — inspect and troubleshoot the running emulator remotely.
+- **Experimental RS-232 Pak support** — for the serial tinkerers.
 
 ## Hardware Requirements
 
 - **LilyGo TTGO VGA32 v1.4** (ESP32-WROVER-E, 4 MB PSRAM, 4 MB flash)
-- **VGA monitor** capable of 640×200 @ 70 Hz (most VGA CRTs and adapters; some modern LCDs accept this mode, others won't sync)
+- **VGA monitor** capable of 640×200 @ 60 Hz (most VGA CRTs and adapters; some modern LCDs accept this mode, others won't sync)
 - **PS/2 keyboard** plugged into the board's mini-DIN PS/2 jack
 - **MicroSD card** (FAT32 formatted) inserted in the on-board socket
 - **3.5 mm audio output** (mono) on the board's jack
@@ -93,6 +94,25 @@ ROM files are validated by CRC-32 on startup.
 - **`.VDK`** (Virtual Disk with 12-byte header) — fully supported
 
 ## Build & Flash
+
+### Quick Flash (Pre-built Firmware)
+
+If you just want to flash the emulator without building from source, use the pre-built firmware binary and the browser-based ESP Web Flasher:
+
+1. Connect your TTGO VGA32 board via USB
+2. Open [ESP Web Tool](https://esptool.spacehuhn.com/) in a Chrome or Edge browser
+3. Click **Connect** and select the board's serial port
+4. Set the flash offset to **0x0000**
+5. Choose the file `TTGO-VGA32-CoCo-0.6-firmware.bin` from this repository
+6. Click **Program** and wait for the flash to complete
+
+> Hold the **BOOT** button on the board while clicking Connect if the browser cannot reach the device.
+
+Once flashed, prepare your SD card with the required ROM files (see [SD Card Setup](#sd-card-setup) above) and power-cycle the board.
+
+---
+
+### Building from Source
 
 ### 1. Install Arduino-CLI (or Arduino IDE 2.x)
 
@@ -173,8 +193,6 @@ Press **F3** to open the supervisor overlay. From here you can:
 - **Reset Machine** — warm or cold reset with confirmation
 - **About** — version info and free memory
 
-> The supervisor's OSD was originally written against the TFT_eSPI API. Under this VGA32 port it draws into the FabGL framebuffer through `src/hal/tft_compat.{h,cpp}` — a thin shim that re-implements the subset of TFT_eSPI primitives the supervisor uses (`fillRect`, `drawString`, `setTextFont`, datum-based alignment, etc.) on top of FabGL's `Canvas`. The supervisor code itself is unchanged.
-
 ## Architecture
 
 The emulator runs on the ESP32-WROVER's **dual cores**, though under FabGL the video DMA is what consumes Core 1 timing — the emulation lives alongside it.
@@ -221,28 +239,35 @@ src/
 │   ├── mc6809_opcodes.h      Opcode table and cycle counts
 │   ├── mc6821.h/cpp          6821 PIA — peripheral I/O
 │   ├── mc6847.h/cpp          MC6847 VDG — scanline video rendering (CoCo 2)
+│   ├── mc6551.h/cpp          MC6551 ACIA — RS-232 Pak chip emulation ($FF68-$FF6B)
 │   ├── tcc1014.h/cpp         TCC1014 GIME — MMU, video, interrupts (CoCo 3)
-│   └── sam6883.h/cpp         SAM — address multiplexing and clock control
+│   ├── sam6883.h/cpp         SAM — address multiplexing and clock control
+│   └── font_gime.h           GIME font ROM — 128 chars × 12 rows (PROGMEM)
 ├── hal/                    Hardware Abstraction Layer
 │   ├── hal.h/cpp             HAL dispatcher (init, input, render)
-│   ├── hal_video.cpp         FabGL VGAController (640×200 @ 70 Hz, 64-color)
+│   ├── hal_video.cpp         FabGL VGAController (640×200 @ 60 Hz, 64-color)
 │   ├── hal_audio.cpp         Internal DAC1 on GPIO25 via timer ISR
 │   ├── hal_keyboard.cpp      FabGL PS/2 VirtualKey → CoCo matrix mapping
 │   ├── hal_joystick.cpp      PS/2 mouse → CoCo joystick 1 (GPIO26/27); joystick 2 stub
+│   ├── hal_rs232.h/cpp       RS-232 HAL — bridges MC6551 ACIA to UART0 (Serial)
 │   ├── hal_storage.cpp       SD card access on dedicated HSPI
-│   └── tft_compat.h/cpp      TFT_eSPI API shim backed by FabGL Canvas (supervisor OSD)
-├── supervisor/             On-Screen Display system (HAL-agnostic via tft_compat)
+│   └── osd_canvas.h/cpp      OSD drawing API backed by FabGL Canvas (supervisor OSD)
+├── supervisor/             On-Screen Display system (HAL-agnostic via osd_canvas)
 │   ├── supervisor.h/cpp      OSD lifecycle and state machine
 │   ├── sv_menu.h/cpp         Menu definitions and actions
 │   ├── sv_disk.h/cpp         WD1793 FDC emulation and PSRAM cache
 │   ├── sv_filebrowser.h/cpp  SD card file browser
-│   └── sv_render.h/cpp       OSD rendering (green phosphor theme)
+│   ├── sv_render.h/cpp       OSD rendering (green phosphor theme)
+│   ├── sv_debug.h/cpp        Debug overlay — CPU status, GIME state, memory dump
+│   ├── sv_joystick.h/cpp     Mouse sensitivity screen — live cursor + adjust
+│   └── sv_keymap.h/cpp       Key mapper UI — remap physical keys to CoCo characters
 ├── roms/
 │   └── rom_loader.h/cpp      ROM loading with CRC-32 validation
 ├── tests/
 │   └── integration_test.h/cpp  LOADM binary verification
 └── utils/
-    └── debug.h               Debug output macros
+    ├── debug.h               Debug output macros
+    └── perf_probe.h/cpp      Lightweight esp_timer-based hot-path profiler
 ```
 
 ## Documentation
@@ -260,22 +285,23 @@ All technical documentation is in the `docs/` directory:
 | [video.md](docs/video.md) | Video rendering pipeline, scale modes, palette |
 | [audio-hal.md](docs/audio-hal.md) | Audio path, ISR, PIA DAC routing |
 | [joystick-hal.md](docs/joystick-hal.md) | Joystick HAL — PS/2 mouse as CoCo joystick 1, comparator emulation, lessons learned |
-| [performance.md](docs/performance.md) | FPS analysis, optimization log, methodology |
-| [cpu-enhancements.md](docs/cpu-enhancements.md) | MC6809 correctness/performance analysis |
+| [rs232-hal.md](docs/rs232-hal.md) | RS-232 Pak emulation, MC6551 ACIA, HAL bridge |
 | [runtime-machine-switch.md](docs/runtime-machine-switch.md) | Runtime CoCo 2 / CoCo 3 switching, NVS state |
-| [dragon-support.md](docs/dragon-support.md) | Future: Dragon 32 support plan |
-| [os9-keys-issue.md](docs/os9-keys-issue.md) | NitrOS-9 keyboard compatibility notes |
-| [xroar-analysis.md](docs/xroar-analysis.md) | Original XRoar 0.32.0 port analysis (historical reference) |
 
 ## Known Limitations
 
-- VGA mode `640×200 @ 70 Hz` may not sync on some modern LCD monitors — older CRTs and most VGA→HDMI scalers accept it
 - DMK disk format is recognized but not mountable
 - Max 128 file entries in the SD card browser
 - Joystick 2 (left port) is a stub — returns centered, button released; only Joystick 1 is active via PS/2 mouse
 - Audio frequency does not exactly match original CoCo hardware
 - NTSC TV emulation is a stub only
 - Supervisor OSD was sized for 320×240; on the 640×200 VGA surface its layout sits in the upper-left region
+
+## Planned
+
+- Improved sound
+- Testing and adjustment of RS-232 Pak support
+- Implementing an MCP server on the emulator to allow LLMs to live-debug the running machine
 
 ## Credits
 
