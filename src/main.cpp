@@ -12,11 +12,13 @@
 */
 
 #include "config.h"
-#include "src/core/machine.h"
-#include "src/hal/hal.h"
-#include "src/hal/osd_canvas.h"
-#include "src/supervisor/supervisor.h"
-#include "src/utils/debug.h"
+#include "core/machine.h"
+#include "hal/hal.h"
+#include "hal/osd_canvas.h"
+#include "supervisor/supervisor.h"
+#include "utils/debug.h"
+#include "esp_ota_ops.h"
+#include "esp_partition.h"
 
 // Uncomment to enable integration tests (serial command 'R' to run)
 // CoCo2: LOADM verify, VRAM dump    CoCo3: GIME, video, audio tests
@@ -56,6 +58,13 @@ static void boot_halt_screen(const char* const* lines, int n) {
 void setup() {
     Serial.begin(115200);
     delay(500);
+
+        // Ensures the bootloader runs on the next power-up
+    const esp_partition_t* otadata = esp_partition_find_first(
+        ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_OTA, NULL);
+    if (otadata) {
+        esp_partition_erase_range(otadata, 0, otadata->size);
+    }
 
     // Apply the persisted serial-port mode BEFORE any debug output: on this
     // single-UART board the RS-232 Pak and the debug log share UART0, so if the
