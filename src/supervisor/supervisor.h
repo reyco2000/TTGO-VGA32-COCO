@@ -43,6 +43,7 @@ enum SV_State : uint8_t {
     SV_KEYMAP_CAPTURE,
     SV_KEYMAP_TEST,
     SV_JOY_SENSE,        // Mouse Sensitivity adjust screen
+    SV_RESET_ESP32,        // Restart the ESP32 (not the emulated machine)
 };
 
 struct SV_FileEntry;

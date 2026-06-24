@@ -77,6 +77,12 @@ static void fps_tick_and_draw(void) {
 #endif
 }
 
+
+void hal_video_shutdown(void) {
+    s_vga.end();
+}
+
+
 static inline fabgl::RGB222 gime_idx_to_rgb222(int i) {
     // GIME palette format (interleaved R1 G1 B1 R0 G0 B0)
     uint8_t r = (((i >> 4) & 2) | ((i >> 2) & 1));  // 0..3

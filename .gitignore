@@ -4,6 +4,9 @@ docs/dragon-support.md
 docs/os9-keys-issue.md
 docs/performance.md
 docs/xroar-analysis.md
+.pio
+.vscode
+.DS_Store
 docs/superpowers
 docs/coco3-performance-plan.md
 docs/cpu-enhancements.md
