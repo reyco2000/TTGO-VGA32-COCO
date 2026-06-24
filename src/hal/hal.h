@@ -42,6 +42,7 @@ void serial_mode_apply(SerialPortMode mode);
 /* Bootloader compatible functions. Stops audio and video output */
 void hal_video_shutdown(void);
 void hal_audio_shutdown(void);
+void hal_keyboard_shutdown(void);
 
 // ============================================================
 // Top-level HAL control

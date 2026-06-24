@@ -155,6 +155,7 @@ static void execute_action(Supervisor_t* sv, SV_MenuAction action) {
                     if (accepted && s->machine) {
                         hal_audio_shutdown();  // para o timer ISR do DAC
                         hal_video_shutdown();  // para o FabGL VGA
+                        hal_keyboard_shutdown();  // tenta parar o teclado para não atrapalhar o ESPectrum
                         delay(50);
                         ESP.restart();
                     }

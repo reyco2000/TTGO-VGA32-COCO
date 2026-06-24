@@ -16,6 +16,10 @@
 #include "../supervisor/supervisor.h"
 #include "../supervisor/sv_disk.h"
 #include "../supervisor/sv_keymap.h"
+#include "esp32/ulp.h"
+#include "driver/rtc_io.h"
+#include "soc/sens_reg.h"
+#include "soc/rtc_cntl_reg.h"
 
 #define COCO_SHIFT_ROW  6
 #define COCO_SHIFT_COL  7
@@ -536,4 +540,22 @@ void hal_keyboard_release(uint8_t row, uint8_t col) {
 
 void hal_keyboard_release_all(void) {
     for (int i = 0; i < 8; i++) key_matrix[i] = 0xFF;
+}
+
+
+#include "soc/rtc_wdt.h"
+
+void hal_keyboard_shutdown(void) {
+    // Para tudo que der
+    fabgl::PS2Controller::instance()->end();
+    
+    // RTC WDT reset — reseta TUDO incluindo domínio RTC e ULP
+    rtc_wdt_protect_off();
+    rtc_wdt_disable();
+    rtc_wdt_set_length_of_reset_signal(RTC_WDT_SYS_RESET_SIG, RTC_WDT_LENGTH_3_2us);
+    rtc_wdt_set_stage(RTC_WDT_STAGE0, RTC_WDT_STAGE_ACTION_RESET_RTC);
+    rtc_wdt_set_time(RTC_WDT_STAGE0, 100);
+    rtc_wdt_enable();
+    rtc_wdt_protect_on();
+    while(true);
 }
