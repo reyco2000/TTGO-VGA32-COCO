@@ -2,7 +2,7 @@
 
 ![TTGO-VGA32-COCO](TTGOVGACOCO.png)
 
-A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the **[LilyGo TTGO VGA32 v1.4](https://lilygo.cc/en-us/products/fabgl-vga32?_pos=1&_sid=4c095f59b&_ss=r)** board (ESP32-WROVER). Ported from the [XRoar](http://www.6809.org.uk/xroar/) emulator by Ciaran Anscomb.
+A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the **[LilyGo TTGO VGA32 v1.4](https://lilygo.cc/en-us/products/fabgl-vga32?_pos=1&_sid=4c095f59b&_ss=r)** board (ESP32-WROVER). Inspired on  [XRoar](http://www.6809.org.uk/xroar/) emulator.
 
 **v0.6 — June 22, 2026** (LilyGo TTGO VGA32 port)
 
