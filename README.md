@@ -2,7 +2,7 @@
 
 ![TTGO-VGA32-COCO](TTGOVGACOCO.png)
 
-A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the **LilyGo TTGO VGA32 v1.4** board (ESP32-WROVER). Ported from the [XRoar](http://www.6809.org.uk/xroar/) emulator by Ciaran Anscomb.
+A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the **[LilyGo TTGO VGA32 v1.4](https://lilygo.cc/en-us/products/fabgl-vga32?_pos=1&_sid=4c095f59b&_ss=r)** board (ESP32-WROVER). Ported from the [XRoar](http://www.6809.org.uk/xroar/) emulator by Ciaran Anscomb.
 
 **v0.6 — June 22, 2026** (LilyGo TTGO VGA32 port)
 
@@ -26,7 +26,7 @@ A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the **L
 
 ## Hardware Requirements
 
-- **LilyGo TTGO VGA32 v1.4** (ESP32-WROVER-E, 4 MB PSRAM, 4 MB flash)
+- **[LilyGo TTGO VGA32 v1.4](https://lilygo.cc/en-us/products/fabgl-vga32?_pos=1&_sid=4c095f59b&_ss=r)** (ESP32-WROVER-E, 4 MB PSRAM, 4 MB flash)
 - **VGA monitor** capable of 640×200 @ 60 Hz (most VGA CRTs and adapters; some modern LCDs accept this mode, others won't sync)
 - **PS/2 keyboard** plugged into the board's mini-DIN PS/2 jack
 - **MicroSD card** (FAT32 formatted) inserted in the on-board socket
