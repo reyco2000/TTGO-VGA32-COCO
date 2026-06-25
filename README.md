@@ -305,7 +305,7 @@ All technical documentation is in the `docs/` directory:
 
 ## Credits
 
-- **Reinaldo Torres / CoCo Byte Club** — ESP32 port and hardware design
+- **Reinaldo Torres / CoCo Byte Club** — ESP32 port and hardware design — [reyco2000@cocobyte.club](mailto:reyco2000@cocobyte.club)
 - **Ciaran Anscomb** — [XRoar](http://www.6809.org.uk/xroar/) CoCo/Dragon emulator (original source)
 - **Claude Code (Anthropic)** — co-development of the ESP32 port
 - **Fabrizio Di Vittorio** — [FabGL](http://www.fabgl.com/) VGA / PS/2 / DAC library
