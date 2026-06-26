@@ -22,6 +22,9 @@
 // Build options
 // ============================================================
 
+// Firmware version (reported by the WiFi debug API /api/status).
+#define FIRMWARE_VERSION        "0.7"
+
 // Machine type: 0 = Dragon 32, 1 = Dragon 64, 2 = CoCo 1, 3 = CoCo 2, 4 = CoCo 3
 // Compile-time default only — the active machine is g_machine_type (core/machine.h),
 // initialized from NVS at boot and overrideable from the supervisor menu.

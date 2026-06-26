@@ -174,11 +174,17 @@ def read_nvram() -> dict:
     return _get("/api/nvram").json()
 
 
+# Screenshots are an uncompressed ~295 KB PNG that the device streams slowly
+# (~15-20 s), so they need a much longer timeout than the JSON endpoints.
+SCREENSHOT_TIMEOUT = float(os.environ.get("COCO_SCREENSHOT_TIMEOUT", "45.0"))
+
+
 @mcp.tool()
 def screenshot() -> Image:
     """Capture the current screen as a PNG. Note: this advances the emulation by
     exactly one frame, then restores the prior pause state."""
-    r = _get("/api/screenshot.png")
+    r = httpx.get(f"{HOST}/api/screenshot.png", timeout=SCREENSHOT_TIMEOUT)
+    r.raise_for_status()
     return Image(data=r.content, format="png")
 
 

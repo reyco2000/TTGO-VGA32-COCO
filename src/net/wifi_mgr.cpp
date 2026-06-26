@@ -119,7 +119,14 @@ bool   wifi_mgr_scan_secure(int i)    { return WiFi.encryptionType(i) != WIFI_AU
 // --- station ---
 
 static void begin_sta(const String& ssid, const String& pass) {
+    // Reconnect cleanly from ANY prior state: OFF (after Stop/Disconnect, where
+    // the radio was powered down) or AP_CONFIG (after Start Config Portal). Bring
+    // the AP down, force STA mode, and let the mode change settle before begin()
+    // — coming straight out of WIFI_OFF, an immediate begin() can be dropped.
+    WiFi.persistent(false);
+    WiFi.softAPdisconnect(true);
     WiFi.mode(WIFI_STA);
+    delay(50);
     WiFi.begin(ssid.c_str(), pass.c_str());
     s_ssid = ssid;
     s_connect_start = millis();
