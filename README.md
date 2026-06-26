@@ -4,7 +4,7 @@
 
 A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the **[LilyGo TTGO VGA32 v1.4](https://lilygo.cc/en-us/products/fabgl-vga32?_pos=1&_sid=4c095f59b&_ss=r)** board (ESP32-WROVER). Inspired on  [XRoar](http://www.6809.org.uk/xroar/) emulator.
 
-**v0.6 — June 22, 2026** (LilyGo TTGO VGA32 port)
+**v0.7 — June 26, 2026** (LilyGo TTGO VGA32 port)
 
 ## Features
 
@@ -21,7 +21,7 @@ A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the **[
 - **Joystick via PS/2 mouse** — with live, on-screen sensitivity tuning persisted in NVS.
 - **Real audio out** — ESP32 internal 8-bit DAC on GPIO25, straight to a 3.5 mm jack.
 - **Supervisor OSD** — mount disks, reset the machine, change settings, and check status without ever leaving your seat.
-- **Online debugging** — inspect and troubleshoot the running emulator remotely.
+- **Online debugging via WiFi + MCP (experimental)** — a WiFi debug server exposes a small HTTP/JSON API to inspect and control the running 6809 (registers, memory, pause/resume, code injection, reset, machine switch, screenshot). A host-side **MCP bridge** lets Claude / LLM agents drive it live. Set up from the supervisor's **WiFi / Debug** screen; see [docs/wifi-debug.md](docs/wifi-debug.md) and [`mcp-bridge/`](mcp-bridge/).
 - **Experimental RS-232 Pak support** — for the serial tinkerers.
 
 ## Hardware Requirements
@@ -103,7 +103,7 @@ If you just want to flash the emulator without building from source, use the pre
 2. Open [ESP Web Tool](https://esptool.spacehuhn.com/) in a Chrome or Edge browser
 3. Click **Connect** and select the board's serial port
 4. Set the flash offset to **0x0000**
-5. Choose the file `TTGO-VGA32-CoCo-0.6-firmware.bin` from this repository
+5. Choose the file `TTGO-VGA32-CoCo-0.7-firmware.bin` from this repository
 6. Click **Program** and wait for the flash to complete
 
 > Hold the **BOOT** button on the board while clicking Connect if the browser cannot reach the device.
@@ -301,7 +301,7 @@ All technical documentation is in the `docs/` directory:
 
 - Improved sound
 - Testing and adjustment of RS-232 Pak support
-- Implementing an MCP server on the emulator to allow LLMs to live-debug the running machine
+- Hardening the WiFi debug server / MCP bridge (currently experimental)
 
 ## Credits
 

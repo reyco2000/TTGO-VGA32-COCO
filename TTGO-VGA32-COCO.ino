@@ -4,7 +4,7 @@
  *   (C) 2026 Reinaldo Torres / CoCo Byte Club
  *   https://github.com/reyco2000/TTGO-VGA32-COCO
  *   Based on XRoar , co-developed with Claude Code
- *   MIT License
+ *   GPL-3.0-or-later License
  * ============================================================
  *  File   : ESP32_CoCo3_XRoar_Port.ino
  *  Module : Main Arduino sketch — setup/loop entry point for the CoCo 2/3 emulator
@@ -17,6 +17,9 @@
 #include "src/hal/osd_canvas.h"
 #include "src/supervisor/supervisor.h"
 #include "src/utils/debug.h"
+#include "src/net/debug_rpc.h"
+#include "src/net/wifi_mgr.h"
+#include "src/net/debug_server.h"
 
 // Uncomment to enable integration tests (serial command 'R' to run)
 // CoCo2: LOADM verify, VRAM dump    CoCo3: GIME, video, audio tests
@@ -163,6 +166,17 @@ void setup() {
     supervisor_load_state();  // Auto-mount last disks if enabled
     hal_keyboard_set_machine(&coco);
 
+    // WiFi debug server (core 0). The cross-core RPC bridge must be bound to the
+    // active machine before the server task can service any command. If the user
+    // enabled auto-connect, kick off a non-blocking STA connect with the saved
+    // credentials; otherwise the radio stays off until the supervisor starts it.
+    debug_rpc_init(&coco);
+    wifi_mgr_init();
+    if (wifi_mgr_autoconnect()) {
+        wifi_mgr_connect_saved();
+    }
+    debug_server_begin();  // creates the core-0 WebServer task (idle until WiFi up)
+
     DEBUG_PRINT("=== Post-Init Memory Report ===");
     DEBUG_PRINTF("SRAM  free:  %d bytes (used: %d)", ESP.getFreeHeap(), ESP.getHeapSize() - ESP.getFreeHeap());
     DEBUG_PRINTF("PSRAM free:  %d bytes (used: %d)", ESP.getFreePsram(), ESP.getPsramSize() - ESP.getFreePsram());
@@ -206,6 +220,16 @@ void loop() {
     if (supervisor_update_and_render()) {
         // Supervisor is active — emulation paused
         yield();
+        return;
+    }
+
+    // Service one pending debug-server command (core 0 -> core 1) between frames.
+    debug_rpc_poll();
+
+    // If a remote debugger paused the CPU, freeze emulation but keep draining
+    // RPC commands so inspect/resume/screenshot still respond promptly.
+    if (debug_rpc_is_paused()) {
+        delay(2);
         return;
     }
 
