@@ -1,0 +1,12 @@
+[project]
+name = "coco3-mcp-bridge"
+version = "0.1.0"
+description = "MCP bridge for the ESP32 CoCo 3 emulator WiFi debug API"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.2.0",
+    "httpx>=0.27.0",
+]
+
+[project.scripts]
+coco3-mcp-bridge = "coco_mcp_bridge:mcp.run"

@@ -4,7 +4,7 @@
  *   (C) 2026 Reinaldo Torres / CoCo Byte Club
  *   https://github.com/reyco2000/TTGO-VGA32-COCO
  *   Based on XRoar , co-developed with Claude Code
- *   MIT License
+ *   GPL-3.0-or-later License
  * ============================================================
  *  File   : sv_menu.cpp
  *  Module : Supervisor OSD main menu — disk/drive options, reset, and settings
@@ -22,6 +22,8 @@
 #include "sv_debug.h"
 #include "sv_keymap.h"
 #include "sv_joystick.h"
+#include "sv_wifi.h"
+#include "../net/wifi_mgr.h"
 #include "../hal/hal.h"
 #include "../../config.h"
 
@@ -281,12 +283,17 @@ void sv_machine_select_render(Supervisor_t* sv) {
 // applied live via FabGL setLayout(), persisted in NVS.
 // Row 3 opens the Key Mapper screens (sv_keymap.cpp).
 
-#define SETTINGS_COUNT 5
+#define SETTINGS_COUNT 6
 static const char* const SETTINGS_LABELS[SETTINGS_COUNT] = {
-    "Debug Log", "RS-232 Pak", "Keyboard", "Key Mapper", "Mouse Sensitivity"
+    "Debug Log", "RS-232 Pak", "Keyboard", "Key Mapper", "Mouse Sensitivity",
+    "WiFi / Debug"
 };
 
 static void settings_toggle(Supervisor_t* sv, int row) {
+    if (row == 5) {  // WiFi / Debug — opens its own status/control screen
+        sv_wifi_open(sv);
+        return;
+    }
     if (row == 4) {  // Mouse Sensitivity — opens its own live screen
         sv_joystick_open(sv);
         return;
@@ -363,6 +370,7 @@ void sv_settings_render(Supervisor_t* sv) {
         hal_keyboard_layout_name(g_kbd_layout),
         NULL,            // Key Mapper (opens sub-screen)
         sens_str,        // Mouse Sensitivity (current level 1..10)
+        wifi_mgr_state_str(),  // WiFi / Debug (current state)
     };
 
     for (int i = 0; i < SETTINGS_COUNT; i++) {

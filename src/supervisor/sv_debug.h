@@ -4,7 +4,7 @@
  *   (C) 2026 Reinaldo Torres / CoCo Byte Club
  *   https://github.com/reyco2000/TTGO-VGA32-COCO
  *   Based on XRoar , co-developed with Claude Code
- *   MIT License
+ *   GPL-3.0-or-later License
  * ============================================================
  *  File   : sv_debug.h
  *  Module : Supervisor debug interface — CPU status, GIME state, and memory dump

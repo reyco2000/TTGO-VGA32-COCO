@@ -4,7 +4,7 @@
  *   (C) 2026 Reinaldo Torres / CoCo Byte Club
  *   https://github.com/reyco2000/TTGO-VGA32-COCO
  *   Based on XRoar , co-developed with Claude Code
- *   MIT License
+ *   GPL-3.0-or-later License
  * ============================================================
  *  File   : supervisor.h
  *  Module : OSD supervisor interface — overlay lifecycle and event dispatch
@@ -43,6 +43,7 @@ enum SV_State : uint8_t {
     SV_KEYMAP_CAPTURE,
     SV_KEYMAP_TEST,
     SV_JOY_SENSE,        // Mouse Sensitivity adjust screen
+    SV_WIFI,             // WiFi / Debug server status + control screen
 };
 
 struct SV_FileEntry;

@@ -4,7 +4,7 @@
  *   (C) 2026 Reinaldo Torres / CoCo Byte Club
  *   https://github.com/reyco2000/TTGO-VGA32-COCO
  *   Based on XRoar , co-developed with Claude Code
- *   MIT License
+ *   GPL-3.0-or-later License
  * ============================================================
  *  File   : hal_audio.cpp
  *  Module : Audio HAL — ESP32 internal DAC1 (GPIO25) via timer ISR

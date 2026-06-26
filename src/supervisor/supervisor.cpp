@@ -4,7 +4,7 @@
  *   (C) 2026 Reinaldo Torres / CoCo Byte Club
  *   https://github.com/reyco2000/TTGO-VGA32-COCO
  *   Based on XRoar , co-developed with Claude Code
- *   MIT License
+ *   GPL-3.0-or-later License
  * ============================================================
  *  File   : supervisor.cpp
  *  Module : OSD supervisor — F3-activated overlay with menu, disk mounting, and machine reset
@@ -25,6 +25,7 @@
 #include "sv_debug.h"
 #include "sv_keymap.h"
 #include "sv_joystick.h"
+#include "sv_wifi.h"
 #include "sv_render.h"
 #include "../hal/hal.h"
 #include "../utils/debug.h"
@@ -347,6 +348,10 @@ void supervisor_on_key(uint8_t hid_usage, bool pressed) {
             sv_keymap_on_key(&sv, hid_usage, pressed);
             break;
 
+        case SV_WIFI:
+            sv_wifi_on_key(&sv, hid_usage, pressed);
+            break;
+
         case SV_JOY_SENSE:
             sv_joystick_on_key(&sv, hid_usage, pressed);
             break;
@@ -364,6 +369,8 @@ bool supervisor_update_and_render(void) {
 
     if (sv.state == SV_JOY_SENSE) {
         sv_joystick_tick(&sv);   // polls mouse, sets needs_redraw
+    } else if (sv.state == SV_WIFI) {
+        sv_wifi_tick(&sv);       // refresh on WiFi state/IP change
     }
 
     if (!sv.needs_redraw) {
@@ -420,6 +427,10 @@ bool supervisor_update_and_render(void) {
 
         case SV_KEYMAP_TEST:
             sv_keymap_test_render(&sv);
+            break;
+
+        case SV_WIFI:
+            sv_wifi_render(&sv);
             break;
 
         case SV_JOY_SENSE:

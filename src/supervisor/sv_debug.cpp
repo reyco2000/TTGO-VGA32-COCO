@@ -4,7 +4,7 @@
  *   (C) 2026 Reinaldo Torres / CoCo Byte Club
  *   https://github.com/reyco2000/TTGO-VGA32-COCO
  *   Based on XRoar , co-developed with Claude Code
- *   MIT License
+ *   GPL-3.0-or-later License
  * ============================================================
  *  File   : sv_debug.cpp
  *  Module : Supervisor debug — CPU status, GIME state, and memory dump
@@ -473,8 +473,11 @@ void sv_debug_render(Supervisor_t* sv) {
 #define HID_BACKSPACE 0x2A
 
 // 4KB batch buffer so a 512KB dump becomes ~256 bulk SD writes, not 32K
-// per-line writes. Static to keep it off the (limited) task stack.
-static char s_dump_buf[4096];
+// per-line writes. Allocated on the (internal, DMA-capable) heap only for the
+// duration of a dump and freed afterwards — keeps it out of permanent .bss so
+// the WiFi/WebServer static pools fit in internal DRAM.
+#define DUMP_BUF_SIZE 4096
+static char* s_dump_buf = nullptr;
 
 // Format one 16-byte hex line into out[]. five=true uses a 5-digit address
 // column (physical RAM up to $7FFFF); false uses 4 digits (64KB CPU space).
@@ -502,7 +505,7 @@ static int fmt_hex_line(char* out, uint32_t addr, const uint8_t* bytes,
 // Flush helper: append a formatted line to the batch buffer, flushing to the
 // file when the buffer would overflow. Returns false on a write error.
 static bool dump_emit(File& f, int& blen, const char* line, int ll) {
-    if (blen + ll > (int)sizeof(s_dump_buf)) {
+    if (blen + ll > DUMP_BUF_SIZE) {
         if (f.write((const uint8_t*)s_dump_buf, blen) != (size_t)blen) return false;
         blen = 0;
     }
@@ -583,6 +586,15 @@ static void perform_dump(Supervisor_t* sv) {
 
     SD.mkdir("/DUMPS");
 
+    // Allocate the batch buffer on the internal (DMA-capable) heap for the
+    // duration of the dump; freed before returning.
+    s_dump_buf = (char*)malloc(DUMP_BUF_SIZE);
+    if (!s_dump_buf) {
+        dump_addline("ERROR: out of memory");
+        dump_addline("Press any key to return");
+        return;
+    }
+
     char path[40];
     long cpu_bytes, ram_bytes;
 
@@ -599,6 +611,9 @@ static void perform_dump(Supervisor_t* sv) {
                                  ram_size > 0x10000);
 
     Serial.printf("[DUMP] Done. CPU=%ld RAM=%ld bytes\n", cpu_bytes, ram_bytes);
+
+    free(s_dump_buf);
+    s_dump_buf = nullptr;
 
     if (cpu_bytes < 0 || ram_bytes < 0) {
         dump_addline("ERROR writing to SD card");

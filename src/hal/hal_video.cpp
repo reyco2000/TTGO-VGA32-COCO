@@ -5,7 +5,7 @@
  *   (C) 2026 Reinaldo Torres / CoCo Byte Club
  *   https://github.com/reyco2000/TTGO-VGA32-COCO
  *   Based on XRoar , co-developed with Claude Code
- *   MIT License
+ *   GPL-3.0-or-later License
  * ============================================================
  *  File   : hal_video.cpp
  *  Module : Video HAL — FabGL VGAController, 640x200 @ 60 Hz
@@ -39,7 +39,10 @@ static uint8_t              s_gime_raw_lut[64];
 //   bswap16 → rgb565_to_rgb222 → createRawPixel
 // conversion chain to a single indexed load in the scanline loop. 64 KB in
 // internal DRAM; built once in init_gime_lut().
-static uint8_t              s_gime_pixel_raw_lut[65536];
+// 64KB GIME pixel LUT lives in PSRAM (allocated in init_gime_lut) so the WiFi
+// driver has enough internal DMA-capable DRAM for its RX/TX buffers. CoCo 3's
+// on-screen palette is tiny, so the touched LUT entries stay cache-resident.
+static uint8_t*             s_gime_pixel_raw_lut = nullptr;
 
 // FPS overlay state
 static bool     fps_overlay_enabled = false;
@@ -101,6 +104,13 @@ static void init_gime_lut(void) {
     }
     // Active-pixel LUT: index is the raw byte-swapped RGB565 value the core
     // emits, so render-time lookup is s_gime_pixel_raw_lut[pixels[x]].
+    if (!s_gime_pixel_raw_lut) {
+        s_gime_pixel_raw_lut = (uint8_t*)ps_malloc(65536);
+        if (!s_gime_pixel_raw_lut) {
+            DEBUG_PRINT("  Video: FATAL — GIME LUT ps_malloc(65536) failed");
+            return;
+        }
+    }
     for (int v = 0; v < 65536; v++) {
         uint16_t c = __builtin_bswap16((uint16_t)v);
         s_gime_pixel_raw_lut[v] = s_vga.createRawPixel(rgb565_to_rgb222(c));
@@ -173,6 +183,54 @@ void hal_video_present(const uint8_t* ram, uint16_t vdg_base, uint8_t vdg_mode) 
     fps_tick_and_draw();
 }
 
+// --- Debug screenshot capture (PSRAM) ---
+#define HAL_CAP_W   640
+#define HAL_CAP_H   240
+static uint16_t*     s_cap_buf       = nullptr;   // HAL_CAP_W * HAL_CAP_H RGB565
+static volatile bool s_cap_armed     = false;
+static volatile bool s_cap_ready     = false;
+static int           s_cap_w         = 0;
+static int           s_cap_h         = 0;
+static int           s_cap_h_pending = 0;
+
+void hal_video_capture_arm(void) {
+    if (!s_cap_buf) {
+        s_cap_buf = (uint16_t*)ps_malloc((size_t)HAL_CAP_W * HAL_CAP_H * sizeof(uint16_t));
+        if (!s_cap_buf) { DEBUG_PRINT("capture: ps_malloc failed"); return; }
+    }
+    s_cap_ready     = false;
+    s_cap_h_pending = 0;
+    s_cap_armed     = true;
+}
+
+bool hal_video_capture_ready(void) { return s_cap_ready; }
+
+const uint16_t* hal_video_capture_frame(int* width, int* height) {
+    if (!s_cap_ready) return nullptr;
+    if (width)  *width  = s_cap_w;
+    if (height) *height = s_cap_h;
+    return s_cap_buf;
+}
+
+// Capture one scanline of GIME output if a capture is armed. Independent of the
+// display output path (runs before the viewport clipping / early returns).
+static inline void capture_scanline(int line, int total_lines,
+                                    const uint16_t* pixels, int width) {
+    if (!s_cap_armed || !s_cap_buf) return;
+    if (line == 0) {
+        s_cap_h_pending = (total_lines > HAL_CAP_H) ? HAL_CAP_H : total_lines;
+        s_cap_w = (width > HAL_CAP_W) ? HAL_CAP_W : width;
+    }
+    if (s_cap_h_pending == 0 || line < 0 || line >= s_cap_h_pending) return;
+    int w = (width > HAL_CAP_W) ? HAL_CAP_W : width;
+    memcpy(s_cap_buf + (size_t)line * HAL_CAP_W, pixels, (size_t)w * sizeof(uint16_t));
+    if (line == s_cap_h_pending - 1) {
+        s_cap_h     = s_cap_h_pending;
+        s_cap_ready = true;
+        s_cap_armed = false;
+    }
+}
+
 // GIME (CoCo 3) scanline: pre-converted RGB565 from tcc1014 — convert each
 // pixel to a raw VGA byte. Width is 320 or 640 (post-OPT-C4).
 void hal_video_render_scanline_gime(int line, int total_lines,
@@ -181,6 +239,7 @@ void hal_video_render_scanline_gime(int line, int total_lines,
                                      int width, const uint16_t* palette) {
     (void)palette;
     if (!display_available || !pixels || width <= 0) return;
+    capture_scanline(line, total_lines, pixels, width);
     const int vp_w = s_vga.getViewPortWidth();
     const int vp_h = s_vga.getViewPortHeight();
     if (total_lines <= 0 || total_lines > vp_h) total_lines = vp_h;
