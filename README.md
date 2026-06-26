@@ -312,8 +312,4 @@ All technical documentation is in the `docs/` directory:
 
 ## License
 
-This project is licensed under the **GNU General Public License v3.0 or later
-(GPL-3.0-or-later)**. See [LICENSE](LICENSE) for the full text.
-
-As a port of [XRoar](http://www.6809.org.uk/xroar/) (itself GPLv3-or-later), this
-work is and remains licensed under the GPL.
+This project is licensed under the **GPL-3.0**.
