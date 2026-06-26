@@ -28,6 +28,9 @@ enum {
     WACT_COUNT
 };
 
+// Only this many action rows fit below the 3 info rows; the list scrolls.
+#define WACT_VISIBLE 4
+
 static const char* const WIFI_ACTIONS[WACT_COUNT] = {
     "Start Config Portal",
     "Connect (saved)",
@@ -103,13 +106,21 @@ void sv_wifi_render(Supervisor_t* sv) {
     sv_render_menu_item(1, "SSID",  ssid.c_str(),         false);
     sv_render_menu_item(2, "IP",    wifi_mgr_ip().c_str(), false);
 
-    // --- Action rows (cursor at WACT row -> visual row 4 + i) ---
+    // --- Action rows: only WACT_VISIBLE fit below the 3 info rows, so scroll. ---
     const int row0 = 4;
-    for (int i = 0; i < WACT_COUNT; i++) {
+    int scroll = (sv->menu_cursor < WACT_VISIBLE)
+                     ? 0
+                     : sv->menu_cursor - WACT_VISIBLE + 1;
+
+    for (int v = 0; v < WACT_VISIBLE; v++) {
+        int i = scroll + v;
+        if (i >= WACT_COUNT) break;
         const char* value = nullptr;
         if (i == WACT_PORTAL && wifi_mgr_state() == WIFI_MGR_AP_CONFIG) value = "UP";
         else if (i == WACT_CONNECT && !wifi_mgr_has_creds())           value = "none";
         else if (i == WACT_SERVER)                                     value = debug_server_enabled() ? "ON" : "OFF";
-        sv_render_menu_item(row0 + i, WIFI_ACTIONS[i], value, i == sv->menu_cursor);
+        sv_render_menu_item(row0 + v, WIFI_ACTIONS[i], value, i == sv->menu_cursor);
     }
+
+    sv_render_scrollbar(scroll, WACT_VISIBLE, WACT_COUNT, row0);
 }

@@ -33,8 +33,8 @@
 #include "../utils/debug.h"
 #include "../../config.h"           // MACHINE_NAME_COCO2/3, FW version
 
-#ifndef FIRMWARE_VERSION
-#define FIRMWARE_VERSION "0.6"
+#ifndef FIRMWARE_VERSION   // normally provided by config.h
+#define FIRMWARE_VERSION "0.7"
 #endif
 
 // Cap per-request memory transfer to bound temp buffers.

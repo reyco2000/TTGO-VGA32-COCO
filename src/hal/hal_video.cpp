@@ -156,9 +156,13 @@ static uint8_t vdg_raw_byte(uint8_t vdg_color) {
     return cache[vdg_color & 0x0F];
 }
 
+// Defined with the screenshot-capture machinery further down.
+static inline void capture_scanline_vdg(int line, const uint8_t* pixels, int width);
+
 // VDG (CoCo 2) scanline: 256 px wide @ palette indices, centered in 640x200.
 void hal_video_render_scanline(int line, const uint8_t* pixels, int width) {
     if (!display_available || !pixels) return;
+    capture_scanline_vdg(line, pixels, width);
     if (line < 0 || line >= VDG_ACTIVE_HEIGHT) return;
     const int vp_w = s_vga.getViewPortWidth();
     const int vp_h = s_vga.getViewPortHeight();
@@ -224,6 +228,44 @@ static inline void capture_scanline(int line, int total_lines,
     if (s_cap_h_pending == 0 || line < 0 || line >= s_cap_h_pending) return;
     int w = (width > HAL_CAP_W) ? HAL_CAP_W : width;
     memcpy(s_cap_buf + (size_t)line * HAL_CAP_W, pixels, (size_t)w * sizeof(uint16_t));
+    if (line == s_cap_h_pending - 1) {
+        s_cap_h     = s_cap_h_pending;
+        s_cap_ready = true;
+        s_cap_armed = false;
+    }
+}
+
+// VDG (CoCo 2) capture: pixels are 4-bit palette indices, not RGB565, so convert
+// each to the same byte-swapped RGB565 the GIME path stores (so png_writer treats
+// both identically). The 16-entry palette mirrors vdg_raw_byte()'s RGB222 table.
+static uint16_t  s_vdg_cap_lut[16];
+static bool      s_vdg_cap_lut_ready = false;
+
+static void build_vdg_cap_lut(void) {
+    static const uint8_t r3[16] = {0,3,0,3,3,0,3,3, 0,0,2,3, 0,0,0,0};
+    static const uint8_t g3[16] = {3,3,0,0,3,3,0,1, 0,1,0,2, 0,0,0,0};
+    static const uint8_t b3[16] = {0,0,2,0,3,1,3,0, 0,0,0,1, 0,0,0,0};
+    for (int i = 0; i < 16; i++) {
+        uint16_t r5 = (uint16_t)(r3[i] * 31 / 3);
+        uint16_t g6 = (uint16_t)(g3[i] * 63 / 3);
+        uint16_t b5 = (uint16_t)(b3[i] * 31 / 3);
+        uint16_t v  = (uint16_t)((r5 << 11) | (g6 << 5) | b5);
+        s_vdg_cap_lut[i] = (uint16_t)((v << 8) | (v >> 8));  // byte-swap (GIME format)
+    }
+    s_vdg_cap_lut_ready = true;
+}
+
+static inline void capture_scanline_vdg(int line, const uint8_t* pixels, int width) {
+    if (!s_cap_armed || !s_cap_buf) return;
+    if (line == 0) {
+        if (!s_vdg_cap_lut_ready) build_vdg_cap_lut();
+        s_cap_h_pending = (VDG_ACTIVE_HEIGHT > HAL_CAP_H) ? HAL_CAP_H : VDG_ACTIVE_HEIGHT;
+        int w = (width > VDG_ACTIVE_WIDTH) ? VDG_ACTIVE_WIDTH : width;
+        s_cap_w = (w > HAL_CAP_W) ? HAL_CAP_W : w;
+    }
+    if (s_cap_h_pending == 0 || line < 0 || line >= s_cap_h_pending) return;
+    uint16_t* dst = s_cap_buf + (size_t)line * HAL_CAP_W;
+    for (int x = 0; x < s_cap_w; x++) dst[x] = s_vdg_cap_lut[pixels[x] & 0x0F];
     if (line == s_cap_h_pending - 1) {
         s_cap_h     = s_cap_h_pending;
         s_cap_ready = true;
