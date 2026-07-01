@@ -6,16 +6,6 @@ A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the **[
 
 **v0.7 — June 26, 2026** (LilyGo TTGO VGA32 port)
 
-## ⚠️ Vibe Coding Alert
-
-Full transparency: this project was built by an ESP32 hobbyist working with AI coding assistants, not a professional embedded/C++ developer. If you're an experienced embedded engineer, you might look at this codebase and wince. That's okay.
-
-The goal here was to scratch an itch — get a CoCo 2/3 emulator running on cheap VGA32 hardware — and learn along the way. The code works, but it's likely missing patterns, optimizations, or elegance that only years of embedded/C++ experience can provide.
-
-This is where you come in. If you see something that makes you cringe, please consider contributing rather than just closing the tab. This is open source specifically because human expertise is irreplaceable. Whether it's refactoring, better error handling, cycle-accuracy fixes, or architectural guidance — PRs and issues are welcome.
-
-Think of it as a chance to mentor an AI-assisted developer through code review. We all benefit when experienced developers share their knowledge.
-
 ## Features
 
 - **One firmware, two CoCos** — CoCo 2 and CoCo 3 live in the same binary. Pick your machine at boot from NVS or flip it live in the supervisor menu.
@@ -312,6 +302,16 @@ All technical documentation is in the `docs/` directory:
 - Improved sound
 - Testing and adjustment of RS-232 Pak support
 - Migrate to an MQTT-based MCP Bridge gateway (replacing the current WiFi API)
+
+## ⚠️ Vibe Coding Alert
+
+Full transparency: this project was built by an ESP32 hobbyist working with AI coding assistants, not a professional embedded/C++ developer. If you're an experienced embedded engineer, you might look at this codebase and wince. That's okay.
+
+The goal here was to scratch an itch — get a CoCo 2/3 emulator running on cheap VGA32 hardware — and learn along the way. The code works, but it's likely missing patterns, optimizations, or elegance that only years of embedded/C++ experience can provide.
+
+This is where you come in. If you see something that makes you cringe, please consider contributing rather than just closing the tab. This is open source specifically because human expertise is irreplaceable. Whether it's refactoring, better error handling, cycle-accuracy fixes, or architectural guidance — PRs and issues are welcome.
+
+Think of it as a chance to mentor an AI-assisted developer through code review. We all benefit when experienced developers share their knowledge.
 
 ## Credits
 
