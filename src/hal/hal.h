@@ -115,11 +115,8 @@ void hal_audio_write_sample(int16_t left, int16_t right);
 // Set audio volume (0-255)
 void hal_audio_set_volume(uint8_t volume);
 
-// Write single-bit audio (PIA1 port B bit 1)
-void hal_audio_write_bit(bool value);
-
-// Write 6-bit DAC audio (PIA1 port A bits 2-7, value 0-63)
-void hal_audio_write_dac(uint8_t dac6);
+// Set the current audio output level (0-255, computed by src/core/sound.cpp)
+void hal_audio_set_level(uint8_t level);
 
 // Call once per frame from main loop — detects end-of-sound and prints frequency debug
 void hal_audio_debug_tick(void);
