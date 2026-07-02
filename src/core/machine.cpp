@@ -17,9 +17,39 @@
 #include "../utils/debug.h"
 #include "../utils/perf_probe.h"
 #include "mc6551.h"   // RS-232 Pak (Deluxe RS-232 Program Pak) ACIA
+#include "sound.h"    // Sound mixing core (mux/DAC/single-bit)
 
 // Global machine pointer for CPU memory callbacks
 static Machine* g_machine = nullptr;
+
+// ============================================================
+// Sound wiring — forward PIA state to the sound core (sound.cpp)
+// Shared by the CoCo 2 and CoCo 3 write paths.
+// ============================================================
+
+static void sound_pia0_written(Machine* m, uint8_t reg) {
+    // SEL1 = PIA0 CA2 (CRA bit 3), SEL2 = PIA0 CB2 (CRB bit 3)
+    if (reg == PIA_REG_CRA || reg == PIA_REG_CRB) {
+        sound_set_mux_source(((m->pia0.ctrl_b & 0x08) >> 2)
+                           | ((m->pia0.ctrl_a & 0x08) >> 3));
+    }
+}
+
+static void sound_pia1_written(Machine* m, uint8_t reg) {
+    // 6-bit DAC: PIA1 PA bits 2-7 (reg 0 also covers DDR A writes)
+    if (reg == PIA_REG_DA || reg == PIA_REG_CRA) {
+        uint8_t pa = m->pia1.data_a & m->pia1.ddr_a;
+        sound_set_dac_level((pa >> 2) & 0x3F);
+    }
+    if (reg == PIA_REG_DB || reg == PIA_REG_CRB) {
+        // Single-bit sound: PB1 interacts with the mix only when the pin
+        // is configured as an output; as an input it has no effect.
+        sound_set_sbs((m->pia1.ddr_b & 0x02) != 0,
+                      (m->pia1.data_b & 0x02) != 0);
+        if (reg == PIA_REG_CRB)
+            sound_set_mux_enabled((m->pia1.ctrl_b & 0x08) != 0);  // SNDEN
+    }
+}
 
 // Runtime-active machine type. Set from NVS before machine_init() in the main
 // sketch; defaults to the compile-time MACHINE_TYPE when NVS has no entry.
@@ -277,33 +307,13 @@ void machine_write_coco3(uint16_t addr, uint8_t val) {
     case 2: // PIA I/O — port of coco3.c:1190-1216
         if ((addr & 0x20) == 0) {
             mc6821_write(&m->pia0, addr & 0x03, val);
+            sound_pia0_written(m, addr & 0x03);
         } else {
             uint8_t reg = addr & 0x03;
             mc6821_write(&m->pia1, reg, val);
             // PIA1B snooping for VDG compat — handled inside tcc1014_mem_cycle
             // but also handle audio here (same as CoCo 2)
-            if (reg == PIA_REG_DA || reg == PIA_REG_CRA) {
-                bool mux_en = (m->pia1.ctrl_b & 0x08) != 0;
-                uint8_t mux_src = ((m->pia0.ctrl_b & 0x08) >> 2)
-                                | ((m->pia0.ctrl_a & 0x08) >> 3);
-                if (mux_en && mux_src == 0) {
-                    uint8_t pa = m->pia1.data_a & m->pia1.ddr_a;
-                    hal_audio_write_dac((pa >> 2) & 0x3F);
-                }
-            }
-            if (reg == PIA_REG_DB || reg == PIA_REG_CRB) {
-                uint8_t pb = m->pia1.data_b & m->pia1.ddr_b;
-                hal_audio_write_bit((pb & 0x02) != 0);
-                if (reg == PIA_REG_CRB) {
-                    bool mux_en = (m->pia1.ctrl_b & 0x08) != 0;
-                    uint8_t mux_src = ((m->pia0.ctrl_b & 0x08) >> 2)
-                                    | ((m->pia0.ctrl_a & 0x08) >> 3);
-                    if (mux_en && mux_src == 0) {
-                        uint8_t pa = m->pia1.data_a & m->pia1.ddr_a;
-                        hal_audio_write_dac((pa >> 2) & 0x3F);
-                    }
-                }
-            }
+            sound_pia1_written(m, reg);
         }
         break;
 
@@ -436,6 +446,7 @@ void machine_reset_coco3(Machine* m) {
     // Reset PIAs
     mc6821_reset(&m->pia0);
     mc6821_reset(&m->pia1);
+    sound_reset();
     m->pia0.irq_a_callback = pia0_irq_a_coco3;
     m->pia0.irq_b_callback = pia0_irq_b_coco3;
     m->pia1.irq_a_callback = pia1_irq_a_coco3;
@@ -902,6 +913,7 @@ void machine_write_coco2(uint16_t addr, uint8_t val) {
         // PIA0: $FF00-$FF1F
         if (addr < 0xFF20) {
             mc6821_write(&m->pia0, addr & 0x03, val);
+            sound_pia0_written(m, addr & 0x03);
             return;
         }
 
@@ -910,37 +922,12 @@ void machine_write_coco2(uint16_t addr, uint8_t val) {
             uint8_t reg = addr & 0x03;
             mc6821_write(&m->pia1, reg, val);
 
-            // PIA1 port A: 6-bit DAC audio (bits 2-7)
-            // Only output when sound MUX is enabled (PIA1 CRB bit 3) and
-            // source is DAC (PIA0 CRA/CRB bit 3 both 0). BASIC clears
-            // PIA1 CRB bit 3 during JOYSTK() to mute the DAC.
-            if (reg == PIA_REG_DA || reg == PIA_REG_CRA) {
-                bool mux_en = (m->pia1.ctrl_b & 0x08) != 0;
-                uint8_t mux_src = ((m->pia0.ctrl_b & 0x08) >> 2)
-                                | ((m->pia0.ctrl_a & 0x08) >> 3);
-                if (mux_en && mux_src == 0) {
-                    uint8_t pa = m->pia1.data_a & m->pia1.ddr_a;
-                    hal_audio_write_dac((pa >> 2) & 0x3F);
-                }
-            }
             // PIA1 port B drives VDG AG (bit 7) and CSS (bit 3)
             // GM0-GM2 come from SAM V0-V2, not PIA1
             if (reg == PIA_REG_DB || reg == PIA_REG_CRB) {
                 update_vdg_mode_coco2(m);
-                // Single-bit audio: PIA1 port B bit 1 (independent of MUX)
-                uint8_t pb = m->pia1.data_b & m->pia1.ddr_b;
-                hal_audio_write_bit((pb & 0x02) != 0);
-                // When MUX re-enabled with source=DAC, restore DAC audio
-                if (reg == PIA_REG_CRB) {
-                    bool mux_en = (m->pia1.ctrl_b & 0x08) != 0;
-                    uint8_t mux_src = ((m->pia0.ctrl_b & 0x08) >> 2)
-                                    | ((m->pia0.ctrl_a & 0x08) >> 3);
-                    if (mux_en && mux_src == 0) {
-                        uint8_t pa = m->pia1.data_a & m->pia1.ddr_a;
-                        hal_audio_write_dac((pa >> 2) & 0x3F);
-                    }
-                }
             }
+            sound_pia1_written(m, reg);
             return;
         }
 
@@ -1119,6 +1106,7 @@ void machine_reset_coco2(Machine* m) {
     // Reset all components
     mc6821_reset(&m->pia0);
     mc6821_reset(&m->pia1);
+    sound_reset();
     mc6847_reset(&m->vdg);
     sam6883_reset(&m->sam);
 

@@ -7,10 +7,14 @@ The audio subsystem emulates the CoCo's two audio output paths and pushes the re
 A 262-sample-per-frame pitch-corrected double-buffer drives the **ESP32 internal DAC1 on GPIO25**. The output stage is a simple `dac_output_voltage()` call from the timer ISR — no PWM or LEDC involved.
 
 **Source files:**
-- `src/hal/hal_audio.cpp` — DAC init, ISR, DAC and single-bit write functions
+- `src/core/sound.cpp/h` — Sound mixing core: mux source/enable, 6-bit DAC and single-bit levels, XRoar-style gain/offset tables — board-independent
+- `src/core/machine.cpp` — PIA write hooks (`sound_pia0_written` / `sound_pia1_written`) that forward PIA state to the sound core
+- `src/hal/hal_audio.cpp` — DAC init, ISR, `hal_audio_set_level()` sink
 - `src/hal/hal.h` — Public API declarations
-- `src/core/machine.cpp` — Sound MUX gating logic (PIA1 / PIA0 wiring) — board-independent
 - `config.h` — `PIN_DAC_OUT`, `AUDIO_SAMPLE_RATE`
+
+Design rationale and the gap analysis that led to this structure:
+[`audio-improvement-plan.md`](audio-improvement-plan.md).
 
 ---
 
@@ -79,7 +83,7 @@ A 262-sample-per-frame pitch-corrected double-buffer drives the **ESP32 internal
 | Output pin | GPIO25 | ESP32 internal DAC1 (`PIN_DAC_OUT = 25`) |
 | DAC width | 8 bit | `dac_output_voltage(channel, 0..255)` |
 | Sample rate | 22 050 Hz | Hardware timer ISR fires at this rate |
-| Idle level | 128 (midpoint) | Silence = mid-scale |
+| Idle level | 0 | Unipolar output like the real hardware; jack is AC-coupled |
 | Output route | 3.5 mm jack | On-board on the TTGO VGA32 v1.4 |
 
 The ESP32-WROVER inside the TTGO has a real 8-bit DAC on GPIO25 — no PWM RC-filter trick needed. `dac_output_enable(DAC_CHANNEL_1)` once at boot, then `dac_output_voltage(DAC_CHANNEL_1, sample)` from the ISR. Cheap, jitter-free, no peripheral contention.
@@ -88,19 +92,44 @@ The ESP32-WROVER inside the TTGO has a real 8-bit DAC on GPIO25 — no PWM RC-fi
 
 ### Audio Paths
 
-**Two independent paths write to a single shared variable (`audio_current_level`):**
+The output level is computed by the **sound mixing core** (`src/core/sound.cpp`),
+modeled on XRoar's `sound.c`. The HAL is a pure sink: the core calls
+`hal_audio_set_level(0-255)` whenever the mix changes.
 
-1. **6-bit DAC** (`hal_audio_write_dac`):
-   - Input: 6-bit value (0-63) from PIA1 PA bits 2-7
-   - Scaling: `(dac6 << 2) | (dac6 >> 4)` maps 0-63 to 0-255 with a smooth ramp
-   - Used by: SOUND, PLAY, game sound effects
+The core tracks five pieces of state, fed from the PIA write handlers in
+`machine.cpp`:
 
-2. **Single-bit audio** (`hal_audio_write_bit`):
-   - Input: boolean from PIA1 PB bit 1
-   - Output: 255 (high) or 0 (low) — full swing square wave
-   - Used by: cassette relay toggle, simple beeps (`CHR$(7)`)
+| State | Source | Setter |
+|---|---|---|
+| `dac_level` (0-63) | PIA1 PA bits 2-7 | `sound_set_dac_level()` |
+| `sbs_enabled` | PIA1 PB1 DDR bit (pin is output?) | `sound_set_sbs()` |
+| `sbs_level` | PIA1 PB1 data bit | `sound_set_sbs()` |
+| `mux_enabled` (SNDEN) | PIA1 CRB bit 3 | `sound_set_mux_enabled()` |
+| `mux_source` (0-3) | PIA0 CRA/CRB bit 3 (SEL1/SEL2) | `sound_set_mux_source()` |
 
-**Last write wins** — both paths write to the same `audio_current_level` byte. Real CoCo hardware has the same behavior (single speaker output).
+`sound_update()` computes:
+
+```
+sindex = sbs_enabled ? (sbs_level ? 2 : 1) : 0
+source = mux_enabled ? mux_source : SOURCE_SINGLE_BIT
+level  = (source == DAC) ? dac_level : 0
+out    = level * source_gain[source][sindex] / 63 + source_offset[source][sindex]
+```
+
+The gain/offset tables are XRoar's real-hardware voltage measurements
+(full scale 4.7 V) rescaled to the 0-255 DAC domain. Consequences of this
+model:
+
+- **DAC and single-bit sound mix correctly** — the single-bit output doesn't
+  replace the DAC signal; it changes the gain and DC offset of whichever
+  source the mux selects (matching the real analog circuit). A PB1 beep during
+  `SOUND` no longer destroys the tone.
+- **PB1 as input has no effect** — three SBS states (input / output-low /
+  output-high), so software leaving PB1 as an input doesn't drag the output low.
+- **Pure single-bit audio works with the mux off** — square wave between
+  offset 0 and 212 (0 ↔ 3.9 V), used by many games.
+- **Silence is 0, not mid-scale** — output is unipolar like the real hardware;
+  the jack's AC coupling removes DC.
 
 ### Pitch-Corrected Scanline Buffer
 
@@ -158,34 +187,27 @@ ISR cost is dominated by the `dac_output_voltage()` call — sub-microsecond on 
 
 ## Sound MUX Gating
 
-Implemented in `machine.cpp` — board-independent. The DAC's audible output is gated by both the MUX enable bit and the MUX source select.
+Implemented in `src/core/sound.cpp` — board-independent. The mux state (enable
++ source select) determines which source's gain/offset row is applied.
 
 ### The Problem
 
-Running `10 PRINT JOYSTK(0): 20 GOTO 10` would otherwise produce a continuous buzz. BASIC's `GETJOY` routine writes ~32 successive-approximation DAC values to PIA1 PA on every read. Without gating, each write would forward to `hal_audio_write_dac()` and produce audible clicks at the joystick polling rate.
+Running `10 PRINT JOYSTK(0): 20 GOTO 10` would otherwise produce a continuous buzz. BASIC's `GETJOY` routine writes ~32 successive-approximation DAC values to PIA1 PA on every read. Without gating, each write would reach the speaker and produce audible clicks at the joystick polling rate.
 
 Real CoCo `GETJOY` clears PIA1 CRB bit 3 before the ADC loop, disconnecting the DAC from the speaker via the analog MUX. After reading, it restores the bit.
 
 ### The Fix
 
-DAC writes are gated on two conditions:
+`sound_set_dac_level()` always stores the new DAC value but only recomputes
+the output when the DAC is audible (`mux_enabled && mux_source == SOURCE_DAC`)
+— XRoar's conditional-update optimization, which keeps the JOYSTK ADC loop
+cheap. When the mux is re-enabled or switched back to the DAC, the stored
+level is applied immediately.
 
-1. **MUX enabled**: PIA1 CRB bit 3 must be set.
-2. **MUX source = DAC**: PIA0 CRA bit 3 *and* PIA0 CRB bit 3 must both be 0.
-
-```
-machine_write() PIA1 handler:
-  On PIA1 DA or CRA write:
-    mux_en  = (pia1.ctrl_b & 0x08) != 0
-    mux_src = ((pia0.ctrl_b & 0x08) >> 2) | ((pia0.ctrl_a & 0x08) >> 3)
-    if (mux_en AND mux_src == 0):
-      hal_audio_write_dac(...)   // Output DAC value
-    // else: silently ignore — DAC disconnected from speaker
-
-  On PIA1 CRB write (MUX enable may have changed):
-    if (mux just re-enabled AND source == DAC):
-      hal_audio_write_dac(current PA value)  // Restore audio immediately
-```
+Mux source changes arrive via **PIA0** CRA/CRB writes (`sound_pia0_written()`
+in `machine.cpp`) and take effect immediately — they no longer wait for the
+next PIA1 write. When the mux is disabled, the output is the
+`SOURCE_SINGLE_BIT` row: 0, unless PB1 is an enabled-high output (offset 212).
 
 ### Interaction Table
 
@@ -212,8 +234,7 @@ The MUX only controls the speaker path; the joystick comparator always reads the
 | Function | Purpose |
 |---|---|
 | `hal_audio_init()` | Enable DAC1, init scanline buffers, start 22 050 Hz timer ISR |
-| `hal_audio_write_bit(b)` | PIA1 PB bit 1 → 0/255 |
-| `hal_audio_write_dac(d6)` | 6-bit DAC value → 8-bit scaled level (MUX-gated by caller) |
+| `hal_audio_set_level(l)` | Set output level 0-255 (computed by `src/core/sound.cpp`) |
 | `hal_audio_capture_scanline()` | Snapshot current level into the active buffer |
 | `hal_audio_commit_frame()` | Hand the captured buffer to the ISR |
 | `hal_audio_set_volume(v)` | No-op placeholder (volume is set by output stage) |
@@ -225,8 +246,8 @@ The MUX only controls the speaker path; the joystick comparator always reads the
 ## Lessons Learned
 
 1. **Shared PIA resources are a CoCo design signature.** The CoCo reuses PIAs extensively for cost. Same bits that produce audio also read joysticks. Same MUX select lines that choose audio source also select joystick port/axis. Always check full hardware context before assuming a PIA bit has a single purpose.
-2. **XRoar's `sound.c` is the reference** for correct MUX behavior. It implements full source selection with gain tables matching real hardware voltage levels. The simplified version here (gate on/off only) is sufficient because we don't emulate cassette or cartridge audio.
-3. **Single-bit audio (PIA1 PB1) is independent of the MUX.** It bypasses the MUX entirely on real hardware and should never be gated by the MUX enable bit.
+2. **XRoar's `sound.c` is the reference** for correct MUX behavior. `src/core/sound.cpp` is an integer port of its model: full source selection with gain/offset tables matching real hardware voltage measurements. TAPE and CART source *levels* are still unemulated (treated as 0), but their DC offsets are correct.
+3. **Single-bit audio (PIA1 PB1) is not gated by the MUX — but it isn't independent either.** On real hardware the PB1 pin's voltage interacts with the analog mix: it changes the gain and DC offset of whichever source the MUX selects. XRoar models this with a 3-column table index (pin-is-input / output-low / output-high), and so do we.
 4. **Pitch correction requires buffered playback, not CPU throttling.** Slowing the CPU to match wall-clock rate would tank emulation FPS. Scanline-rate buffering with ISR playback at the correct CoCo rate fixes pitch without sacrificing emulation speed.
 5. **The internal DAC sounds noticeably cleaner than LEDC PWM** — no carrier whistle, no RC-filter quality dependency, 8-bit linearity. The TTGO VGA32 jack is amplifier-driven and produces usable audio straight out of the board.
-6. **MUX gating is implemented in `machine.cpp`, not in the HAL.** The HAL is a sink — it doesn't know about the MUX. The emulator core enforces the gate by simply not calling `hal_audio_write_dac()` when the MUX is disconnected. This keeps the HAL board-agnostic and the MUX logic single-sourced.
+6. **Mixing lives in `src/core/sound.cpp`, not in the HAL.** The HAL is a sink — `hal_audio_set_level()` just stores a byte. The sound core owns all MUX/DAC/single-bit state and is shared by the CoCo 2 and CoCo 3 write paths (previously three near-identical inline copies in `machine.cpp`). This keeps the HAL board-agnostic and the mix logic single-sourced.

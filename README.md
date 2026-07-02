@@ -4,7 +4,7 @@
 
 A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the **[LilyGo TTGO VGA32 v1.4](https://lilygo.cc/en-us/products/fabgl-vga32?_pos=1&_sid=4c095f59b&_ss=r)** board (ESP32-WROVER). Inspired on  [XRoar](http://www.6809.org.uk/xroar/) emulator.
 
-**v0.7 — June 26, 2026** (LilyGo TTGO VGA32 port)
+**v0.8 — July 1, 2026** (LilyGo TTGO VGA32 port)
 
 ## Features
 
@@ -103,7 +103,7 @@ If you just want to flash the emulator without building from source, use the pre
 2. Open [ESP Web Tool](https://esptool.spacehuhn.com/) in a Chrome or Edge browser
 3. Click **Connect** and select the board's serial port
 4. Set the flash offset to **0x0000**
-5. Choose the file `TTGO-VGA32-CoCo-0.7-firmware.bin` from this repository
+5. Choose the file `TTGO-VGA32-CoCo-0.8-firmware.bin` from this repository
 6. Click **Program** and wait for the flash to complete
 
 > Hold the **BOOT** button on the board while clicking Connect if the browser cannot reach the device.
@@ -242,6 +242,7 @@ src/
 │   ├── mc6551.h/cpp          MC6551 ACIA — RS-232 Pak chip emulation ($FF68-$FF6B)
 │   ├── tcc1014.h/cpp         TCC1014 GIME — MMU, video, interrupts (CoCo 3)
 │   ├── sam6883.h/cpp         SAM — address multiplexing and clock control
+│   ├── sound.h/cpp           Sound mixing core — mux/DAC/single-bit, XRoar gain model
 │   └── font_gime.h           GIME font ROM — 128 chars × 12 rows (PROGMEM)
 ├── hal/                    Hardware Abstraction Layer
 │   ├── hal.h/cpp             HAL dispatcher (init, input, render)
@@ -293,13 +294,11 @@ All technical documentation is in the `docs/` directory:
 - DMK disk format is recognized but not mountable
 - Max 128 file entries in the SD card browser
 - Joystick 2 (left port) is a stub — returns centered, button released; only Joystick 1 is active via PS/2 mouse
-- Audio frequency does not exactly match original CoCo hardware
 - NTSC TV emulation is a stub only
 - Supervisor OSD was sized for 320×240; on the 640×200 VGA surface its layout sits in the upper-left region
 
 ## Planned
 
-- Improved sound
 - Testing and adjustment of RS-232 Pak support
 - Migrate to an MQTT-based MCP Bridge gateway (replacing the current WiFi API)
 

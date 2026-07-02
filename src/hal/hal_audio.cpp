@@ -26,7 +26,7 @@ static volatile int  audio_read_buf  = 1;
 static volatile int  audio_write_pos = 0;
 static volatile uint32_t audio_isr_pos_q8 = 0;
 static volatile bool audio_buf_ready = false;
-static volatile uint8_t audio_current_level = 128;
+static volatile uint8_t audio_current_level = 0;
 
 static hw_timer_t* audio_timer = nullptr;
 
@@ -62,16 +62,18 @@ static void IRAM_ATTR audio_timer_isr() {
 
 void hal_audio_init(void) {
     dac_output_enable(AUDIO_DAC_CHANNEL);
-    dac_output_voltage(AUDIO_DAC_CHANNEL, 128);
-    memset(audio_scanline_buf[0], 128, SAMPLES_PER_FRAME);
-    memset(audio_scanline_buf[1], 128, SAMPLES_PER_FRAME);
+    // Idle level is 0: the sound core's output is unipolar like the real
+    // hardware (silence = 0 V); the jack's AC coupling removes any DC.
+    dac_output_voltage(AUDIO_DAC_CHANNEL, 0);
+    memset(audio_scanline_buf[0], 0, SAMPLES_PER_FRAME);
+    memset(audio_scanline_buf[1], 0, SAMPLES_PER_FRAME);
     // ESP32-Arduino 2.x timer API: timerBegin(timer_num, divider, countUp).
     // APB is 80 MHz; divider 80 → 1 MHz timer tick (1 µs per tick).
     audio_timer = timerBegin(0, 80, true);
     timerAttachInterrupt(audio_timer, audio_timer_isr, true);
     timerAlarmWrite(audio_timer, 1000000 / AUDIO_ISR_RATE, true);
     timerAlarmEnable(audio_timer);
-    audio_current_level = 128;
+    audio_current_level = 0;
     DEBUG_PRINTF("  Audio: DAC1 (GPIO25), %d Hz ISR, stride Q8=%d",
                  AUDIO_ISR_RATE, ISR_STRIDE_Q8);
 }
@@ -99,7 +101,7 @@ void hal_audio_capture_scanline(void) {
 void hal_audio_commit_frame(void) {
     uint8_t last = (audio_write_pos > 0)
         ? audio_scanline_buf[audio_write_buf][audio_write_pos - 1]
-        : 128;
+        : 0;
     while (audio_write_pos < SAMPLES_PER_FRAME) {
         audio_scanline_buf[audio_write_buf][audio_write_pos++] = last;
     }
@@ -107,12 +109,8 @@ void hal_audio_commit_frame(void) {
     audio_write_pos = 0;
 }
 
-void hal_audio_write_bit(bool value) {
-    audio_current_level = value ? 255 : 0;
+void hal_audio_set_level(uint8_t level) {
+    audio_current_level = level;
 }
 
 void hal_audio_debug_tick(void) {}
-
-void hal_audio_write_dac(uint8_t dac6) {
-    audio_current_level = (dac6 << 2) | (dac6 >> 4);
-}
