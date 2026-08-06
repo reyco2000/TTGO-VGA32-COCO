@@ -4,7 +4,7 @@
  *   (C) 2026 Reinaldo Torres / CoCo Byte Club
  *   https://github.com/reyco2000/TTGO-VGA32-COCO
  *   Based on XRoar , co-developed with Claude Code
- *   MIT License
+ *   GPL-3.0-or-later License
  * ============================================================
  *  File   : config.h
  *  Module : Hardware configuration — pin assignments, compile-time options, and build constants
@@ -21,6 +21,9 @@
 // ============================================================
 // Build options
 // ============================================================
+
+// Firmware version (reported by the WiFi debug API /api/status).
+#define FIRMWARE_VERSION        "0.8"
 
 // Machine type: 0 = Dragon 32, 1 = Dragon 64, 2 = CoCo 1, 3 = CoCo 2, 4 = CoCo 3
 // Compile-time default only — the active machine is g_machine_type (core/machine.h),
@@ -153,7 +156,10 @@
 
 #define PIN_SD_CS               13
 #define PIN_SD_MOSI             12
-#define PIN_SD_MISO             2
+//#define PIN_SD_MISO             2
+#define SD_MISO_LILYGO  2
+#define SD_MISO_OLIMEX  35
+
 #define PIN_SD_SCLK             14
 
 // ============================================================
@@ -162,7 +168,7 @@
 
 #define STORAGE_TYPE            0
 
-#define ROM_BASE_PATH           "/roms"
+#define ROM_BASE_PATH           "/COCO/rom"
 #define ROM_BASIC_FILE          "bas13.rom"
 #define ROM_EXT_BASIC_FILE      "extbas11.rom"
 #define ROM_DISK_FILE           "disk11.rom"

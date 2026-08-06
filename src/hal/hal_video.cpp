@@ -5,7 +5,7 @@
  *   (C) 2026 Reinaldo Torres / CoCo Byte Club
  *   https://github.com/reyco2000/TTGO-VGA32-COCO
  *   Based on XRoar , co-developed with Claude Code
- *   MIT License
+ *   GPL-3.0-or-later License
  * ============================================================
  *  File   : hal_video.cpp
  *  Module : Video HAL — FabGL VGAController, 640x200 @ 60 Hz
@@ -39,7 +39,10 @@ static uint8_t              s_gime_raw_lut[64];
 //   bswap16 → rgb565_to_rgb222 → createRawPixel
 // conversion chain to a single indexed load in the scanline loop. 64 KB in
 // internal DRAM; built once in init_gime_lut().
-static uint8_t              s_gime_pixel_raw_lut[65536];
+// 64KB GIME pixel LUT lives in PSRAM (allocated in init_gime_lut) so the WiFi
+// driver has enough internal DMA-capable DRAM for its RX/TX buffers. CoCo 3's
+// on-screen palette is tiny, so the touched LUT entries stay cache-resident.
+static uint8_t*             s_gime_pixel_raw_lut = nullptr;
 
 // FPS overlay state
 static bool     fps_overlay_enabled = false;
@@ -77,11 +80,56 @@ static void fps_tick_and_draw(void) {
 #endif
 }
 
+// ------------------------------------------------------------------
+// Volume OSD — top-right text+bar, shown for a short time after F9/F10.
+// Same trick as the FPS overlay: draw via s_canvas AFTER the scanline
+// render path each frame, so it survives being overwritten by the next
+// frame's emulated pixels (present() runs after machine_run_frame()).
+// ------------------------------------------------------------------
+static bool     vol_osd_active    = false;
+static uint32_t vol_osd_expire_ms = 0;
+static uint8_t  vol_osd_percent   = 100;
+#define VOL_OSD_DURATION_MS 1200
 
-void hal_video_shutdown(void) {
-    s_vga.end();
+static void vol_osd_clear(void) {
+    if (!display_available) return;
+    int vp_w = s_vga.getViewPortWidth();
+    // "VOL 100%" = 8 chars * 8px = 64px, +4px slack
+    s_canvas.setBrushColor(fabgl::RGB888(0, 0, 0));
+    s_canvas.fillRectangle(vp_w - 68, 0, vp_w - 1, 17);
 }
 
+static void vol_osd_draw(void) {
+    if (!display_available) return;
+    int vp_w = s_vga.getViewPortWidth();
+    char buf[16];
+    snprintf(buf, sizeof(buf), "VOL %3d%%", vol_osd_percent);
+
+    s_canvas.setPenColor(fabgl::RGB888(255, 255, 255));
+    s_canvas.setBrushColor(fabgl::RGB888(0, 0, 0));
+    s_canvas.setGlyphOptions(fabgl::GlyphOptions().FillBackground(true));
+    int text_w = (int)strlen(buf) * 8;   // FONT_8x14 is 8px wide per glyph
+    s_canvas.drawText(&fabgl::FONT_8x14, vp_w - text_w - 2, 2, buf);
+    s_canvas.setGlyphOptions(fabgl::GlyphOptions());
+}
+
+static void vol_osd_tick_and_draw(void) {
+    if (!vol_osd_active) return;
+    if ((int32_t)(millis() - vol_osd_expire_ms) >= 0) {
+        vol_osd_active = false;
+        vol_osd_clear();
+        return;
+    }
+    vol_osd_draw();
+}
+
+// Called from hal_keyboard.cpp on F9/F10. Arms/refreshes the OSD; the
+// actual drawing happens in fps_tick_and_draw()'s sibling call below.
+void hal_video_show_volume_osd(uint8_t percent) {
+    vol_osd_percent   = percent;
+    vol_osd_active    = true;
+    vol_osd_expire_ms = millis() + VOL_OSD_DURATION_MS;
+}
 
 static inline fabgl::RGB222 gime_idx_to_rgb222(int i) {
     // GIME palette format (interleaved R1 G1 B1 R0 G0 B0)
@@ -107,6 +155,13 @@ static void init_gime_lut(void) {
     }
     // Active-pixel LUT: index is the raw byte-swapped RGB565 value the core
     // emits, so render-time lookup is s_gime_pixel_raw_lut[pixels[x]].
+    if (!s_gime_pixel_raw_lut) {
+        s_gime_pixel_raw_lut = (uint8_t*)ps_malloc(65536);
+        if (!s_gime_pixel_raw_lut) {
+            DEBUG_PRINT("  Video: FATAL — GIME LUT ps_malloc(65536) failed");
+            return;
+        }
+    }
     for (int v = 0; v < 65536; v++) {
         uint16_t c = __builtin_bswap16((uint16_t)v);
         s_gime_pixel_raw_lut[v] = s_vga.createRawPixel(rgb565_to_rgb222(c));
@@ -152,9 +207,13 @@ static uint8_t vdg_raw_byte(uint8_t vdg_color) {
     return cache[vdg_color & 0x0F];
 }
 
+// Defined with the screenshot-capture machinery further down.
+static inline void capture_scanline_vdg(int line, const uint8_t* pixels, int width);
+
 // VDG (CoCo 2) scanline: 256 px wide @ palette indices, centered in 640x200.
 void hal_video_render_scanline(int line, const uint8_t* pixels, int width) {
     if (!display_available || !pixels) return;
+    capture_scanline_vdg(line, pixels, width);
     if (line < 0 || line >= VDG_ACTIVE_HEIGHT) return;
     const int vp_w = s_vga.getViewPortWidth();
     const int vp_h = s_vga.getViewPortHeight();
@@ -177,6 +236,93 @@ void hal_video_present(const uint8_t* ram, uint16_t vdg_base, uint8_t vdg_mode) 
     (void)ram; (void)vdg_base; (void)vdg_mode;
     // FabGL scans out continuously — present is a no-op apart from FPS.
     fps_tick_and_draw();
+    vol_osd_tick_and_draw();
+}
+
+// --- Debug screenshot capture (PSRAM) ---
+#define HAL_CAP_W   640
+#define HAL_CAP_H   240
+static uint16_t*     s_cap_buf       = nullptr;   // HAL_CAP_W * HAL_CAP_H RGB565
+static volatile bool s_cap_armed     = false;
+static volatile bool s_cap_ready     = false;
+static int           s_cap_w         = 0;
+static int           s_cap_h         = 0;
+static int           s_cap_h_pending = 0;
+
+void hal_video_capture_arm(void) {
+    if (!s_cap_buf) {
+        s_cap_buf = (uint16_t*)ps_malloc((size_t)HAL_CAP_W * HAL_CAP_H * sizeof(uint16_t));
+        if (!s_cap_buf) { DEBUG_PRINT("capture: ps_malloc failed"); return; }
+    }
+    s_cap_ready     = false;
+    s_cap_h_pending = 0;
+    s_cap_armed     = true;
+}
+
+bool hal_video_capture_ready(void) { return s_cap_ready; }
+
+const uint16_t* hal_video_capture_frame(int* width, int* height) {
+    if (!s_cap_ready) return nullptr;
+    if (width)  *width  = s_cap_w;
+    if (height) *height = s_cap_h;
+    return s_cap_buf;
+}
+
+// Capture one scanline of GIME output if a capture is armed. Independent of the
+// display output path (runs before the viewport clipping / early returns).
+static inline void capture_scanline(int line, int total_lines,
+                                    const uint16_t* pixels, int width) {
+    if (!s_cap_armed || !s_cap_buf) return;
+    if (line == 0) {
+        s_cap_h_pending = (total_lines > HAL_CAP_H) ? HAL_CAP_H : total_lines;
+        s_cap_w = (width > HAL_CAP_W) ? HAL_CAP_W : width;
+    }
+    if (s_cap_h_pending == 0 || line < 0 || line >= s_cap_h_pending) return;
+    int w = (width > HAL_CAP_W) ? HAL_CAP_W : width;
+    memcpy(s_cap_buf + (size_t)line * HAL_CAP_W, pixels, (size_t)w * sizeof(uint16_t));
+    if (line == s_cap_h_pending - 1) {
+        s_cap_h     = s_cap_h_pending;
+        s_cap_ready = true;
+        s_cap_armed = false;
+    }
+}
+
+// VDG (CoCo 2) capture: pixels are 4-bit palette indices, not RGB565, so convert
+// each to the same byte-swapped RGB565 the GIME path stores (so png_writer treats
+// both identically). The 16-entry palette mirrors vdg_raw_byte()'s RGB222 table.
+static uint16_t  s_vdg_cap_lut[16];
+static bool      s_vdg_cap_lut_ready = false;
+
+static void build_vdg_cap_lut(void) {
+    static const uint8_t r3[16] = {0,3,0,3,3,0,3,3, 0,0,2,3, 0,0,0,0};
+    static const uint8_t g3[16] = {3,3,0,0,3,3,0,1, 0,1,0,2, 0,0,0,0};
+    static const uint8_t b3[16] = {0,0,2,0,3,1,3,0, 0,0,0,1, 0,0,0,0};
+    for (int i = 0; i < 16; i++) {
+        uint16_t r5 = (uint16_t)(r3[i] * 31 / 3);
+        uint16_t g6 = (uint16_t)(g3[i] * 63 / 3);
+        uint16_t b5 = (uint16_t)(b3[i] * 31 / 3);
+        uint16_t v  = (uint16_t)((r5 << 11) | (g6 << 5) | b5);
+        s_vdg_cap_lut[i] = (uint16_t)((v << 8) | (v >> 8));  // byte-swap (GIME format)
+    }
+    s_vdg_cap_lut_ready = true;
+}
+
+static inline void capture_scanline_vdg(int line, const uint8_t* pixels, int width) {
+    if (!s_cap_armed || !s_cap_buf) return;
+    if (line == 0) {
+        if (!s_vdg_cap_lut_ready) build_vdg_cap_lut();
+        s_cap_h_pending = (VDG_ACTIVE_HEIGHT > HAL_CAP_H) ? HAL_CAP_H : VDG_ACTIVE_HEIGHT;
+        int w = (width > VDG_ACTIVE_WIDTH) ? VDG_ACTIVE_WIDTH : width;
+        s_cap_w = (w > HAL_CAP_W) ? HAL_CAP_W : w;
+    }
+    if (s_cap_h_pending == 0 || line < 0 || line >= s_cap_h_pending) return;
+    uint16_t* dst = s_cap_buf + (size_t)line * HAL_CAP_W;
+    for (int x = 0; x < s_cap_w; x++) dst[x] = s_vdg_cap_lut[pixels[x] & 0x0F];
+    if (line == s_cap_h_pending - 1) {
+        s_cap_h     = s_cap_h_pending;
+        s_cap_ready = true;
+        s_cap_armed = false;
+    }
 }
 
 // GIME (CoCo 3) scanline: pre-converted RGB565 from tcc1014 — convert each
@@ -187,6 +333,7 @@ void hal_video_render_scanline_gime(int line, int total_lines,
                                      int width, const uint16_t* palette) {
     (void)palette;
     if (!display_available || !pixels || width <= 0) return;
+    capture_scanline(line, total_lines, pixels, width);
     const int vp_w = s_vga.getViewPortWidth();
     const int vp_h = s_vga.getViewPortHeight();
     if (total_lines <= 0 || total_lines > vp_h) total_lines = vp_h;
@@ -256,6 +403,7 @@ void hal_video_render_scanline_gime(int line, int total_lines,
 void hal_video_present_gime(bool* dirty) {
     // FabGL scans out continuously. No DMA push needed. FPS only.
     fps_tick_and_draw();
+    vol_osd_tick_and_draw();
     if (dirty) *dirty = false;
 }
 
@@ -280,4 +428,3 @@ void hal_video_toggle_fps_overlay(void) {
     fps_frame_count = 0;
     fps_last_time = millis();
 }
-

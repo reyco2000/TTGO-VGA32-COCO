@@ -4,7 +4,7 @@
  *   (C) 2026 Reinaldo Torres / CoCo Byte Club
  *   https://github.com/reyco2000/TTGO-VGA32-COCO
  *   Based on XRoar , co-developed with Claude Code
- *   MIT License
+ *   GPL-3.0-or-later License
  * ============================================================
  *  File   : hal_storage.cpp
  *  Module : Storage HAL — SD card access via dedicated SPI bus
@@ -30,8 +30,8 @@ static bool storage_ready = false;
 
 bool hal_storage_init(void) {
     DEBUG_PRINT("Storage: Initializing SD card...");
-    DEBUG_PRINTF("  SPI pins: SCLK=%d MOSI=%d MISO=%d CS=%d",
-                 PIN_SD_SCLK, PIN_SD_MOSI, PIN_SD_MISO, PIN_SD_CS);
+    //DEBUG_PRINTF("  SPI pins: SCLK=%d MOSI=%d MISO=%d CS=%d",
+    //             PIN_SD_SCLK, PIN_SD_MOSI, PIN_SD_MISO, PIN_SD_CS);
 
     // Configure CS pin as output and deselect
     pinMode(PIN_SD_CS, OUTPUT);
@@ -41,28 +41,54 @@ bool hal_storage_init(void) {
     delay(100);
 
     // Initialize DEDICATED SPI bus for SD card (HSPI / SPI3)
-    sd_spi.begin(PIN_SD_SCLK, PIN_SD_MISO, PIN_SD_MOSI, PIN_SD_CS);
+
+    bool mounted = false;
+    sd_spi.begin(PIN_SD_SCLK, SD_MISO_LILYGO, PIN_SD_MOSI, PIN_SD_CS);
+
+    if (!SD.begin(PIN_SD_CS, sd_spi, 4000000, "/sd")) {
+        // Falhou na tentativa LILYGO. Limpa o barramento e tenta o fallback.
+        DEBUG_PRINT("  WARNING: SD.begin failed on LILYGO MISO pin. Trying OLIMEX MISO pin...");
+        SD.end();
+        sd_spi.end(); 
+
+        // Tentativa 2: OLIMEX (MISO 35)
+        sd_spi.begin(PIN_SD_SCLK, SD_MISO_OLIMEX, PIN_SD_MOSI, PIN_SD_CS);
+       
+        if (!SD.begin(PIN_SD_CS, sd_spi, 4000000, "/sd")) {
+            // Falhou em ambas as tentativas
+            Serial.println("Card Mount Failed");
+            DEBUG_PRINT("  ERROR: All SD mount attempts failed!");
+            storage_ready = false;
+            return false;
+        }
+    }
+    mounted = true;
+    //sd_spi.begin(PIN_SD_SCLK, SD_MISO_LILYGO, PIN_SD_MOSI, PIN_SD_CS);
+  
 
     DEBUG_PRINTF("  Free heap before SD.begin: %d", ESP.getFreeHeap());
     DEBUG_PRINT("  Using dedicated HSPI bus for SD card");
 
     // Try mounting at lower speed first, then increase if it works
     // Some SD cards need a slow start
-    bool mounted = false;
+    //bool mounted = false;
 
     // Attempt 1: 4 MHz (safe for most cards)
-    DEBUG_PRINT("  Trying SD.begin at 4 MHz...");
-    if (SD.begin(PIN_SD_CS, sd_spi, 4000000)) {
-        mounted = true;
-        DEBUG_PRINT("  Mounted at 4 MHz on HSPI");
-    }
+    //DEBUG_PRINT("  Trying SD.begin at 4 MHz...");
+    //if (SD.begin(PIN_SD_CS, sd_spi, 4000000)) {
+    //    mounted = true;
+    //    DEBUG_PRINT("  Mounted at 4 MHz on HSPI");
+   // }
 
+    /*
     // Attempt 2: Try with explicit SPI re-init
     if (!mounted) {
         DEBUG_PRINT("  Attempt 1 failed. Retrying with SPI re-init...");
         sd_spi.end();
         delay(100);
-        sd_spi.begin(PIN_SD_SCLK, PIN_SD_MISO, PIN_SD_MOSI, PIN_SD_CS);
+        DEBUG_PRINT(" 1 - explicit SPI");
+        sd_spi.begin(PIN_SD_SCLK, SD_MISO_LILYGO, PIN_SD_MOSI, PIN_SD_CS);
+        DEBUG_PRINT(" 2 - explicit SPI");
         delay(100);
 
         if (SD.begin(PIN_SD_CS, sd_spi, 1000000)) {
@@ -76,22 +102,24 @@ bool hal_storage_init(void) {
         DEBUG_PRINT("  Attempt 2 failed. Falling back to default SPI bus...");
         sd_spi.end();
         delay(100);
-        SPI.begin(PIN_SD_SCLK, PIN_SD_MISO, PIN_SD_MOSI, PIN_SD_CS);
+        DEBUG_PRINT(" 1 - default SPI");
+        SPI.begin(PIN_SD_SCLK, SD_MISO_LILYGO, PIN_SD_MOSI, PIN_SD_CS);
+        DEBUG_PRINT(" 2 - default SPI");
         delay(100);
-
         if (SD.begin(PIN_SD_CS, SPI, 4000000)) {
             mounted = true;
             DEBUG_PRINT("  WARNING: Mounted on shared SPI bus (fallback)");
         }
     }
 
+    */
     if (!mounted) {
         DEBUG_PRINT("  ERROR: All SD mount attempts failed!");
         DEBUG_PRINT("  Checklist:");
         DEBUG_PRINT("    - Is an SD card inserted?");
         DEBUG_PRINT("    - Is it formatted as FAT32?");
-        DEBUG_PRINTF("    - Are SPI pins correct? SCLK=%d MOSI=%d MISO=%d CS=%d",
-                     PIN_SD_SCLK, PIN_SD_MOSI, PIN_SD_MISO, PIN_SD_CS);
+        //DEBUG_PRINTF("    - Are SPI pins correct? SCLK=%d MOSI=%d MISO=%d CS=%d",
+        //             PIN_SD_SCLK, PIN_SD_MOSI, PIN_SD_MISO, PIN_SD_CS);
         storage_ready = false;
         return false;
     }

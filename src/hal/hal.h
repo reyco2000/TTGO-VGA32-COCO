@@ -4,7 +4,7 @@
  *   (C) 2026 Reinaldo Torres / CoCo Byte Club
  *   https://github.com/reyco2000/TTGO-VGA32-COCO
  *   Based on XRoar , co-developed with Claude Code
- *   MIT License
+ *   GPL-3.0-or-later License
  * ============================================================
  *  File   : hal.h
  *  Module : Hardware Abstraction Layer interface — all platform I/O declarations
@@ -39,11 +39,6 @@ static inline bool rs232_pak_enabled(void) {
 // want the choice remembered also call supervisor_save_serial_mode().
 void serial_mode_apply(SerialPortMode mode);
 
-/* Bootloader compatible functions. Stops audio and video output */
-void hal_video_shutdown(void);
-void hal_audio_shutdown(void);
-void hal_keyboard_shutdown(void);
-
 // ============================================================
 // Top-level HAL control
 // ============================================================
@@ -60,9 +55,6 @@ void hal_render_frame(void);
 // ============================================================
 // Video subsystem
 // ============================================================
-
-
-
 
 // Initialize the display hardware
 void hal_video_init(void);
@@ -99,6 +91,17 @@ void hal_video_render_scanline_gime(int line, int total_lines,
 // Phase 5: dirty flag — if non-null, skip SPI push when *dirty==false, clear after push
 void hal_video_present_gime(bool* dirty = nullptr);
 
+// --- Debug screenshot capture (WiFi debug server) ---
+// Arm a one-frame capture of the GIME scanline output into a PSRAM buffer.
+// Capture begins at the next line-0 and completes after a full frame.
+void hal_video_capture_arm(void);
+// True once a full frame has been captured since the last arm().
+bool hal_video_capture_ready(void);
+// Captured frame (byte-swapped RGB565, row stride = HAL_CAPTURE_STRIDE px).
+// Returns NULL until ready; sets *width/*height to the active dimensions.
+const uint16_t* hal_video_capture_frame(int* width, int* height);
+#define HAL_CAPTURE_STRIDE 640
+
 // ============================================================
 // Audio subsystem
 // ============================================================
@@ -112,11 +115,8 @@ void hal_audio_write_sample(int16_t left, int16_t right);
 // Set audio volume (0-255)
 void hal_audio_set_volume(uint8_t volume);
 
-// Write single-bit audio (PIA1 port B bit 1)
-void hal_audio_write_bit(bool value);
-
-// Write 6-bit DAC audio (PIA1 port A bits 2-7, value 0-63)
-void hal_audio_write_dac(uint8_t dac6);
+// Set the current audio output level (0-255, computed by src/core/sound.cpp)
+void hal_audio_set_level(uint8_t level);
 
 // Call once per frame from main loop — detects end-of-sound and prints frequency debug
 void hal_audio_debug_tick(void);
@@ -236,6 +236,11 @@ void hal_video_force_repaint(void);
 
 // Toggle FPS overlay
 void hal_video_toggle_fps_overlay(void);
+
+// Show a "VOL [####------] 70%" overlay top-right for ~1.2s, then auto-hide.
+// Same mechanism as the FPS overlay (redrawn via canvas every frame while
+// active). Call with the current volume (0-100) after each F9/F10 press.
+void hal_video_show_volume_osd(uint8_t percent);
 
 // ============================================================
 // Keyboard injection (for integration tests)

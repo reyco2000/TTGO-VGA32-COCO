@@ -4,7 +4,7 @@
  *   (C) 2026 Reinaldo Torres / CoCo Byte Club
  *   https://github.com/reyco2000/TTGO-VGA32-COCO
  *   Based on XRoar , co-developed with Claude Code
- *   MIT License
+ *   GPL-3.0-or-later License
  * ============================================================
  *  File   : sv_menu.cpp
  *  Module : Supervisor OSD main menu — disk/drive options, reset, and settings
@@ -22,9 +22,10 @@
 #include "sv_debug.h"
 #include "sv_keymap.h"
 #include "sv_joystick.h"
+#include "sv_wifi.h"
+#include "../net/wifi_mgr.h"
 #include "../hal/hal.h"
 #include "../../config.h"
-#include "fabgl.h"
 
 // HID usage codes
 #define HID_UP    0x52
@@ -33,16 +34,14 @@
 #define HID_ESC   0x29
 #define HID_F1    0x3A
 
-
-
 static SV_MenuItem menu_items[] = {
     { "Disk Manager",       SV_ACT_MOUNT_DISK,     NULL },
     { "Machine:",           SV_ACT_MACHINE_SELECT, MACHINE_NAME },
     { "Settings",           SV_ACT_SETTINGS,       NULL },
-    { "Reset COCO",         SV_ACT_RESET,          NULL },
+    { "Reset Machine",      SV_ACT_RESET,          NULL },
     { "Debug",              SV_ACT_DEBUG,          NULL },
     { "About",              SV_ACT_ABOUT,          NULL },
-    { "Reset ESP32",        SV_ACT_RESET_ESP32,    NULL },
+    { "Exit to Bootloader",      SV_ACT_EXIT_TO_BOOTLOADER,          NULL }
 };
 
 static const int MENU_COUNT = sizeof(menu_items) / sizeof(menu_items[0]);
@@ -145,29 +144,13 @@ static void execute_action(Supervisor_t* sv, SV_MenuAction action) {
             sv->state = SV_ABOUT;
             sv->needs_redraw = true;
             break;
-        case SV_ACT_RESET_ESP32:
-            sv->prev_state = sv->state;
-            sv->state = SV_CONFIRM_DIALOG;
-            sv->confirm_message = "Reset ESP32?";
-            sv->confirm_yes_selected = false;
-            sv->confirm_callback = [](bool accepted, void* ctx) {
-                    Supervisor_t* s = (Supervisor_t*)ctx;
-                    if (accepted && s->machine) {
-                        hal_audio_shutdown();  // para o timer ISR do DAC
-                        hal_video_shutdown();  // para o FabGL VGA
-                        hal_keyboard_shutdown();  // tenta parar o teclado para não atrapalhar o ESPectrum
-                        delay(50);
-                        ESP.restart();
-                    }
-                    s->state = SV_INACTIVE;
-                    s->needs_redraw = true;
-                };
-                sv->confirm_context = sv;
-                sv->needs_redraw = true;
-            break;
 
         case SV_ACT_RESUME:
             supervisor_toggle();
+            break;
+
+        case SV_ACT_EXIT_TO_BOOTLOADER:
+            ESP.restart();  // No return — jumps to bootloader if BOOT button held.
             break;
 
         default:
@@ -305,12 +288,17 @@ void sv_machine_select_render(Supervisor_t* sv) {
 // applied live via FabGL setLayout(), persisted in NVS.
 // Row 3 opens the Key Mapper screens (sv_keymap.cpp).
 
-#define SETTINGS_COUNT 5
+#define SETTINGS_COUNT 6
 static const char* const SETTINGS_LABELS[SETTINGS_COUNT] = {
-    "Debug Log", "RS-232 Pak", "Keyboard", "Key Mapper", "Mouse Sensitivity"
+    "Debug Log", "RS-232 Pak", "Keyboard", "Key Mapper", "Mouse Sensitivity",
+    "WiFi / Debug"
 };
 
 static void settings_toggle(Supervisor_t* sv, int row) {
+    if (row == 5) {  // WiFi / Debug — opens its own status/control screen
+        sv_wifi_open(sv);
+        return;
+    }
     if (row == 4) {  // Mouse Sensitivity — opens its own live screen
         sv_joystick_open(sv);
         return;
@@ -387,6 +375,7 @@ void sv_settings_render(Supervisor_t* sv) {
         hal_keyboard_layout_name(g_kbd_layout),
         NULL,            // Key Mapper (opens sub-screen)
         sens_str,        // Mouse Sensitivity (current level 1..10)
+        wifi_mgr_state_str(),  // WiFi / Debug (current state)
     };
 
     for (int i = 0; i < SETTINGS_COUNT; i++) {
