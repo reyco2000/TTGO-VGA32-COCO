@@ -22,8 +22,11 @@
 // Build options
 // ============================================================
 
-// Firmware version (reported by the WiFi debug API /api/status).
-#define FIRMWARE_VERSION        "0.8"
+// Firmware version (reported by the WiFi debug API /api/status and shown on
+// the supervisor About screen). Bump both of these together on a release —
+// they are the single source of truth; nothing else should hardcode a version.
+#define FIRMWARE_VERSION        "0.81"
+#define FIRMWARE_BUILD_DATE     "02.09.2026"
 
 // Machine type: 0 = Dragon 32, 1 = Dragon 64, 2 = CoCo 1, 3 = CoCo 2, 4 = CoCo 3
 // Compile-time default only — the active machine is g_machine_type (core/machine.h),

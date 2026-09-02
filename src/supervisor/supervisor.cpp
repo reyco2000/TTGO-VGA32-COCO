@@ -188,7 +188,9 @@ static void about_render(Supervisor_t* s) {
 
     // --- Row 6: Version badge ---
     y += 6;
-    const char* ver_str = "Beta 1.0  Build 28.05.2026";
+    // Built from config.h so the About screen cannot drift out of step with
+    // the version the debug API reports (it read "Beta 1.0" until v0.81).
+    const char* ver_str = "v" FIRMWARE_VERSION "  Build " FIRMWARE_BUILD_DATE;
     int ver_w = tft->textWidth(ver_str) + 16;
     int ver_x = cx - ver_w / 2;
     tft->fillRect(ver_x, y, ver_w, 13, 0x0120);

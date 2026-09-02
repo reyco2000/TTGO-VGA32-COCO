@@ -284,22 +284,19 @@ static const GfxModeInfo gfx_modes[8] = {
     { 256, 192, 32, 1 },  // GM=7: RG6
 };
 
-// 2bpp color sets (4 colors each)
+// 2bpp color sets (4 colors each) — the MC6847's own CG-mode output.
 // CSS=0: green, yellow, blue, red
 // CSS=1: buff, cyan, magenta, orange
 //
-// NOTE: On a real CoCo with NTSC composite output, many games (e.g. Zaxxon)
-// exploit NTSC artifact coloring — alternating pixel patterns in CG modes
-// produce colors through the TV's chroma decoder that differ from the MC6847's
-// raw output. Since we render to a digital display (no NTSC artifacts), we map CSS=1
-// pixel 0 to BLACK instead of Buff/White. This makes games that use pixel 0
-// as "background" display correctly, matching the visual appearance on a real
-// CoCo TV (where artifact coloring darkens the base color).
+// NOTE: NTSC artifact coloring is NOT modelled here, and must not be. Artifacts
+// arise in the 1bpp RG modes, where the pixel clock runs at the colour-subcarrier
+// rate and the TV's chroma decoder invents colour from alternating pixels. CG
+// (2bpp) pixels are half that rate and already carry a colour code, so a real
+// CoCo shows these exact hues on a composite TV. Substituting an artifact quad
+// (black/blue/orange/white) here mis-colours every CG6 title — e.g. Pooyan's
+// buff/cyan/magenta/orange screen rendered as black/blue/orange/white.
 static const uint8_t color_set_0[4] = { VDG_COLOR_GREEN, VDG_COLOR_YELLOW, VDG_COLOR_BLUE, VDG_COLOR_RED };
-// NTSC artifact color approximation for digital display:
-// On a real CoCo TV, CG CSS=1 pixel pairs produce artifact colors:
-//   00 = Black, 01 = Blue, 10 = Orange, 11 = White
-static const uint8_t color_set_1[4] = { VDG_COLOR_BLACK, VDG_COLOR_BLUE, VDG_COLOR_ORANGE, VDG_COLOR_WHITE };
+static const uint8_t color_set_1[4] = { VDG_COLOR_WHITE, VDG_COLOR_CYAN,  VDG_COLOR_MAGENTA, VDG_COLOR_ORANGE };
 
 // 1bpp color pairs (matches XRoar vdg_palette)
 // CSS=0: dark green bg, bright green fg
@@ -330,8 +327,33 @@ static void render_graphics_scanline(MC6847* vdg, int scanline) {
                 }
             }
         }
+    } else if (info.width == 256 && css) {
+        // RG6 (PMODE 4) with CSS=1 — NTSC artifact colour.
+        //
+        // This is the one mode where artifacting is real: RG6 clocks pixels at
+        // the NTSC colour-subcarrier rate, so a composite TV's chroma decoder
+        // reads adjacent pixel PAIRS as colour rather than luma. Games drawn
+        // for it (Zaxxon, Pitfall II, ...) are near-unreadable in monochrome,
+        // so it is always applied, matching XRoar's default for NTSC machines.
+        //
+        // Pair value -> colour, for the phase real CoCos most commonly came up
+        // in. (On real hardware the phase was random at power-on, which is why
+        // owners power-cycled until a game looked right.)
+        static const uint8_t artifact[4] = {
+            VDG_COLOR_BLACK, VDG_COLOR_BLUE, VDG_COLOR_ORANGE, VDG_COLOR_WHITE
+        };
+        for (int byte_idx = 0; byte_idx < info.bytes_per_row; byte_idx++) {
+            uint8_t b = row_data[byte_idx];
+            int x = byte_idx * 8;
+            for (int px = 0; px < 4; px++) {
+                uint8_t color = artifact[(b >> (6 - px * 2)) & 0x03];
+                vdg->line_buffer[x + px * 2]     = color;
+                vdg->line_buffer[x + px * 2 + 1] = color;
+            }
+        }
     } else {
-        // 1 bit per pixel, 2 colors
+        // 1 bit per pixel, 2 colors. The lower-resolution RG modes clock at
+        // half the subcarrier rate and so produce no artifacts.
         uint8_t fg, bg;
         if (css) {
             fg = VDG_COLOR_BRIGHT_ORANGE;

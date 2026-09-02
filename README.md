@@ -4,7 +4,7 @@
 
 A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the **[LilyGo TTGO VGA32 v1.4](https://lilygo.cc/en-us/products/fabgl-vga32?_pos=1&_sid=4c095f59b&_ss=r)** board (ESP32-WROVER). Inspired on  [XRoar](http://www.6809.org.uk/xroar/) emulator.
 
-**v0.8 — July 1, 2026** (LilyGo TTGO VGA32 port)
+**v0.81 — September 2, 2026** (LilyGo TTGO VGA32 port)
 
 ## Features
 
@@ -103,7 +103,7 @@ If you just want to flash the emulator without building from source, use the pre
 2. Open [ESP Web Tool](https://esptool.spacehuhn.com/) in a Chrome or Edge browser
 3. Click **Connect** and select the board's serial port
 4. Set the flash offset to **0x0000**
-5. Choose the file `TTGO-VGA32-CoCo-0.8-firmware.bin` from this repository
+5. Choose the file `TTGO-VGA32-CoCo-0.81-firmware.bin` from this repository
 6. Click **Program** and wait for the flash to complete
 
 > Hold the **BOOT** button on the board while clicking Connect if the browser cannot reach the device.
@@ -294,13 +294,42 @@ All technical documentation is in the `docs/` directory:
 - DMK disk format is recognized but not mountable
 - Max 128 file entries in the SD card browser
 - Joystick 2 (left port) is a stub — returns centered, button released; only Joystick 1 is active via PS/2 mouse
-- NTSC TV emulation is a stub only
+- NTSC composite simulation covers RG6 (PMODE 4) artifact colour only — there is no
+  chroma/luma bleed modelling for the other modes
 - Supervisor OSD was sized for 320×240; on the 640×200 VGA surface its layout sits in the upper-left region
 
 ## Planned
 
 - Testing and adjustment of RS-232 Pak support
 - Migrate to an MQTT-based MCP Bridge gateway (replacing the current WiFi API)
+
+## Changelog
+
+### v0.81 — September 2, 2026
+
+**CoCo 2 VDG colour accuracy.** Two bugs in the MC6847 path cancelled each other
+out, so artifact-colour games looked correct while true 4-colour games did not.
+
+- **PMODE 4 (RG6) is no longer rendered as PMODE 3 (CG6).** The VDG's GM0–GM2
+  mode bits were being taken from the SAM's V0–V2. On real hardware they come
+  from PIA1 PB4–PB6; the SAM's V bits only describe fetch geometry, which CG6
+  and RG6 share (both `V=110`, 6144 bytes, 32 per row), so the SAM cannot tell
+  the two apart. Every PMODE 4 screen was being decoded as 2bpp colour.
+
+- **CG6 with CSS=1 now uses the MC6847's real palette** — buff, cyan, magenta,
+  orange — in place of the NTSC artifact quad. Fixes titles such as *Pooyan*,
+  which rendered as black/blue/orange/white.
+
+- **NTSC artifact colour is now emulated where it actually occurs:** the 1bpp
+  RG6 path, where the pixel clock runs at the colour-subcarrier rate and a
+  composite TV decodes adjacent pixel *pairs* as black / blue / orange / white.
+  Always on, matching XRoar's default for NTSC machines — games such as
+  *Zaxxon* are drawn for it and are near-unreadable without it. The
+  lower-resolution RG modes clock at half that rate and stay monochrome.
+
+Verified against XRoar on hardware: the *Pooyan* title screen now matches the
+reference pixel-for-pixel (0 of 49152 pixel codes differ), and injected RG6 and
+CG6 test patterns produce the correct palette in each mode.
 
 ## ⚠️ Vibe Coding Alert
 
