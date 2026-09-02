@@ -714,8 +714,15 @@ static void update_vdg_mode_coco2(Machine* m) {
     if (pb & 0x80) vdg_mode |= VDG_AG;
     // CSS from PIA1 PB3
     if (pb & 0x08) vdg_mode |= VDG_CSS;
-    // GM0-GM2 from SAM V0-V2
-    vdg_mode |= (m->sam.vdg_mode & 0x07);  // GM0=bit0, GM1=bit1, GM2=bit2
+    // GM0-GM2 from PIA1 PB4-PB6 — the VDG's own mode pins.
+    //
+    // These must NOT come from the SAM's V0-V2. The SAM cannot distinguish
+    // CG6 from RG6: PMODE 3 and PMODE 4 are both V=110, because the SAM only
+    // needs to know the fetch geometry (6144 bytes, 32 per row) which the two
+    // modes share. Sourcing GM from the SAM therefore renders every RG6
+    // (PMODE 4) screen as CG6 — e.g. Zaxxon's 1bpp artifact display decoded as
+    // 2bpp colour. The SAM still drives addressing (see bytes_per_row below).
+    vdg_mode |= (pb >> 4) & 0x07;  // PB4=GM0, PB5=GM1, PB6=GM2
     mc6847_set_mode(&m->vdg, vdg_mode);
 }
 
