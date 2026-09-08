@@ -94,6 +94,11 @@
 // 80-column text / hi-res text modes.
 #define GIME_VGA_DOWNSCALE      0
 
+// OPT (Nível 2): pack the GIME scanline blit into aligned 32-bit stores instead
+// of scattered per-byte `row[x^2]=..` writes. Same pixels, ~4x fewer store ops.
+// Set to 0 to fall back to the proven per-byte path if colours/geometry look off.
+#define GIME_FUSED_BLIT         1
+
 // VGA resistor-ladder DAC pins (FabGL configures these in setup)
 #define PIN_VGA_R0              21
 #define PIN_VGA_R1              22

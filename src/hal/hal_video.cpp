@@ -370,24 +370,73 @@ void hal_video_render_scanline_gime(int line, int total_lines,
             row[(x + 1) ^ 2] = b;
         }
 #else
-        for (int x = 0; x < vp_w; x++) {
-            // pixels[] is already the raw VGA byte (GIME core emits it directly)
-            row[x ^ 2] = pixels[x];
+  #if GIME_FUSED_BLIT
+        // OPT: pack 4 source bytes into one aligned 32-bit store. The framebuffer
+        // wants pixel p at byte p^2, so within each aligned quad the LE word is
+        // p2 | p3<<8 | p0<<16 | p1<<24 (verified against the per-byte loop).
+        if ((((uintptr_t)row) & 3) == 0 && (vp_w & 3) == 0) {
+            volatile uint32_t* w = (volatile uint32_t*)row;
+            for (int x = 0; x < vp_w; x += 4) {
+                uint32_t p0 = pixels[x], p1 = pixels[x + 1];
+                uint32_t p2 = pixels[x + 2], p3 = pixels[x + 3];
+                w[x >> 2] = p2 | (p3 << 8) | (p0 << 16) | (p1 << 24);
+            }
+        } else
+  #endif
+        {
+            for (int x = 0; x < vp_w; x++) {
+                // pixels[] is already the raw VGA byte (GIME core emits it directly)
+                row[x ^ 2] = pixels[x];
+            }
         }
 #endif
     } else if (width * 2 == vp_w) {
         x_out_start = 0;
         x_out_end = vp_w;
-        for (int x = 0; x < width; x++) {
-            uint8_t b = pixels[x];
-            int dx0 = x * 2;
-            row[dx0 ^ 2] = b;
-            row[(dx0 + 1) ^ 2] = b;
+#if GIME_FUSED_BLIT
+        // OPT: dup=2 packed blit — 4 source pixels -> 8 output cols -> 2 words.
+        if ((((uintptr_t)row) & 3) == 0 && (width & 3) == 0) {
+            volatile uint32_t* w = (volatile uint32_t*)row;
+            for (int x = 0; x < width; x += 4) {
+                uint32_t p0 = pixels[x], p1 = pixels[x + 1];
+                uint32_t p2 = pixels[x + 2], p3 = pixels[x + 3];
+                int wj = (x * 2) >> 2;
+                w[wj]     = p1 | (p1 << 8) | (p0 << 16) | (p0 << 24);
+                w[wj + 1] = p3 | (p3 << 8) | (p2 << 16) | (p2 << 24);
+            }
+        } else
+#endif
+        {
+            for (int x = 0; x < width; x++) {
+                uint8_t b = pixels[x];
+                int dx0 = x * 2;
+                row[dx0 ^ 2] = b;
+                row[(dx0 + 1) ^ 2] = b;
+            }
         }
     } else if (width < vp_w) {
         int x_off = (vp_w - width) / 2;
         x_out_start = x_off;
         x_out_end   = x_off + width;
+#if GIME_FUSED_BLIT
+        // OPT: centered blit in aligned 32-bit stores. Active span uses the same
+        // p2|p3<<8|p0<<16|p1<<24 packing; borders are 4 identical bytes per word.
+        // Requires x_off and width to be 4-aligned (true for the common 512@640);
+        // otherwise fall through to the per-byte path below.
+        if ((((uintptr_t)row) & 3) == 0 && (x_off & 3) == 0 && (width & 3) == 0 && (vp_w & 3) == 0) {
+            volatile uint32_t* w = (volatile uint32_t*)row;
+            uint32_t bw = (uint32_t)border_byte;
+            bw |= (bw << 8) | (bw << 16) | (bw << 24);
+            for (int o = 0; o < x_off; o += 4)          w[o >> 2] = bw;              // left border
+            for (int x = 0; x < width; x += 4) {                                     // active
+                uint32_t p0 = pixels[x], p1 = pixels[x + 1];
+                uint32_t p2 = pixels[x + 2], p3 = pixels[x + 3];
+                w[(x_off + x) >> 2] = p2 | (p3 << 8) | (p0 << 16) | (p1 << 24);
+            }
+            for (int o = x_off + width; o < vp_w; o += 4) w[o >> 2] = bw;            // right border
+            return;
+        }
+#endif
         // Left border
         for (int x = 0; x < x_off; x++) row[x ^ 2] = border_byte;
         for (int x = 0; x < width; x++) {
