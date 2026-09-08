@@ -153,7 +153,7 @@ void setup() {
             "No valid Basic & Disk Color Basic ROMs.",
             missline,
             "",
-            "Place ROMs in the /roms directory of the SD:",
+            "Place ROMs in the /COCO/rom directory of the SD:",
             (g_machine_type == 4) ? "  coco3.rom, disk11.rom"
                                   : "  bas13.rom, extbas11.rom, disk11.rom",
             "",
@@ -164,6 +164,11 @@ void setup() {
 
     // Initialize VGA display
     hal_video_init();
+
+    // OPT: hand the GIME renderer the raw-VGA-byte palette LUT so it writes
+    // framebuffer bytes directly (no RGB565 intermediate). Must be after
+    // hal_video_init() (LUT built) and before the first frame.
+    tcc1014_set_raw_lut(&coco.gime, hal_video_get_gime_raw_lut());
 
     // Cold reset
     machine_reset(&coco);

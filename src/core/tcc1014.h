@@ -104,7 +104,9 @@ typedef struct TCC1014 {
 
     // --- Palette (from tcc1014.c:228-229) ---
     uint8_t  palette_reg[16]; // $FFB0-$FFBF: 6-bit RGBRGB
-    uint16_t palette_rgb565[16]; // Pre-computed RGB565 palette
+    uint16_t palette_rgb565[16]; // Pre-computed RGB565 palette (kept for screenshots)
+    uint8_t  palette_raw[16];    // OPT: slot -> raw VGA byte (emitted straight to line_buffer)
+    const uint8_t* raw_lut;      // OPT: hal-provided 64-entry GIME colour -> raw VGA byte
 
     // --- SAM compatibility (from tcc1014.c:231-248) ---
     uint16_t SAM_register;   // Full 16-bit SAM state
@@ -166,7 +168,7 @@ typedef struct TCC1014 {
     // --- Scanline output buffer ---
     // XRoar uses pixel_data[912] for full scanline with borders.
     // ESP32: only active pixels, palette indices for HAL.
-    uint16_t line_buffer[640]; // OPT-C4: pre-converted RGB565 (byte-swapped for direct sprite writes)
+    uint8_t  line_buffer[640]; // OPT: pre-converted raw VGA bytes (was RGB565) — written straight to the framebuffer
     uint16_t line_width;       // Actual pixel width of current line
 
     // --- External memory pointers (set by machine) ---
@@ -204,6 +206,11 @@ uint8_t tcc1014_read_mmu(TCC1014* gime, uint8_t offset);
 
 // Palette write
 void tcc1014_write_palette(TCC1014* gime, uint8_t offset, uint8_t val);
+
+// OPT: hand the core the hal's 64-entry GIME-colour -> raw-VGA-byte table so the
+// renderer can emit framebuffer bytes directly (no RGB565 intermediate). Call
+// once after hal_video_init() and before the first frame.
+void tcc1014_set_raw_lut(TCC1014* gime, const uint8_t* lut64);
 
 // Palette read
 uint8_t tcc1014_read_palette(TCC1014* gime, uint8_t offset);

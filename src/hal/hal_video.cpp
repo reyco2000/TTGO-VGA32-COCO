@@ -34,18 +34,18 @@ static bool                 display_available = false;
 // 64-entry GIME palette → FabGL raw-pixel byte (with HSYNC/VSYNC bits set).
 static uint8_t              s_gime_raw_lut[64];
 
-// Phase 1 active-pixel LUT: byte-swapped RGB565 (as emitted by the GIME core,
-// OPT-C4) → FabGL raw VGA byte. Collapses the per-pixel
-//   bswap16 → rgb565_to_rgb222 → createRawPixel
-// conversion chain to a single indexed load in the scanline loop. 64 KB in
-// internal DRAM; built once in init_gime_lut().
-// 64KB GIME pixel LUT lives in PSRAM (allocated in init_gime_lut) so the WiFi
-// driver has enough internal DMA-capable DRAM for its RX/TX buffers. CoCo 3's
-// on-screen palette is tiny, so the touched LUT entries stay cache-resident.
-static uint8_t*             s_gime_pixel_raw_lut = nullptr;
+// OPT: reverse table for the screenshot path only. The GIME core now emits raw
+// VGA bytes straight into line_buffer (no RGB565 intermediate), so the screenshot
+// capture — which needs byte-swapped RGB565 for the PNG writer — maps each raw
+// byte back through this 256-entry table. Only the 64 raw bytes the GIME palette
+// can produce are populated; the rest stay 0. Built once in init_gime_lut().
+static uint16_t             s_raw_to_rgb565[256] = {0};
 
 // FPS overlay state
 static bool     fps_overlay_enabled = false;
+
+// Serial FPS telemetry is always active; screen overlay remains optional.
+#define FPS_SERIAL_TELEMETRY 1
 static uint32_t fps_frame_count = 0;
 static uint32_t fps_last_time = 0;
 static float    fps_value = 0.0f;
@@ -53,7 +53,8 @@ static float    fps_value = 0.0f;
 // Tick + render the FPS overlay according to FPS_OVERLAY_MODE in config.h.
 // Called from hal_video_present() / hal_video_present_gime() once per frame.
 static void fps_tick_and_draw(void) {
-    if (!fps_overlay_enabled) return;
+    // Count every presented frame. The screen overlay can be disabled
+    // independently; Serial telemetry must not depend on F5.
     fps_frame_count++;
     uint32_t now = millis();
     uint32_t elapsed = now - fps_last_time;
@@ -61,11 +62,12 @@ static void fps_tick_and_draw(void) {
         fps_value = (float)fps_frame_count * 1000.0f / (float)elapsed;
         fps_frame_count = 0;
         fps_last_time = now;
-#if (FPS_OVERLAY_MODE & FPS_OVERLAY_SERIAL)
+#if FPS_SERIAL_TELEMETRY
         DEBUG_PRINTF("FPS: %.1f", fps_value);
 #endif
     }
 #if (FPS_OVERLAY_MODE & FPS_OVERLAY_SCREEN)
+    if (!fps_overlay_enabled) return;
     // Draw the current fps_value into the top-left of the framebuffer.
     // Drawn every frame because the scanline render path overwrites the
     // overlay area on the next frame's render — re-drawing here keeps it
@@ -153,20 +155,24 @@ static void init_gime_lut(void) {
     for (int i = 0; i < 64; i++) {
         s_gime_raw_lut[i] = s_vga.createRawPixel(gime_idx_to_rgb222(i));
     }
-    // Active-pixel LUT: index is the raw byte-swapped RGB565 value the core
-    // emits, so render-time lookup is s_gime_pixel_raw_lut[pixels[x]].
-    if (!s_gime_pixel_raw_lut) {
-        s_gime_pixel_raw_lut = (uint8_t*)ps_malloc(65536);
-        if (!s_gime_pixel_raw_lut) {
-            DEBUG_PRINT("  Video: FATAL — GIME LUT ps_malloc(65536) failed");
-            return;
-        }
-    }
-    for (int v = 0; v < 65536; v++) {
-        uint16_t c = __builtin_bswap16((uint16_t)v);
-        s_gime_pixel_raw_lut[v] = s_vga.createRawPixel(rgb565_to_rgb222(c));
+    // Reverse table for screenshots: raw VGA byte -> byte-swapped RGB565. The
+    // display is RGB222, so we expand each GIME colour's 2-bit channels to 565.
+    // Only the 64 raw bytes the palette can emit get entries; the rest stay 0.
+    for (int i = 0; i < 64; i++) {
+        uint8_t r = (uint8_t)(((i >> 4) & 2) | ((i >> 2) & 1));  // 0..3
+        uint8_t g = (uint8_t)(((i >> 3) & 2) | ((i >> 1) & 1));
+        uint8_t b = (uint8_t)(((i >> 2) & 2) | ((i >> 0) & 1));
+        uint16_t r5 = (uint16_t)(r * 31 / 3);
+        uint16_t g6 = (uint16_t)(g * 63 / 3);
+        uint16_t b5 = (uint16_t)(b * 31 / 3);
+        uint16_t v  = (uint16_t)((r5 << 11) | (g6 << 5) | b5);
+        s_raw_to_rgb565[s_gime_raw_lut[i]] = (uint16_t)((v << 8) | (v >> 8));  // byte-swap
     }
 }
+
+// OPT: expose the GIME colour -> raw VGA byte table so the core can emit
+// framebuffer bytes directly (see tcc1014_set_raw_lut).
+const uint8_t* hal_video_get_gime_raw_lut(void) { return s_gime_raw_lut; }
 
 void hal_video_init(void) {
     DEBUG_PRINT("  Video: FabGL VGA init...");
@@ -251,8 +257,8 @@ static int           s_cap_h_pending = 0;
 
 void hal_video_capture_arm(void) {
     if (!s_cap_buf) {
-        s_cap_buf = (uint16_t*)ps_malloc((size_t)HAL_CAP_W * HAL_CAP_H * sizeof(uint16_t));
-        if (!s_cap_buf) { DEBUG_PRINT("capture: ps_malloc failed"); return; }
+        s_cap_buf = (uint16_t*)malloc((size_t)HAL_CAP_W * HAL_CAP_H * sizeof(uint16_t));
+        if (!s_cap_buf) { DEBUG_PRINT("capture: malloc failed"); return; }
     }
     s_cap_ready     = false;
     s_cap_h_pending = 0;
@@ -271,7 +277,7 @@ const uint16_t* hal_video_capture_frame(int* width, int* height) {
 // Capture one scanline of GIME output if a capture is armed. Independent of the
 // display output path (runs before the viewport clipping / early returns).
 static inline void capture_scanline(int line, int total_lines,
-                                    const uint16_t* pixels, int width) {
+                                    const uint8_t* pixels, int width) {
     if (!s_cap_armed || !s_cap_buf) return;
     if (line == 0) {
         s_cap_h_pending = (total_lines > HAL_CAP_H) ? HAL_CAP_H : total_lines;
@@ -279,7 +285,9 @@ static inline void capture_scanline(int line, int total_lines,
     }
     if (s_cap_h_pending == 0 || line < 0 || line >= s_cap_h_pending) return;
     int w = (width > HAL_CAP_W) ? HAL_CAP_W : width;
-    memcpy(s_cap_buf + (size_t)line * HAL_CAP_W, pixels, (size_t)w * sizeof(uint16_t));
+    // pixels[] are raw VGA bytes now — reverse-map to byte-swapped RGB565 for the PNG.
+    uint16_t* dst = s_cap_buf + (size_t)line * HAL_CAP_W;
+    for (int x = 0; x < w; x++) dst[x] = s_raw_to_rgb565[pixels[x]];
     if (line == s_cap_h_pending - 1) {
         s_cap_h     = s_cap_h_pending;
         s_cap_ready = true;
@@ -329,7 +337,7 @@ static inline void capture_scanline_vdg(int line, const uint8_t* pixels, int wid
 // pixel to a raw VGA byte. Width is 320 or 640 (post-OPT-C4).
 void hal_video_render_scanline_gime(int line, int total_lines,
                                      uint8_t border_colour,
-                                     const uint16_t* pixels,
+                                     const uint8_t* pixels,
                                      int width, const uint16_t* palette) {
     (void)palette;
     if (!display_available || !pixels || width <= 0) return;
@@ -357,21 +365,21 @@ void hal_video_render_scanline_gime(int line, int total_lines,
         // Phase 2: render 640-wide source at 320 + pixel-double horizontally.
         // Halves the per-pixel LUT lookups (one lookup feeds two output cols).
         for (int x = 0; x < vp_w; x += 2) {
-            uint8_t b = s_gime_pixel_raw_lut[pixels[x]];
+            uint8_t b = pixels[x];
             row[x ^ 2]       = b;
             row[(x + 1) ^ 2] = b;
         }
 #else
         for (int x = 0; x < vp_w; x++) {
-            // pixels[] is byte-swapped RGB565 (OPT-C4) — LUT does unswap+convert
-            row[x ^ 2] = s_gime_pixel_raw_lut[pixels[x]];
+            // pixels[] is already the raw VGA byte (GIME core emits it directly)
+            row[x ^ 2] = pixels[x];
         }
 #endif
     } else if (width * 2 == vp_w) {
         x_out_start = 0;
         x_out_end = vp_w;
         for (int x = 0; x < width; x++) {
-            uint8_t b = s_gime_pixel_raw_lut[pixels[x]];
+            uint8_t b = pixels[x];
             int dx0 = x * 2;
             row[dx0 ^ 2] = b;
             row[(dx0 + 1) ^ 2] = b;
@@ -383,7 +391,7 @@ void hal_video_render_scanline_gime(int line, int total_lines,
         // Left border
         for (int x = 0; x < x_off; x++) row[x ^ 2] = border_byte;
         for (int x = 0; x < width; x++) {
-            row[(x_off + x) ^ 2] = s_gime_pixel_raw_lut[pixels[x]];
+            row[(x_off + x) ^ 2] = pixels[x];
         }
         // Right border
         for (int x = x_off + width; x < vp_w; x++) row[x ^ 2] = border_byte;
@@ -394,7 +402,7 @@ void hal_video_render_scanline_gime(int line, int total_lines,
         x_out_end = vp_w;
         for (int x = 0; x < vp_w; x++) {
             int sx = x * width / vp_w;
-            row[x ^ 2] = s_gime_pixel_raw_lut[pixels[sx]];
+            row[x ^ 2] = pixels[sx];
         }
     }
     (void)x_out_start; (void)x_out_end;

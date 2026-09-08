@@ -68,7 +68,7 @@
 #define SERIAL_MODE_FIRST_BOOT_DEFAULT  1
 
 // Performance probe — esp_timer_get_time() based hot-path measurement.
-#define PERF_PROBE_ENABLED      0
+#define PERF_PROBE_ENABLED      1
 
 // Target frames per second (NTSC=60, PAL=50)
 #define TARGET_FPS              60

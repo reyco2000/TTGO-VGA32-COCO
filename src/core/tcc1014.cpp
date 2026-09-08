@@ -134,9 +134,11 @@ void tcc1014_reset(TCC1014* gime) {
     for (int i = 0; i < 16; i++) {
         tcc1014_write_register(gime, i, 0);
         gime->palette_reg[i] = 0;
-        // OPT-C4: byte-swapped RGB565 for direct sprite-FB writes.
+        // OPT-C4: byte-swapped RGB565 for direct sprite-FB writes (screenshots).
         uint16_t native0 = gime_rgb565_lut[0];
         gime->palette_rgb565[i] = (uint16_t)((native0 >> 8) | (native0 << 8));
+        // OPT: raw VGA byte emitted straight to the framebuffer.
+        gime->palette_raw[i] = gime->raw_lut ? gime->raw_lut[0] : 0;
     }
 
     // Reset SAM register — from tcc1014.c:668
@@ -509,7 +511,17 @@ void tcc1014_write_palette(TCC1014* gime, uint8_t offset, uint8_t val) {
     // into the framebuffer (byte-swapped format used by the VGA LUT).
     uint16_t native = gime_rgb565_lut[val & 0x3F];
     gime->palette_rgb565[offset] = (uint16_t)((native >> 8) | (native << 8));
+    // OPT: parallel raw-VGA-byte palette used by the renderer's hot path.
+    gime->palette_raw[offset] = gime->raw_lut ? gime->raw_lut[val & 0x3F] : 0;
     gime->dirty_frame = true;
+}
+
+// OPT: bind the hal's GIME-colour -> raw-VGA-byte LUT and re-derive palette_raw
+// from the current palette registers (so colours set before binding are correct).
+void tcc1014_set_raw_lut(TCC1014* gime, const uint8_t* lut64) {
+    gime->raw_lut = lut64;
+    for (int i = 0; i < 16; i++)
+        gime->palette_raw[i] = lut64 ? lut64[gime->palette_reg[i] & 0x3F] : 0;
 }
 
 uint8_t tcc1014_read_palette(TCC1014* gime, uint8_t offset) {
@@ -721,7 +733,7 @@ static inline uint8_t fetch_byte_vram(TCC1014* g) {
 // Renders one scanline of active-area video to line_buffer[].
 // Handles VDG compat mode (SG/CG/RG) and CoCo3 native (text/gfx).
 // Output is palette register values (6-bit GIME color indices),
-// NOT raw palette indices — the HAL maps these through palette_rgb565[].
+// OPT: these are raw VGA bytes (via palette_raw[]) written straight to the FB.
 //
 // Key difference from XRoar: no beam-tracking or mid-scanline updates.
 // We render the full line in one pass, writing only active pixels.
@@ -733,7 +745,7 @@ void tcc1014_render_scanline(TCC1014* gime, unsigned scanline) {
     if (!gime->vertical.active_area || !gime->ram)
         return;
 
-    uint16_t* pixel = gime->line_buffer;   // OPT-C4: RGB565 (byte-swapped)
+    uint8_t* pixel = gime->line_buffer;    // OPT: raw VGA bytes written straight to FB
     unsigned npixels = 0;
 
     // Reset horizontal offset for this scanline
@@ -845,31 +857,31 @@ void tcc1014_render_scanline(TCC1014* gime, unsigned scanline) {
         // Process 4 bits at a time, twice (high nibble then low nibble)
 
         for (int i = 2; i > 0; --i) {
-            // OPT-C4: emit pre-converted RGB565 directly (byte-swapped for sprite FB).
-            uint16_t c0, c1, c2, c3;
+            // OPT: emit the raw VGA byte directly (no RGB565 intermediate).
+            uint8_t c0, c1, c2, c3;
 
             if (gime->COCO) {
                 // VDG compatible mode — tcc1014.c:1388-1412
                 switch (render_mode) {
                 case TCC1014_RENDER_SG: default:
-                    c0 = c1 = c2 = c3 = gime->palette_rgb565[(gdata & 0x02) ? fg_colour : bg_colour];
+                    c0 = c1 = c2 = c3 = gime->palette_raw[(gdata & 0x02) ? fg_colour : bg_colour];
                     gdata <<= 1;
                     break;
                 case TCC1014_RENDER_CG:
-                    c0 = c1 = gime->palette_rgb565[cg_colours + ((gdata >> 6) & 3)];
-                    c2 = c3 = gime->palette_rgb565[cg_colours + ((gdata >> 4) & 3)];
+                    c0 = c1 = gime->palette_raw[cg_colours + ((gdata >> 6) & 3)];
+                    c2 = c3 = gime->palette_raw[cg_colours + ((gdata >> 4) & 3)];
                     gdata <<= 4;
                     break;
                 case TCC1014_RENDER_RG:
-                    c0 = gime->palette_rgb565[(gdata & 0x80) ? fg_colour : bg_colour];
-                    c1 = gime->palette_rgb565[(gdata & 0x40) ? fg_colour : bg_colour];
-                    c2 = gime->palette_rgb565[(gdata & 0x20) ? fg_colour : bg_colour];
-                    c3 = gime->palette_rgb565[(gdata & 0x10) ? fg_colour : bg_colour];
+                    c0 = gime->palette_raw[(gdata & 0x80) ? fg_colour : bg_colour];
+                    c1 = gime->palette_raw[(gdata & 0x40) ? fg_colour : bg_colour];
+                    c2 = gime->palette_raw[(gdata & 0x20) ? fg_colour : bg_colour];
+                    c3 = gime->palette_raw[(gdata & 0x10) ? fg_colour : bg_colour];
                     gdata <<= 4;
                     break;
                 case TCC1014_RENDER_RG2:
-                    c0 = c1 = gime->palette_rgb565[(gdata & 0x40) ? fg_colour : bg_colour];
-                    c2 = c3 = gime->palette_rgb565[(gdata & 0x10) ? fg_colour : bg_colour];
+                    c0 = c1 = gime->palette_raw[(gdata & 0x40) ? fg_colour : bg_colour];
+                    c2 = c3 = gime->palette_raw[(gdata & 0x10) ? fg_colour : bg_colour];
                     gdata <<= 4;
                     break;
                 }
@@ -880,25 +892,25 @@ void tcc1014_render_scanline(TCC1014* gime, unsigned scanline) {
                 if (gime->BP) {
                     switch (gime->CRES) {
                     case 0: default:
-                        c0 = gime->palette_rgb565[(gdata >> 7) & 1];
-                        c1 = gime->palette_rgb565[(gdata >> 6) & 1];
-                        c2 = gime->palette_rgb565[(gdata >> 5) & 1];
-                        c3 = gime->palette_rgb565[(gdata >> 4) & 1];
+                        c0 = gime->palette_raw[(gdata >> 7) & 1];
+                        c1 = gime->palette_raw[(gdata >> 6) & 1];
+                        c2 = gime->palette_raw[(gdata >> 5) & 1];
+                        c3 = gime->palette_raw[(gdata >> 4) & 1];
                         break;
                     case 1:
-                        c0 = c1 = gime->palette_rgb565[(gdata >> 6) & 3];
-                        c2 = c3 = gime->palette_rgb565[(gdata >> 4) & 3];
+                        c0 = c1 = gime->palette_raw[(gdata >> 6) & 3];
+                        c2 = c3 = gime->palette_raw[(gdata >> 4) & 3];
                         break;
                     case 2: case 3:
-                        c0 = c1 = c2 = c3 = gime->palette_rgb565[(gdata >> 4) & 15];
+                        c0 = c1 = c2 = c3 = gime->palette_raw[(gdata >> 4) & 15];
                         break;
                     }
                 } else {
                     // CoCo3 text — tcc1014.c:1442-1447
-                    c0 = gime->palette_rgb565[(gdata & 0x80) ? fg_colour : bg_colour];
-                    c1 = gime->palette_rgb565[(gdata & 0x40) ? fg_colour : bg_colour];
-                    c2 = gime->palette_rgb565[(gdata & 0x20) ? fg_colour : bg_colour];
-                    c3 = gime->palette_rgb565[(gdata & 0x10) ? fg_colour : bg_colour];
+                    c0 = gime->palette_raw[(gdata & 0x80) ? fg_colour : bg_colour];
+                    c1 = gime->palette_raw[(gdata & 0x40) ? fg_colour : bg_colour];
+                    c2 = gime->palette_raw[(gdata & 0x20) ? fg_colour : bg_colour];
+                    c3 = gime->palette_raw[(gdata & 0x10) ? fg_colour : bg_colour];
                 }
                 gdata <<= 4;
             }

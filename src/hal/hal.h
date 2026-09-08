@@ -84,8 +84,12 @@ void hal_video_present(const uint8_t* ram, uint16_t vdg_base, uint8_t vdg_mode);
 //   palette:  unused (retained for ABI stability; pass nullptr)
 void hal_video_render_scanline_gime(int line, int total_lines,
                                      uint8_t border_colour,
-                                     const uint16_t* pixels,
+                                     const uint8_t* pixels,
                                      int width, const uint16_t* palette);
+
+// OPT: GIME colour (0..63) -> raw VGA byte LUT, handed to the core via
+// tcc1014_set_raw_lut() so the renderer emits framebuffer bytes directly.
+const uint8_t* hal_video_get_gime_raw_lut(void);
 
 // Present the completed CoCo3 frame to the display
 // Phase 5: dirty flag — if non-null, skip SPI push when *dirty==false, clear after push

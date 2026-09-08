@@ -173,6 +173,8 @@ bool hal_storage_init(void) {
     // Check if ROM directory exists
     char romPath[32];
     snprintf(romPath, sizeof(romPath), "%s", ROM_BASE_PATH);
+    DEBUG_PRINTF("***************  Checking for ROM directory '%s'...", romPath);
+
     if (SD.exists(romPath)) {
         DEBUG_PRINTF("  ROM directory '%s' found:", romPath);
         File romDir = SD.open(romPath);
