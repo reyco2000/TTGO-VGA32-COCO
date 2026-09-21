@@ -4,7 +4,7 @@
 
 A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the **[LilyGo TTGO VGA32 v1.4](https://lilygo.cc/en-us/products/fabgl-vga32?_pos=1&_sid=4c095f59b&_ss=r)** board (ESP32-WROVER). Inspired on  [XRoar](http://www.6809.org.uk/xroar/) emulator.
 
-**v0.81 — September 2, 2026** (LilyGo TTGO VGA32 port)
+**v0.9.0 — September 21, 2026** (LilyGo TTGO VGA32 port)
 
 ## Features
 
@@ -103,12 +103,42 @@ If you just want to flash the emulator without building from source, use the pre
 2. Open [ESP Web Tool](https://esptool.spacehuhn.com/) in a Chrome or Edge browser
 3. Click **Connect** and select the board's serial port
 4. Set the flash offset to **0x0000**
-5. Choose the file `TTGO-VGA32-CoCo-0.81-firmware.bin` from this repository
+5. Choose the file `TTGO-VGA32-CoCo-0.9.0-firmware.bin` from this repository
 6. Click **Program** and wait for the flash to complete
 
 > Hold the **BOOT** button on the board while clicking Connect if the browser cannot reach the device.
 
 Once flashed, prepare your SD card with the required ROM files (see [SD Card Setup](#sd-card-setup) above) and power-cycle the board.
+
+---
+
+### Running under ESP32_Bootloader (SD-card menu)
+
+Since **v0.9.0** the emulator also ships as an [ESP32_Bootloader](https://github.com/ESP-WORKS/ESP32_Bootloader) payload, so it can share one board with other TTGO VGA32 emulators and be picked from an on-screen menu instead of being reflashed over USB.
+
+Flash ESP32_Bootloader once (it lives in the `factory` partition), then put the release's `firmware.bin` and `version.txt` in a **`CoCo/`** folder on the card root — the folder name is what the menu lists:
+
+```
+/ (SD card root)
+├── CoCo/
+│   ├── firmware.bin      bare app image (NOT the merged -firmware.bin)
+│   └── version.txt       one line; change it to force a reflash
+└── roms/
+    ├── coco3.rom
+    └── disk11.rom        (plus bas13.rom / extbas11.rom for CoCo 2)
+```
+
+The ROMs and disk images stay in their usual places on the same card — the bootloader's card is also the emulator's card.
+
+On selecting **CoCo**, the bootloader flashes the image into `ota_0` (only when `version.txt` differs from what it flashed last) and boots it. The emulator blanks `otadata` as the very first thing it does, so the **next power-cycle returns to the menu** rather than booting straight back in.
+
+> **Use the right file.** `firmware.bin` from the SD package is the bare app image; `TTGO-VGA32-CoCo-<version>-firmware.bin` is the merged USB image and will *not* work from the menu. A bare image starts with byte `0xE9` — the build script checks this for you.
+
+Notes and limits of this mode:
+
+- The app must fit `ota_0` — **2816 KB**; v0.9.0 uses roughly 1.1 MB, so there is plenty of room.
+- NVS (settings, key mappings, WiFi credentials, mounted disks) is shared with the bootloader and survives normally, but a full flash erase clears it.
+- Nothing else changes: the standalone USB build is still the default and is unaffected.
 
 ---
 
@@ -159,6 +189,27 @@ arduino-cli monitor -p /dev/ttyACM0 -c baudrate=115200
 ```
 
 If `Failed to connect to ESP32: Wrong boot mode detected`, hold the **BOOT** button on the board until the "Connecting..." dots appear, then release.
+
+### 6. Building Release Images
+
+`tools/build_firmware.sh` builds **both** distributable flavours from unmodified sources — they differ only by a command-line define, so there is nothing to edit between them:
+
+```bash
+tools/build_firmware.sh                     # both, version read from config.h
+tools/build_firmware.sh 0.9.0               # both, explicit version
+tools/build_firmware.sh 0.9.0 standalone    # merged USB image only
+tools/build_firmware.sh 0.9.0 bootloader    # SD-card package only
+```
+
+| Output | What it is | How it's flashed |
+|--------|-----------|------------------|
+| `TTGO-VGA32-CoCo-<version>-firmware.bin` | Merged image: bootloader + partition table + `boot_app0` + app | USB, at offset **`0x0`** |
+| `build/sdcard/CoCo/firmware.bin` | Bare app image (`-DBUILD_TARGET=1`) | By ESP32_Bootloader, into `ota_0` |
+| `build/sdcard/CoCo/version.txt` | `CoCo.<version>-<git describe>` | Read by the bootloader to decide whether to reflash |
+
+The script verifies what the binaries actually contain before publishing them: the SD image really starts with `0xE9` and fits `ota_0`, and — by disassembling `setup()` in each ELF — that the `otadata` erase is **present** in the bootloader build and **absent** from the standalone one. That last check matters because a define that silently fails to reach the sketch produces a bootloader package that never returns to the menu.
+
+Version strings come from `FIRMWARE_VERSION` in `config.h`, which is also what the About screen and `/api/status` report. `version.txt` additionally folds in `git describe --tags --always --dirty`, so two builds of the same version are never mistaken for each other by the bootloader. Tag before building a release, and don't ship a `-dirty` string.
 
 ## Keyboard Controls
 
@@ -300,10 +351,38 @@ All technical documentation is in the `docs/` directory:
 
 ## Planned
 
+- **FujiNet support via FujiNet-PC** — *ongoing*. An emulated **Becker port** (`$FF41` status / `$FF42` data, as XRoar, MAME and VCC implement it) paired with the HDB-DOS DriveWire ROMs, so the CONFIG app, TNFS/HTTP disk images, the `N:` network device and the clock all work. Because `fujinet-lib` and CONFIG go through HDB-DOS's `DWRead`/`DWWrite` vectors, the Becker port is transparent to CoCo software. The first target is a TCP client to an external **FujiNet-PC** / DriveWire server (pyDriveWire, DW4) on port 65504.
+- **HD6309 CPU support** — *ongoing*. `CPU_VARIANT` already exists in `config.h`, but the core currently emulates the MC6809 only; the 6309's native mode, extra registers and inline instructions are not implemented yet.
 - Testing and adjustment of RS-232 Pak support
 - Migrate to an MQTT-based MCP Bridge gateway (replacing the current WiFi API)
 
 ## Changelog
+
+### v0.9.0 — September 21, 2026
+
+**ESP32_Bootloader support.** The emulator can now be launched from
+[ESP32_Bootloader](https://github.com/ESP-WORKS/ESP32_Bootloader)'s SD-card menu,
+so one TTGO VGA32 can hold several emulators and switch between them without a
+USB cable. See [Running under ESP32_Bootloader](#running-under-esp32_bootloader-sd-card-menu).
+
+- **New `BUILD_TARGET` switch in `config.h`**, defaulting to standalone. The
+  bootloader image is selected with `-DBUILD_TARGET=1` on the command line, so
+  both flavours build from identical sources and the USB build is untouched.
+
+- **`otadata` is blanked at the top of `setup()`** in bootloader builds, before
+  Serial, video or the SD probe. Without it the ESP32 would boot this app on
+  every power-up and the menu would become unreachable; with it, the ROM falls
+  back to the `factory` partition and the menu returns. The call compiles out
+  entirely in standalone builds.
+
+- **No partition-scheme change.** An ESP32 app image carries no partition table
+  and both `0x10000` and `ota_0`'s `0x130000` are 64 KB-aligned, so the same app
+  runs at either offset. `huge_app` stays the standalone scheme.
+
+- **`tools/build_firmware.sh` now builds both images** and validates them:
+  `0xE9` bare-image magic, the 2816 KB `ota_0` size limit, and a disassembly
+  check that the `otadata` erase is present in the bootloader build and absent
+  from the standalone one — the one failure that is otherwise silent.
 
 ### v0.81 — September 2, 2026
 

@@ -25,8 +25,35 @@
 // Firmware version (reported by the WiFi debug API /api/status and shown on
 // the supervisor About screen). Bump both of these together on a release —
 // they are the single source of truth; nothing else should hardcode a version.
-#define FIRMWARE_VERSION        "0.81"
-#define FIRMWARE_BUILD_DATE     "02.09.2026"
+#define FIRMWARE_VERSION        "0.9.0"
+#define FIRMWARE_BUILD_DATE     "21.09.2026"
+
+// ------------------------------------------------------------
+// Build target — standalone USB flash vs. ESP32_Bootloader
+// ------------------------------------------------------------
+// BUILD_TARGET_STANDALONE  Normal USB flash; the emulator owns the whole device
+//                          and boots directly from the `factory`/huge_app slot.
+// BUILD_TARGET_BOOTLOADER  Launched from `ota_0` by ESP32_Bootloader:
+//                          https://github.com/ESP-WORKS/ESP32_Bootloader
+//                          The sketch erases `otadata` at the top of setup() so
+//                          the next power-cycle falls back to the bootloader menu.
+//
+// Standalone is the default; do NOT edit this to switch. The build script
+// passes -DBUILD_TARGET=1 on the command line for the bootloader image
+// (tools/build_firmware.sh), so both flavours come from unmodified sources.
+#define BUILD_TARGET_STANDALONE 0
+#define BUILD_TARGET_BOOTLOADER 1
+
+#ifndef BUILD_TARGET
+#define BUILD_TARGET BUILD_TARGET_STANDALONE
+#endif
+
+// Size of ota_0 in the ESP32_Bootloader partition table (2816 KB). The bare app
+// image must fit; tools/build_firmware.sh enforces this.
+#define BOOTLOADER_OTA0_MAX_BYTES  0x2C0000
+
+// SD-card folder the bootloader lists as its menu entry for this firmware.
+#define BOOTLOADER_MENU_NAME    "CoCo"
 
 // Machine type: 0 = Dragon 32, 1 = Dragon 64, 2 = CoCo 1, 3 = CoCo 2, 4 = CoCo 3
 // Compile-time default only — the active machine is g_machine_type (core/machine.h),
