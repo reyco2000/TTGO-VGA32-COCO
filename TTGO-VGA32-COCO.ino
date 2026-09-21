@@ -29,6 +29,28 @@
 #include "src/tests/integration_test.h"
 #endif
 
+#if BUILD_TARGET == BUILD_TARGET_BOOTLOADER
+#include "esp_partition.h"
+
+// Hand the device back to ESP32_Bootloader on the next power-up.
+//
+// The bootloader flashes this app into `ota_0` and points `otadata` at it.
+// Left alone, the ROM would boot straight here every time and the SD-card menu
+// would be unreachable. Blanking `otadata` makes the ROM fall back to the
+// `factory` partition — the bootloader — while this run continues normally.
+//
+// Must be the FIRST thing setup() does: anything that can hang or halt (SD
+// probe, missing-ROM screen) would otherwise strand the user in this app.
+static void bootloader_release_otadata(void) {
+    const esp_partition_t* otadata = esp_partition_find_first(
+        ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_OTA, NULL);
+    if (!otadata) {
+        return;   // standalone layout (huge_app) has no otadata — nothing to do
+    }
+    esp_partition_erase_range(otadata, 0, otadata->size);
+}
+#endif
+
 Machine coco;
 
 // hal_video.cpp exposes the OSD canvas used by the boot halt screen and supervisor.
@@ -57,6 +79,10 @@ static void boot_halt_screen(const char* const* lines, int n) {
 }
 
 void setup() {
+#if BUILD_TARGET == BUILD_TARGET_BOOTLOADER
+    bootloader_release_otadata();   // before Serial/video/SD — see note above
+#endif
+
     Serial.begin(115200);
     delay(500);
 
