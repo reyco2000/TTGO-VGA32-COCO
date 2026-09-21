@@ -59,6 +59,13 @@ if [[ "$VERSION" != "$config_version" ]]; then
     echo "         The About screen and /api/status will report '$config_version'." >&2
 fi
 
+# Snapshot the git description BEFORE building anything. The standalone build
+# rewrites TTGO-VGA32-CoCo-<VER>-firmware.bin, which is tracked, and ESP32
+# images are not byte-reproducible — so asking git after the build would report
+# `-dirty` for every release, caused by the build itself rather than by any
+# uncommitted source change.
+GIT_DESC="$(git -C "$SKETCH_DIR" describe --tags --always --dirty 2>/dev/null || true)"
+
 # Locate ESP32 core tooling — pick the highest installed version, don't hardcode.
 ESP_ROOT="$HOME/.arduino15/packages/esp32"
 ESPTOOL="$(ls "$ESP_ROOT"/tools/esptool_py/*/esptool.py 2>/dev/null | sort -V | tail -1)"
@@ -213,11 +220,10 @@ build_bootloader() {
     local version_string="${VERSION_STRING:-}"
     if [[ -z "$version_string" ]]; then
         # version.txt is the ONLY thing the bootloader uses to decide whether to
-        # reflash. Fold in `git describe` so two builds of the same
-        # FIRMWARE_VERSION never share a string and silently skip the reflash.
-        local desc
-        desc="$(git -C "$SKETCH_DIR" describe --tags --always --dirty 2>/dev/null || true)"
-        version_string="$MENU_NAME.$VERSION${desc:+-$desc}"
+        # reflash. Fold in `git describe` (captured before the build — see
+        # GIT_DESC above) so two builds of the same FIRMWARE_VERSION never share
+        # a string and silently skip the reflash.
+        version_string="$MENU_NAME.$VERSION${GIT_DESC:+-$GIT_DESC}"
     fi
     case "$version_string" in
     *-dirty)
