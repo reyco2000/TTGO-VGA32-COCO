@@ -60,7 +60,7 @@ Line numbers drift, so re-check every `file:line` before starting a phase and pr
   - WiFi uses the Arduino `WiFi` STA mode on core 0 (`src/net/wifi_mgr.cpp`).
   - The debug server runs as a core-0 task (`debug_server.cpp`, `xTaskCreatePinnedToCore`).
   - Emulation runs on core 1 in `machine_run_frame()` bursts, and nothing may block inside a frame.
-  - Internal DRAM is tight (~160 KB free); PSRAM has about 3.5 MB free.
+  - Internal DRAM is tight: **~54 KB free after init** (measured 2026-09-22 with WiFi up; the earlier ~160 KB figure was before WiFi/FabGL). PSRAM has about 3.5 MB free.
 - **Flash budget:**
   - The standalone build uses huge_app (3 MB).
   - The **ESP32_Bootloader build puts the app in `ota_0`, which is capped at 2816 KB** (`BOOTLOADER_OTA0_MAX_BYTES`). `tools/build_firmware.sh` enforces this.
@@ -83,6 +83,10 @@ CORE 0  dw_service task: back end (one at a time) ◄─────────
                ├─ NET 0xE3 (TCP, HTTP/S, TNFS, JSON)   └─ CLOCK 0xE5 / TIME / DWINIT
 ```
 Bus mode is stored in NVS: **Off / External DriveWire / Internal DriveWire / Internal FujiNet**.
+
+## Status
+- **Phase 1 done** (d9b89ee): Becker port, External TCP client, `/api/bus`, `tools/dw_test_server.py`.
+- **Phase 2 done**: HDB-DOS ROM selection with disk11 fallback, OSD screen (Settings → DriveWire), link reset on CoCo reset. Verified on hardware: HDB-DOS boots, `DIR` and `SAVE` over DriveWire on CoCo 2 and CoCo 3.
 
 ## Phase 0: Feasibility spike (go/no-go for the FujiNet port strategy)
 Phase 0 can run in parallel with Phases 1–3, since those phases don't depend on FujiNet code.

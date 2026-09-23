@@ -26,6 +26,7 @@
 #include "sv_keymap.h"
 #include "sv_joystick.h"
 #include "sv_wifi.h"
+#include "sv_fujinet.h"
 #include "sv_render.h"
 #include "../hal/hal.h"
 #include "../utils/debug.h"
@@ -354,6 +355,10 @@ void supervisor_on_key(uint8_t hid_usage, bool pressed) {
             sv_wifi_on_key(&sv, hid_usage, pressed);
             break;
 
+        case SV_FUJINET:
+            sv_fujinet_on_key(&sv, hid_usage, pressed);
+            break;
+
         case SV_JOY_SENSE:
             sv_joystick_on_key(&sv, hid_usage, pressed);
             break;
@@ -373,6 +378,8 @@ bool supervisor_update_and_render(void) {
         sv_joystick_tick(&sv);   // polls mouse, sets needs_redraw
     } else if (sv.state == SV_WIFI) {
         sv_wifi_tick(&sv);       // refresh on WiFi state/IP change
+    } else if (sv.state == SV_FUJINET) {
+        sv_fujinet_tick(&sv);    // refresh on DriveWire link change
     }
 
     if (!sv.needs_redraw) {
@@ -433,6 +440,10 @@ bool supervisor_update_and_render(void) {
 
         case SV_WIFI:
             sv_wifi_render(&sv);
+            break;
+
+        case SV_FUJINET:
+            sv_fujinet_render(&sv);
             break;
 
         case SV_JOY_SENSE:

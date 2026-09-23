@@ -398,6 +398,8 @@ static void process_vk(const fabgl::VirtualKeyItem& it) {
             else if (a >= 'A' && a <= 'Z') usage = 0x04 + (a - 'A');
             else if (a >= '1' && a <= '9') usage = 0x1E + (a - '1');
             else if (a == '0') usage = 0x27;
+            else if (a == '-') usage = 0x2D;
+            else if (a == '.') usage = 0x37;
         }
         if (usage != 0) supervisor_on_key(usage, pressed);
         return;

@@ -79,6 +79,10 @@ size_t becker_tx_pop(uint8_t* buf, size_t max);        // bytes the CoCo sent
 size_t becker_rx_push(const uint8_t* buf, size_t len); // bytes toward the CoCo
 size_t becker_rx_space(void);
 void   becker_set_link_up(bool up);                    // false flushes both rings
+// CoCo reset seen: drop the connection (in-flight replies belong to the old
+// session). becker_clear_reset() discards the pre-reset TX bytes and clears it.
+bool   becker_reset_requested(void);
+void   becker_clear_reset(void);
 
 // ---- Status ----
 bool     becker_link_up(void);

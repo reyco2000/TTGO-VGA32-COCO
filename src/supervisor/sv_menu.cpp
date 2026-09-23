@@ -23,6 +23,8 @@
 #include "sv_keymap.h"
 #include "sv_joystick.h"
 #include "sv_wifi.h"
+#include "sv_fujinet.h"
+#include "../net/dw_bus.h"
 #include "../net/wifi_mgr.h"
 #include "../hal/hal.h"
 #include "../../config.h"
@@ -283,13 +285,17 @@ void sv_machine_select_render(Supervisor_t* sv) {
 // applied live via FabGL setLayout(), persisted in NVS.
 // Row 3 opens the Key Mapper screens (sv_keymap.cpp).
 
-#define SETTINGS_COUNT 6
+#define SETTINGS_COUNT 7
 static const char* const SETTINGS_LABELS[SETTINGS_COUNT] = {
     "Debug Log", "RS-232 Pak", "Keyboard", "Key Mapper", "Mouse Sensitivity",
-    "WiFi / Debug"
+    "WiFi / Debug", "DriveWire"
 };
 
 static void settings_toggle(Supervisor_t* sv, int row) {
+    if (row == 6) {  // DriveWire / FujiNet — opens its own settings screen
+        sv_fujinet_open(sv);
+        return;
+    }
     if (row == 5) {  // WiFi / Debug — opens its own status/control screen
         sv_wifi_open(sv);
         return;
@@ -371,6 +377,7 @@ void sv_settings_render(Supervisor_t* sv) {
         NULL,            // Key Mapper (opens sub-screen)
         sens_str,        // Mouse Sensitivity (current level 1..10)
         wifi_mgr_state_str(),  // WiFi / Debug (current state)
+        dw_bus_mode_str(dw_bus_mode()),  // DriveWire (bus mode this boot)
     };
 
     for (int i = 0; i < SETTINGS_COUNT; i++) {

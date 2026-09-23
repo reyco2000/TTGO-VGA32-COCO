@@ -200,6 +200,14 @@
 #define ROM_EXT_BASIC_FILE      "extbas11.rom"
 #define ROM_DISK_FILE           "disk11.rom"
 
+// HDB-DOS DriveWire Becker ROMs (8 KB), used instead of disk11.rom when the
+// DriveWire bus is enabled. The "t" builds time out after 2 s instead of
+// hanging when the DriveWire server goes away.
+#define ROM_BECKER_COCO2_FILE     "hdbdw3bck.rom"
+#define ROM_BECKER_COCO3_FILE     "hdbdw3bc3.rom"
+#define ROM_BECKER_TO_COCO2_FILE  "hdbdw3bckt.rom"
+#define ROM_BECKER_TO_COCO3_FILE  "hdbdw3bc3t.rom"
+
 #define ROM_COCO3_FILE          "coco3.rom"
 #define COCO3_ROM_SIZE          (32 * 1024)
 #define COCO3_PHYSICAL_RAM      (512 * 1024)

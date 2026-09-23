@@ -57,6 +57,35 @@ static void sound_pia1_written(Machine* m, uint8_t reg) {
 // Not yet branched on in core/HAL — that comes in later steps of coco2and3.md.
 uint8_t g_machine_type = MACHINE_TYPE;
 
+const char* g_cart_rom_request[2]  = { nullptr, nullptr };
+const char* g_cart_rom_loaded[2]   = { nullptr, nullptr };
+bool        g_cart_rom_fallback[2] = { false, false };
+
+// Load the 8 KB cartridge ROM for machine index `idx` (0 = CoCo 2, 1 = CoCo 3):
+// the requested ROM if any, else — or if it is missing — disk11.rom. A missing
+// HDB-DOS ROM must not halt boot, so the fallback keeps the machine usable.
+static bool load_cart_rom(int idx, const char* rom_path, uint8_t* dst) {
+    char path[64];
+    const char* want = g_cart_rom_request[idx];
+    g_cart_rom_loaded[idx]   = nullptr;
+    g_cart_rom_fallback[idx] = false;
+    if (want) {
+        snprintf(path, sizeof(path), "%s/%s", rom_path, want);
+        if (hal_storage_load_file(path, dst, 8192)) {
+            g_cart_rom_loaded[idx] = want;
+            return true;
+        }
+        DEBUG_PRINTF("  MISSING: %s — falling back to %s", path, ROM_DISK_FILE);
+        g_cart_rom_fallback[idx] = true;
+    }
+    snprintf(path, sizeof(path), "%s/%s", rom_path, ROM_DISK_FILE);
+    if (hal_storage_load_file(path, dst, 8192)) {
+        g_cart_rom_loaded[idx] = ROM_DISK_FILE;
+        return true;
+    }
+    return false;
+}
+
 // Cycles per scanline: CPU_CLOCK_HZ / TARGET_FPS / SCANLINES_PER_FRAME
 // 895000 / 60 / 262 ≈ 56.9 → use fixed-point for accuracy
 static const int CYCLES_PER_SCANLINE_X4 = (CPU_CLOCK_HZ * 4) / (TARGET_FPS * SCANLINES_PER_FRAME);
@@ -422,12 +451,11 @@ bool machine_load_roms_coco3(Machine* m, const char* rom_path) {
 
     // Disk BASIC ROM (8KB) — external cartridge at $C000-$DFFF
     // The CoCo3 checks for 'DK' signature at $C000 to detect Disk BASIC
-    snprintf(path, sizeof(path), "%s/%s", rom_path, ROM_DISK_FILE);
-    if (hal_storage_load_file(path, m->rom_disk, 8192)) {
+    if (load_cart_rom(1, rom_path, m->rom_disk)) {
         m->rom_disk_loaded = true;
-        DEBUG_PRINTF("  Loaded %s (Disk BASIC 8KB)", ROM_DISK_FILE);
+        DEBUG_PRINTF("  Loaded %s (Disk BASIC 8KB)", g_cart_rom_loaded[1]);
     } else {
-        DEBUG_PRINTF("  Optional: %s not found (no Disk BASIC)", path);
+        DEBUG_PRINTF("  Optional: %s not found (no Disk BASIC)", ROM_DISK_FILE);
     }
 
     return m->rom_coco3_loaded;
@@ -1098,14 +1126,13 @@ bool machine_load_roms_coco2(Machine* m, const char* rom_path) {
         DEBUG_PRINTF("  MISSING: %s", path);
     }
 
-    // Disk BASIC / Cartridge ROM → $C000-$DFFF (8K-16K, optional)
-    snprintf(path, sizeof(path), "%s/%s", rom_path, ROM_DISK_FILE);
-    if (hal_storage_load_file(path, m->rom_cart, 8192)) {
+    // Disk BASIC / Cartridge ROM → $C000-$DFFF (8K, optional)
+    if (load_cart_rom(0, rom_path, m->rom_cart)) {
         m->rom_cart_loaded = true;
         m->cart_inserted = true;
-        DEBUG_PRINTF("  Loaded %s → $C000", ROM_DISK_FILE);
+        DEBUG_PRINTF("  Loaded %s → $C000", g_cart_rom_loaded[0]);
     } else {
-        DEBUG_PRINTF("  Optional: %s not found", path);
+        DEBUG_PRINTF("  Optional: %s not found", ROM_DISK_FILE);
     }
 
     // Verify reset vector is readable

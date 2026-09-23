@@ -17,6 +17,7 @@ import datetime
 import os
 import socket
 import sys
+import threading
 
 OP_NOP       = 0x00
 OP_TIME      = 0x23
@@ -216,16 +217,32 @@ def main():
     srv.bind(("", args.port))
     srv.listen(1)
     print(f"listening on TCP {args.port}", flush=True)
+
+    # One client at a time, newest wins: an emulator that reboots never closes
+    # its old socket, so a new connection must displace the stale one.
+    current = None
+    lock = threading.Lock()
+
+    def serve(sock, addr):
+        try:
+            Conn(sock, drives, args.verbose).serve()
+        except (ConnectionError, OSError) as e:
+            print(f"client {addr[0]}:{addr[1]} gone: {e}", flush=True)
+        finally:
+            sock.close()
+
     while True:
         sock, addr = srv.accept()
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         print(f"client connected: {addr[0]}:{addr[1]}", flush=True)
-        try:
-            Conn(sock, drives, args.verbose).serve()
-        except (ConnectionError, OSError) as e:
-            print(f"client gone: {e}", flush=True)
-        finally:
-            sock.close()
+        with lock:
+            if current is not None:
+                try:
+                    current.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
+            current = sock
+        threading.Thread(target=serve, args=(sock, addr), daemon=True).start()
 
 
 if __name__ == "__main__":

@@ -38,6 +38,9 @@ static void run_link(WiFiClient& c) {
     while (c.connected()) {
         ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(DW_POLL_MS));
 
+        // CoCo was reset: start a fresh session (see becker_reset_requested).
+        if (becker_reset_requested()) return;
+
         // CoCo → server
         size_t n;
         while ((n = becker_tx_pop(buf, sizeof(buf))) > 0) {
@@ -76,6 +79,9 @@ static void client_task(void* arg) {
         WiFiClient c;
         if (c.connect(s_host.c_str(), s_port, DW_CONNECT_TIMEOUT_MS)) {
             c.setNoDelay(true);
+            // A reset before the link came up needs no reconnect — just drop
+            // the pre-reset bytes.
+            becker_clear_reset();
             s_connects++;
             s_state = DW_CLIENT_CONNECTED;
             DEBUG_PRINTF("dw_client: connected to %s:%u", s_host.c_str(), s_port);
@@ -84,8 +90,13 @@ static void client_task(void* arg) {
 
             run_link(c);
 
-            becker_set_link_up(false);
+            bool was_reset = becker_reset_requested();
             c.stop();
+            becker_set_link_up(false);
+            if (was_reset) {
+                DEBUG_PRINT("dw_client: CoCo reset — reconnecting");
+                continue;   // reconnect at once, no backoff
+            }
             DEBUG_PRINT("dw_client: link lost");
         } else {
             DEBUG_PRINTF("dw_client: connect to %s:%u failed", s_host.c_str(), s_port);

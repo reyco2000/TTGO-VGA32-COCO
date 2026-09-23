@@ -128,6 +128,11 @@ static void h_status() {
     j += ",\"api\":" + String(DEBUG_API_VERSION);
     j += ",\"bus_mode\":\"" + String(dw_bus_mode_str(dw_bus_mode())) + "\"";
     j += ",\"bus_link\":\"" + String(dw_bus_link_str()) + "\"";
+    {
+        int idx = (g_machine_type == 4) ? 1 : 0;
+        j += ",\"cart_rom\":\"" + String(g_cart_rom_loaded[idx] ? g_cart_rom_loaded[idx] : "none") + "\"";
+        if (g_cart_rom_fallback[idx]) j += ",\"cart_rom_warning\":\"HDB-DOS ROM missing\"";
+    }
     j += ",\"bus_to_coco\":" + String(becker_bytes_to_coco());
     j += ",\"bus_from_coco\":" + String(becker_bytes_from_coco());
     j += "}";
@@ -142,6 +147,10 @@ static void h_get_bus() {
     j += ",\"mode_name\":\"" + String(dw_bus_mode_str(dw_bus_mode())) + "\"";
     j += ",\"host\":\"" + dw_bus_host() + "\"";
     j += ",\"port\":" + String(dw_bus_port());
+    j += ",\"rom_timeout\":" + String(dw_bus_rom_timeout() ? "true" : "false");
+    int idx = (g_machine_type == 4) ? 1 : 0;
+    j += ",\"cart_rom\":\"" + String(g_cart_rom_loaded[idx] ? g_cart_rom_loaded[idx] : "none") + "\"";
+    j += ",\"cart_rom_fallback\":" + String(g_cart_rom_fallback[idx] ? "true" : "false");
     j += ",\"link\":\"" + String(dw_bus_link_str()) + "\"";
     j += ",\"link_up\":" + String(becker_link_up() ? "true" : "false");
     j += ",\"to_coco\":" + String(becker_bytes_to_coco());
@@ -160,9 +169,11 @@ static void h_post_bus() {
     String host = s_server.hasArg("host") ? s_server.arg("host") : dw_bus_host();
     uint32_t port = arg_u32("port", dw_bus_port());
     if (port == 0 || port > 65535) { send_err(400, "bad port"); return; }
+    bool rom_to = s_server.hasArg("rom_to") ? (arg_u32("rom_to", 0) != 0)
+                                            : dw_bus_rom_timeout();
     if (m == BUS_MODE_EXTERNAL && host.length() == 0) { send_err(400, "External mode needs host"); return; }
 
-    dw_bus_save_config((BusMode)m, host, (uint16_t)port);
+    dw_bus_save_config((BusMode)m, host, (uint16_t)port, rom_to);
     // Respond BEFORE restarting — see h_post_machine.
     send_json(200, String("{\"rebooting\":true,\"mode\":") + m + "}");
     delay(200);
