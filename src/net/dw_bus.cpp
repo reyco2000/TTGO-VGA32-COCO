@@ -102,6 +102,10 @@ void dw_bus_begin(void) {
     }
 }
 
+void dw_bus_shutdown(void) {
+    if (s_mode == BUS_MODE_EXTERNAL) dw_client_shutdown(300);
+}
+
 const char* dw_bus_link_str(void) {
     switch (s_mode) {
         case BUS_MODE_OFF:      return "Off";

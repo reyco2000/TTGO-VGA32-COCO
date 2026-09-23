@@ -50,4 +50,7 @@ void        dw_bus_begin(void);
 // Short human-readable link state for the OSD / debug API.
 const char* dw_bus_link_str(void);
 
+// Close the back end's connection before a software restart.
+void        dw_bus_shutdown(void);
+
 #endif // NET_DW_BUS_H

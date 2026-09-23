@@ -33,4 +33,8 @@ DwClientState dw_client_state(void);
 const char*   dw_client_state_str(void);
 uint32_t      dw_client_connects(void);  // successful connections since boot
 
+// Close the TCP connection cleanly (FIN) before a software restart; waits up
+// to timeout_ms for the client task to do it.
+void          dw_client_shutdown(uint32_t timeout_ms);
+
 #endif // NET_DW_CLIENT_H

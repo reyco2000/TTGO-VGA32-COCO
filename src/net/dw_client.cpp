@@ -33,6 +33,12 @@ static volatile uint32_t      s_connects = 0;
 static String                 s_host;
 static uint16_t               s_port = 0;
 
+// Graceful-close handshake for restarts: esp_restart() sends no FIN, and
+// FujiNet-PC accepts only one connection, so it would sit on the dead
+// socket (until TCP keepalive, ~2 h) and ignore our next boot.
+static volatile bool          s_shutdown_req = false;
+static volatile bool          s_shutdown_done = false;
+
 static void run_link(WiFiClient& c) {
     static uint8_t buf[512];
     while (c.connected()) {
@@ -40,6 +46,7 @@ static void run_link(WiFiClient& c) {
 
         // CoCo was reset: start a fresh session (see becker_reset_requested).
         if (becker_reset_requested()) return;
+        if (s_shutdown_req) return;
 
         // CoCo → server
         size_t n;
@@ -69,6 +76,11 @@ static void client_task(void* arg) {
     (void)arg;
     uint32_t backoff = DW_BACKOFF_MIN_MS;
     for (;;) {
+        if (s_shutdown_req) {
+            s_state = DW_CLIENT_IDLE;
+            s_shutdown_done = true;
+            vTaskDelay(portMAX_DELAY);   // device is about to restart
+        }
         if (wifi_mgr_state() != WIFI_MGR_STA_RUNNING) {
             s_state = DW_CLIENT_WAIT_WIFI;
             vTaskDelay(pdMS_TO_TICKS(250));
@@ -91,7 +103,8 @@ static void client_task(void* arg) {
             run_link(c);
 
             bool was_reset = becker_reset_requested();
-            c.stop();
+            c.stop();   // sends FIN — the server frees its single slot
+            if (s_shutdown_req) continue;
             becker_set_link_up(false);
             if (was_reset) {
                 DEBUG_PRINT("dw_client: CoCo reset — reconnecting");
@@ -115,6 +128,14 @@ void dw_client_begin(const String& host, uint16_t port) {
     s_state = DW_CLIENT_WAIT_WIFI;
     xTaskCreatePinnedToCore(client_task, "dw_client", 4096, nullptr, 1, &s_task, 0);
     becker_set_backend_task(s_task);
+}
+
+void dw_client_shutdown(uint32_t timeout_ms) {
+    if (!s_task) return;
+    s_shutdown_req = true;
+    xTaskNotifyGive(s_task);
+    uint32_t t0 = millis();
+    while (!s_shutdown_done && millis() - t0 < timeout_ms) delay(5);
 }
 
 DwClientState dw_client_state(void) { return s_state; }

@@ -27,6 +27,7 @@
 #include "sv_joystick.h"
 #include "sv_wifi.h"
 #include "sv_fujinet.h"
+#include "../net/dw_bus.h"
 #include "sv_render.h"
 #include "../hal/hal.h"
 #include "../utils/debug.h"
@@ -600,6 +601,9 @@ void supervisor_save_and_restart(void) {
 
     // Preserve supervisor state (mounted disks, last_dir) across the restart.
     supervisor_save_state();
+
+    // Close the DriveWire socket so the server can accept our next boot.
+    dw_bus_shutdown();
 
     delay(100);
     esp_restart();
