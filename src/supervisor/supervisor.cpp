@@ -580,7 +580,7 @@ void supervisor_load_joystick(void) {
     hal_joystick_set_invert_y(invert);
 }
 
-void supervisor_set_machine_type(uint8_t machine_type) {
+void supervisor_save_and_restart(void) {
     // Flush dirty disk caches to SD before the restart — esp_restart() below
     // never returns, so pending writes would otherwise be lost.
     if (sv.machine) {
@@ -590,12 +590,16 @@ void supervisor_set_machine_type(uint8_t machine_type) {
     // Preserve supervisor state (mounted disks, last_dir) across the restart.
     supervisor_save_state();
 
+    delay(100);
+    esp_restart();
+}
+
+void supervisor_set_machine_type(uint8_t machine_type) {
     Preferences prefs;
     prefs.begin("sv", false);
     prefs.putUChar("machine_type", machine_type);
     prefs.end();
 
     DEBUG_PRINTF("Machine type set to %u — restarting...", machine_type);
-    delay(100);
-    esp_restart();
+    supervisor_save_and_restart();
 }

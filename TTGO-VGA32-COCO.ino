@@ -20,6 +20,7 @@
 #include "src/net/debug_rpc.h"
 #include "src/net/wifi_mgr.h"
 #include "src/net/debug_server.h"
+#include "src/net/dw_bus.h"
 
 // Uncomment to enable integration tests (serial command 'R' to run)
 // CoCo2: LOADM verify, VRAM dump    CoCo3: GIME, video, audio tests
@@ -122,6 +123,10 @@ void setup() {
     // Seed the runtime machine type from NVS (falls back to MACHINE_TYPE).
     // Must happen before machine_init() so later steps can branch on it.
     g_machine_type = supervisor_load_machine_type();
+
+    // DriveWire bus mode (Becker port). Read before ROM loading so later
+    // phases can pick the HDB-DOS Becker ROM instead of disk11.rom.
+    dw_bus_load_config();
     DEBUG_PRINTF("g_machine_type = %u (compile-time default %u)", g_machine_type, (uint8_t)MACHINE_TYPE);
 
     // Initialize emulated machine
@@ -202,6 +207,9 @@ void setup() {
         wifi_mgr_connect_saved();
     }
     debug_server_begin();  // creates the core-0 WebServer task (idle until WiFi up)
+
+    // Becker port + DriveWire back end (no-op when the bus mode is Off).
+    dw_bus_begin();
 
     DEBUG_PRINT("=== Post-Init Memory Report ===");
     DEBUG_PRINTF("SRAM  free:  %d bytes (used: %d)", ESP.getFreeHeap(), ESP.getHeapSize() - ESP.getFreeHeap());

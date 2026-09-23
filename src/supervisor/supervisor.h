@@ -110,6 +110,9 @@ uint8_t supervisor_load_machine_type(void);
 // Does not return — calls esp_restart().
 void supervisor_set_machine_type(uint8_t machine_type);
 
+// Flush disk caches, save supervisor state and restart. Never returns.
+void supervisor_save_and_restart(void);
+
 // Serial-port ownership persistence (NVS "sv" namespace, key "serial_mode").
 // load returns the stored mode, or SERIAL_MODE_FIRST_BOOT_DEFAULT if unset.
 // Called from setup() before the boot banner so the banner respects the mode.

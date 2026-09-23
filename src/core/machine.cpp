@@ -17,6 +17,7 @@
 #include "../utils/debug.h"
 #include "../utils/perf_probe.h"
 #include "mc6551.h"   // RS-232 Pak (Deluxe RS-232 Program Pak) ACIA
+#include "becker.h"   // Becker port (DriveWire) at $FF41/$FF42
 #include "sound.h"    // Sound mixing core (mux/DAC/single-bit)
 
 // Global machine pointer for CPU memory callbacks
@@ -248,6 +249,11 @@ uint8_t machine_read_coco3(uint16_t addr) {
         }
 
     case 6: // SCS (FDC)
+        // Becker port shares the cartridge I/O area (XRoar rsdos.c).
+        if (becker_enabled()) {
+            if (addr == BECKER_STATUS_ADDR) return becker_read_status();
+            if (addr == BECKER_DATA_ADDR)   return becker_read_data();
+        }
         return sv_disk_read(&m->fdc, addr);
 
     default:
@@ -318,6 +324,10 @@ void machine_write_coco3(uint16_t addr, uint8_t val) {
         break;
 
     case 6: // SCS (FDC)
+        if (becker_enabled() && (addr == BECKER_STATUS_ADDR || addr == BECKER_DATA_ADDR)) {
+            if (addr == BECKER_DATA_ADDR) becker_write_data(val);
+            break;  // $FF41/$FF42 no longer mirror DSKREG
+        }
         sv_disk_write(&m->fdc, addr, val);
         break;
     }
@@ -673,6 +683,7 @@ void machine_run_frame_coco3(Machine* m) {
 
     for (int line = 0; line < SCANLINES_PER_FRAME; line++) {
         machine_run_scanline_coco3(m);
+        becker_scanline_tick();
         {
             PERF_PROBE_SCOPE(PROBE_AUDIO_SCANLINE);
             hal_audio_capture_scanline();
@@ -820,8 +831,12 @@ uint8_t machine_read_coco2(uint16_t addr) {
             return mc6821_read(&m->pia1, addr & 0x03);
         }
 
-        // Disk controller: $FF40-$FF5F (WD1793 FDC)
+        // Disk controller: $FF40-$FF5F (WD1793 FDC), Becker port at $FF41/$FF42
         if (addr < 0xFF60) {
+            if (becker_enabled()) {
+                if (addr == BECKER_STATUS_ADDR) return becker_read_status();
+                if (addr == BECKER_DATA_ADDR)   return becker_read_data();
+            }
             return sv_disk_read(&m->fdc, addr);
         }
 
@@ -938,8 +953,12 @@ void machine_write_coco2(uint16_t addr, uint8_t val) {
             return;
         }
 
-        // Disk controller: $FF40-$FF5F (WD1793 FDC)
+        // Disk controller: $FF40-$FF5F (WD1793 FDC), Becker port at $FF41/$FF42
         if (addr < 0xFF60) {
+            if (becker_enabled() && (addr == BECKER_STATUS_ADDR || addr == BECKER_DATA_ADDR)) {
+                if (addr == BECKER_DATA_ADDR) becker_write_data(val);
+                return;  // $FF41/$FF42 no longer mirror DSKREG
+            }
             sv_disk_write(&m->fdc, addr, val);
             return;
         }
@@ -1236,6 +1255,7 @@ void machine_run_frame_coco2(Machine* m) {
 
     for (int line = 0; line < SCANLINES_PER_FRAME; line++) {
         machine_run_scanline_coco2(m);
+        becker_scanline_tick();
         // Capture audio level after each scanline for pitch-correct playback
         hal_audio_capture_scanline();
     }
@@ -1303,6 +1323,7 @@ void machine_reset(Machine* m) {
     // deliberately NOT touched here — a CoCo reset must not let debug noise
     // corrupt an active host link.
     mc6551_reset();
+    becker_reset();
 }
 
 void machine_run_scanline(Machine* m) {

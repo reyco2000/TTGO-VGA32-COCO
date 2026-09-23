@@ -26,6 +26,7 @@
 
 #include "debug_rpc.h"
 #include "wifi_mgr.h"
+#include "dw_bus.h"
 #include "png_writer.h"
 #include "../hal/hal.h"             // hal_video_capture_*
 #include "../core/machine.h"        // g_machine_type, machine types
@@ -125,8 +126,49 @@ static void h_status() {
     j += ",\"paused\":" + String(debug_rpc_is_paused() ? "true" : "false");
     j += ",\"firmware\":\"" FIRMWARE_VERSION "\"";
     j += ",\"api\":" + String(DEBUG_API_VERSION);
+    j += ",\"bus_mode\":\"" + String(dw_bus_mode_str(dw_bus_mode())) + "\"";
+    j += ",\"bus_link\":\"" + String(dw_bus_link_str()) + "\"";
+    j += ",\"bus_to_coco\":" + String(becker_bytes_to_coco());
+    j += ",\"bus_from_coco\":" + String(becker_bytes_from_coco());
     j += "}";
     send_json(200, j);
+}
+
+// DriveWire bus (Becker port) configuration. Read-only view of the running
+// state plus the saved settings; POST saves and restarts (mode is boot-time).
+static void h_get_bus() {
+    String j = "{";
+    j += "\"mode\":" + String((int)dw_bus_mode());
+    j += ",\"mode_name\":\"" + String(dw_bus_mode_str(dw_bus_mode())) + "\"";
+    j += ",\"host\":\"" + dw_bus_host() + "\"";
+    j += ",\"port\":" + String(dw_bus_port());
+    j += ",\"link\":\"" + String(dw_bus_link_str()) + "\"";
+    j += ",\"link_up\":" + String(becker_link_up() ? "true" : "false");
+    j += ",\"to_coco\":" + String(becker_bytes_to_coco());
+    j += ",\"from_coco\":" + String(becker_bytes_from_coco());
+    j += "}";
+    send_json(200, j);
+}
+
+static void h_post_bus() {
+    if (!s_server.hasArg("mode")) { send_err(400, "missing mode (0=Off,1=External)"); return; }
+    uint32_t m = arg_u32("mode", 0);
+    if (m >= BUS_MODE_COUNT || !dw_bus_mode_supported((BusMode)m)) {
+        send_err(400, "mode not supported in this build");
+        return;
+    }
+    String host = s_server.hasArg("host") ? s_server.arg("host") : dw_bus_host();
+    uint32_t port = arg_u32("port", dw_bus_port());
+    if (port == 0 || port > 65535) { send_err(400, "bad port"); return; }
+    if (m == BUS_MODE_EXTERNAL && host.length() == 0) { send_err(400, "External mode needs host"); return; }
+
+    dw_bus_save_config((BusMode)m, host, (uint16_t)port);
+    // Respond BEFORE restarting — see h_post_machine.
+    send_json(200, String("{\"rebooting\":true,\"mode\":") + m + "}");
+    delay(200);
+    debug_rpc_set_paused(true);
+    delay(50);
+    supervisor_save_and_restart();
 }
 
 static void h_pause()  { debug_rpc_set_paused(true);  send_json(200, "{\"paused\":true}"); }
@@ -439,6 +481,8 @@ static void register_routes() {
     s_server.on("/api/machine",       HTTP_GET,  h_get_machine);
     s_server.on("/api/machine",       HTTP_POST, h_post_machine);
     s_server.on("/api/nvram",         HTTP_GET,  h_nvram);
+    s_server.on("/api/bus",           HTTP_GET,  h_get_bus);
+    s_server.on("/api/bus",           HTTP_POST, h_post_bus);
     s_server.on("/api/screenshot.png",HTTP_GET,  h_screenshot);
 
     // Config portal (AP)
