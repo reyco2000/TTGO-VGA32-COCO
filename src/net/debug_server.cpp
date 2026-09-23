@@ -27,6 +27,7 @@
 #include "debug_rpc.h"
 #include "wifi_mgr.h"
 #include "dw_bus.h"
+#include "dw_client.h"
 #include "png_writer.h"
 #include "../hal/hal.h"             // hal_video_capture_*
 #include "../core/machine.h"        // g_machine_type, machine types
@@ -155,6 +156,9 @@ static void h_get_bus() {
     j += ",\"link_up\":" + String(becker_link_up() ? "true" : "false");
     j += ",\"to_coco\":" + String(becker_bytes_to_coco());
     j += ",\"from_coco\":" + String(becker_bytes_from_coco());
+    j += ",\"connects\":" + String(dw_client_connects());
+    j += ",\"max_reply_ms\":" + String(dw_client_max_reply_ms());
+    j += ",\"slow_replies\":" + String(dw_client_slow_replies());
     j += "}";
     send_json(200, j);
 }

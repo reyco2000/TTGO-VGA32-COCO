@@ -39,8 +39,17 @@ static uint16_t               s_port = 0;
 static volatile bool          s_shutdown_req = false;
 static volatile bool          s_shutdown_done = false;
 
+// Delivery time: from handing server bytes to the Becker RX ring until the
+// CoCo has read them all. The CoCo only receives replies it is waiting for,
+// so this is normally a few ms; a large value means the emulator itself
+// stalled (not the network).
+static volatile uint32_t      s_max_reply_ms = 0;
+static volatile uint32_t      s_slow_replies = 0;   // turnarounds > 400 ms
+#define DW_SLOW_REPLY_MS      400
+
 static void run_link(WiFiClient& c) {
     static uint8_t buf[512];
+    uint32_t rx_at = 0;          // millis() of last delivery, 0 = not waiting
     while (c.connected()) {
         ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(DW_POLL_MS));
 
@@ -50,6 +59,13 @@ static void run_link(WiFiClient& c) {
 
         // CoCo → server
         size_t n;
+        if (rx_at && becker_rx_pending() == 0) {
+            uint32_t dt = millis() - rx_at;
+            if (dt > s_max_reply_ms) s_max_reply_ms = dt;
+            if (dt > DW_SLOW_REPLY_MS) s_slow_replies++;
+            rx_at = 0;
+        }
+
         while ((n = becker_tx_pop(buf, sizeof(buf))) > 0) {
             if (c.write(buf, n) != n) return;
         }
@@ -66,6 +82,7 @@ static void run_link(WiFiClient& c) {
             int got = c.read(buf, want);
             if (got <= 0) break;
             becker_rx_push(buf, (size_t)got);
+            if (!rx_at) rx_at = millis();
         }
 
         if (WiFi.status() != WL_CONNECTED) return;
@@ -151,4 +168,6 @@ const char* dw_client_state_str(void) {
     return "?";
 }
 
-uint32_t dw_client_connects(void) { return s_connects; }
+uint32_t dw_client_connects(void)     { return s_connects; }
+uint32_t dw_client_max_reply_ms(void) { return s_max_reply_ms; }
+uint32_t dw_client_slow_replies(void) { return s_slow_replies; }

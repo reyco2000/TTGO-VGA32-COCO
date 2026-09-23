@@ -152,6 +152,10 @@ size_t becker_rx_space(void) {
     return RX_SIZE - (rx_head - rx_tail);
 }
 
+size_t becker_rx_pending(void) {
+    return rx_head - rx_tail;
+}
+
 size_t becker_rx_push(const uint8_t* buf, size_t len) {
     uint32_t h = rx_head;
     size_t space = RX_SIZE - (h - rx_tail);

@@ -33,6 +33,11 @@ DwClientState dw_client_state(void);
 const char*   dw_client_state_str(void);
 uint32_t      dw_client_connects(void);  // successful connections since boot
 
+// Delivery diagnostics: server bytes queued -> all read by the CoCo. Large
+// values mean an emulator-side stall rather than a network one.
+uint32_t      dw_client_max_reply_ms(void);
+uint32_t      dw_client_slow_replies(void);   // deliveries > 400 ms
+
 // Close the TCP connection cleanly (FIN) before a software restart; waits up
 // to timeout_ms for the client task to do it.
 void          dw_client_shutdown(uint32_t timeout_ms);
