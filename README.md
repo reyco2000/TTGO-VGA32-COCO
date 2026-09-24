@@ -1,8 +1,8 @@
-# TTGO-VGA32-COCO — CoCo 2 & CoCo 3 Emulator for the LilyGo TTGO VGA32
+# ESP32 CoCo 2 & CoCo 3 Emulator for the ESP BOARD LilyGo TTGO VGA32
 
 ![TTGO-VGA32-COCO](TTGOVGACOCO.png)
 
-A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the **[LilyGo TTGO VGA32 v1.4](https://lilygo.cc/en-us/products/fabgl-vga32?_pos=1&_sid=4c095f59b&_ss=r)** board (ESP32-WROVER). Inspired on  [XRoar](http://www.6809.org.uk/xroar/) emulator.
+A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the ESP32  **[LilyGo TTGO VGA32 v1.4](https://lilygo.cc/en-us/products/fabgl-vga32?_pos=1&_sid=4c095f59b&_ss=r)** board (ESP32-WROVER). Inspired on  [XRoar](http://www.6809.org.uk/xroar/) emulator.
 
 **v0.10.0 — September 23, 2026** (LilyGo TTGO VGA32 port)
 
@@ -13,6 +13,7 @@ A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the **[
 - **Authentic video, both eras** — MC6847 VDG for CoCo 2 (text plus every semigraphics and graphics mode) and the TCC1014 GIME for CoCo 3 (512 KB RAM with MMU, 16-color palette, native graphics up to 640 px), output over crisp VGA at 640×200 @ 60 Hz via FabGL in 64-color direct mode.
 - **Real disk drives** — WD1793 floppy controller with `.DSK` and `.VDK` support, and entire disk images cached in PSRAM for zero-latency access.
 - **Complete hardware soul** — dual 6821 PIAs (keyboard, joystick, audio I/O), SAM6883 multiplexer on CoCo 2, GIME-integrated MMU on CoCo 3.
+- **FUJINET SUPPORT** - External fujinet support - still experimental
 
 ### Built for Real Use
 
