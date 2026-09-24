@@ -4,7 +4,7 @@
 
 A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the **[LilyGo TTGO VGA32 v1.4](https://lilygo.cc/en-us/products/fabgl-vga32?_pos=1&_sid=4c095f59b&_ss=r)** board (ESP32-WROVER). Inspired on  [XRoar](http://www.6809.org.uk/xroar/) emulator.
 
-**v0.9.0 — September 21, 2026** (LilyGo TTGO VGA32 port)
+**v0.10.0 — September 23, 2026** (LilyGo TTGO VGA32 port)
 
 ## Features
 
@@ -119,7 +119,7 @@ If you just want to flash the emulator without building from source, use the pre
 2. Open [ESP Web Tool](https://esptool.spacehuhn.com/) in a Chrome or Edge browser
 3. Click **Connect** and select the board's serial port
 4. Set the flash offset to **0x0000**
-5. Choose the file `TTGO-VGA32-CoCo-0.9.0-firmware.bin` from this repository
+5. Choose the file `TTGO-VGA32-CoCo-0.10.0-firmware.bin` from this repository
 6. Click **Program** and wait for the flash to complete
 
 > Hold the **BOOT** button on the board while clicking Connect if the browser cannot reach the device.
