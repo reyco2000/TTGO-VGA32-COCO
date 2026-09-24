@@ -26,6 +26,8 @@
 #include "sv_keymap.h"
 #include "sv_joystick.h"
 #include "sv_wifi.h"
+#include "sv_fujinet.h"
+#include "../net/dw_bus.h"
 #include "sv_render.h"
 #include "../hal/hal.h"
 #include "../utils/debug.h"
@@ -354,6 +356,10 @@ void supervisor_on_key(uint8_t hid_usage, bool pressed) {
             sv_wifi_on_key(&sv, hid_usage, pressed);
             break;
 
+        case SV_FUJINET:
+            sv_fujinet_on_key(&sv, hid_usage, pressed);
+            break;
+
         case SV_JOY_SENSE:
             sv_joystick_on_key(&sv, hid_usage, pressed);
             break;
@@ -373,6 +379,8 @@ bool supervisor_update_and_render(void) {
         sv_joystick_tick(&sv);   // polls mouse, sets needs_redraw
     } else if (sv.state == SV_WIFI) {
         sv_wifi_tick(&sv);       // refresh on WiFi state/IP change
+    } else if (sv.state == SV_FUJINET) {
+        sv_fujinet_tick(&sv);    // refresh on DriveWire link change
     }
 
     if (!sv.needs_redraw) {
@@ -433,6 +441,10 @@ bool supervisor_update_and_render(void) {
 
         case SV_WIFI:
             sv_wifi_render(&sv);
+            break;
+
+        case SV_FUJINET:
+            sv_fujinet_render(&sv);
             break;
 
         case SV_JOY_SENSE:
@@ -580,7 +592,7 @@ void supervisor_load_joystick(void) {
     hal_joystick_set_invert_y(invert);
 }
 
-void supervisor_set_machine_type(uint8_t machine_type) {
+void supervisor_save_and_restart(void) {
     // Flush dirty disk caches to SD before the restart — esp_restart() below
     // never returns, so pending writes would otherwise be lost.
     if (sv.machine) {
@@ -590,12 +602,19 @@ void supervisor_set_machine_type(uint8_t machine_type) {
     // Preserve supervisor state (mounted disks, last_dir) across the restart.
     supervisor_save_state();
 
+    // Close the DriveWire socket so the server can accept our next boot.
+    dw_bus_shutdown();
+
+    delay(100);
+    esp_restart();
+}
+
+void supervisor_set_machine_type(uint8_t machine_type) {
     Preferences prefs;
     prefs.begin("sv", false);
     prefs.putUChar("machine_type", machine_type);
     prefs.end();
 
     DEBUG_PRINTF("Machine type set to %u — restarting...", machine_type);
-    delay(100);
-    esp_restart();
+    supervisor_save_and_restart();
 }

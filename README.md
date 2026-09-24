@@ -4,7 +4,7 @@
 
 A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the **[LilyGo TTGO VGA32 v1.4](https://lilygo.cc/en-us/products/fabgl-vga32?_pos=1&_sid=4c095f59b&_ss=r)** board (ESP32-WROVER). Inspired on  [XRoar](http://www.6809.org.uk/xroar/) emulator.
 
-**v0.9.0 — September 21, 2026** (LilyGo TTGO VGA32 port)
+**v0.10.0 — September 23, 2026** (LilyGo TTGO VGA32 port)
 
 ## Features
 
@@ -88,6 +88,22 @@ Format the MicroSD as **FAT32** and create the following structure:
 
 ROM files are validated by CRC-32 on startup.
 
+### DriveWire / FujiNet ROMs (optional)
+
+Only needed if you use the experimental [DriveWire / FujiNet support](#drivewire--fujinet-support-experimental)
+below. Get them from [toolshed](https://github.com/n6il/toolshed)'s `hdbdos` build:
+
+```
+/roms/
+├── hdbdw3bck.rom      # HDB-DOS 1.4, Becker port, CoCo 2 (8 KB)
+├── hdbdw3bc3.rom      # HDB-DOS 1.4, Becker port, CoCo 3 (8 KB)
+├── hdbdw3bckt.rom     # same, with a 2 s DriveWire timeout — CoCo 2 (optional)
+└── hdbdw3bc3t.rom     # same, with a 2 s DriveWire timeout — CoCo 3 (optional)
+```
+
+These replace `disk11.rom` only while the DriveWire bus is enabled; with the
+bus Off, `disk11.rom` loads as usual and floppy support is unaffected.
+
 ### Supported Disk Formats
 
 - **`.DSK`** (JVC format) — fully supported
@@ -103,7 +119,7 @@ If you just want to flash the emulator without building from source, use the pre
 2. Open [ESP Web Tool](https://esptool.spacehuhn.com/) in a Chrome or Edge browser
 3. Click **Connect** and select the board's serial port
 4. Set the flash offset to **0x0000**
-5. Choose the file `TTGO-VGA32-CoCo-0.9.0-firmware.bin` from this repository
+5. Choose the file `TTGO-VGA32-CoCo-0.10.0-firmware.bin` from this repository
 6. Click **Program** and wait for the flash to complete
 
 > Hold the **BOOT** button on the board while clicking Connect if the browser cannot reach the device.
@@ -240,7 +256,7 @@ Press **F3** to open the supervisor overlay. From here you can:
 - **Mount/Eject Disks** — browse the SD card and mount `.DSK`/`.VDK` images to drives 0–3
 - **Disk Manager** — view mounted drives and eject disks
 - **Machine** — switch between CoCo 2 / CoCo 3 (`esp_restart()` after confirm; persisted to NVS)
-- **Settings** — Debug Log, RS-232 Pak, **Keyboard** layout (US English / Spanish Latam, live switch), **Key Mapper** (custom key remapping), and **Mouse Sensitivity** (joystick 1 / PS/2 mouse sensitivity adjustment, live preview)
+- **Settings** — Debug Log, RS-232 Pak, **Keyboard** layout (US English / Spanish Latam, live switch), **Key Mapper** (custom key remapping), **Mouse Sensitivity** (joystick 1 / PS/2 mouse sensitivity adjustment, live preview), WiFi / Debug, and **DriveWire** (experimental FujiNet support — see below)
 - **Reset Machine** — warm or cold reset with confirmation
 - **About** — version info and free memory
 
@@ -349,14 +365,76 @@ All technical documentation is in the `docs/` directory:
   chroma/luma bleed modelling for the other modes
 - Supervisor OSD was sized for 320×240; on the 640×200 VGA surface its layout sits in the upper-left region
 
+## DriveWire / FujiNet Support (Experimental)
+
+The emulator can talk **DriveWire** over an emulated **Becker port**
+(`$FF41` status / `$FF42` data — the same virtual port XRoar, MAME and VCC
+use), paired with the HDB-DOS DriveWire ROMs. Because `fujinet-lib` and
+CONFIG only ever go through HDB-DOS's `DWRead`/`DWWrite` vectors, the Becker
+port is transparent to CoCo software — the same ROM that boots off a plain
+DriveWire server also boots FujiNet's CONFIG app.
+
+**What works today (External mode):**
+- A TCP client to an external DriveWire/FujiNet server — [pyDriveWire](https://github.com/n6il/pyDriveWire)
+  (Python 2), DW4, or [FujiNet-PC](https://github.com/FujiNetWIFI/fujinet-firmware)
+  (`./build.sh -p COCO`) — on port 65504.
+- HDB-DOS boots automatically once the bus is enabled, giving `DIR`, `LOADM`,
+  `SAVE`, disk images, and — via FujiNet-PC — the CONFIG app, TNFS/HTTP disk
+  mounts, the `N:` network device and the clock.
+- Reconnects on its own after a CoCo reset or a link drop.
+
+**Turning it on:** F3 → Settings → DriveWire → Mode: External, set Host/Port
+(default 65504), Save & Restart. Requires the HDB-DOS ROMs above on the SD card.
+
+**Known issue — FujiNet-PC's default read timeout.** FujiNet-PC's Becker-over-IP
+transport waits only 500 ms per byte by default. Since TCP never loses a byte
+(only delays it), a brief WiFi retransmit can occasionally exceed that and
+desync the DriveWire stream (a `Checksum error` in FujiNet-PC's log, followed
+by the CoCo hanging). A one-line patch that raises this to 5 s ships at
+`tools/fujinet-pc-boip-timeout.patch` — apply it to your `fujinet-firmware`
+checkout before `./build.sh -p COCO` if you see this. Using the `t`-suffixed
+HDB-DOS ROMs (2 s DriveWire timeout, retries instead of hanging) is a
+complementary mitigation on the CoCo side.
+
+**Not yet implemented:**
+- **Internal DriveWire mode** — a disk-only DriveWire server built into the
+  firmware itself (serving `.DSK` images from the SD card, no PC needed).
+- **Internal FujiNet mode** — the FUJI (`0xE2`) and NET (`0xE3`) devices
+  embedded in the firmware, so CONFIG/TNFS/`N:` work standalone.
+
+Both are on the [roadmap](#planned) below.
+
 ## Planned
 
-- **FujiNet support via FujiNet-PC** — *ongoing*. An emulated **Becker port** (`$FF41` status / `$FF42` data, as XRoar, MAME and VCC implement it) paired with the HDB-DOS DriveWire ROMs, so the CONFIG app, TNFS/HTTP disk images, the `N:` network device and the clock all work. Because `fujinet-lib` and CONFIG go through HDB-DOS's `DWRead`/`DWWrite` vectors, the Becker port is transparent to CoCo software. The first target is a TCP client to an external **FujiNet-PC** / DriveWire server (pyDriveWire, DW4) on port 65504.
+- **Internal DriveWire / FujiNet** — *ongoing*, next phase of the work above. A
+  disk-only DriveWire server built into the firmware (no PC required), followed
+  by an embedded FujiNet FUJI/NET device dispatcher.
 - **HD6309 CPU support** — *ongoing*. `CPU_VARIANT` already exists in `config.h`, but the core currently emulates the MC6809 only; the 6309's native mode, extra registers and inline instructions are not implemented yet.
 - Testing and adjustment of RS-232 Pak support
 - Migrate to an MQTT-based MCP Bridge gateway (replacing the current WiFi API)
 
 ## Changelog
+
+### v0.10.0 — September 23, 2026
+
+**Experimental DriveWire / FujiNet support (External mode).** See
+[DriveWire / FujiNet Support](#drivewire--fujinet-support-experimental) above.
+
+- **`src/core/becker.*`** — an emulated Becker port (`$FF41`/`$FF42`) with
+  lock-free ring buffers between the CPU core and a core-0 network task;
+  flushes and reconnects cleanly across CoCo resets and link drops.
+- **`src/net/dw_client.*` / `dw_bus.*`** — a TCP DriveWire client to an
+  external server (pyDriveWire, DW4, FujiNet-PC), with settings (mode, host,
+  port, HDB-DOS ROM variant) in NVS and a new `/api/bus` debug endpoint.
+- **HDB-DOS ROM selection** — `hdbdw3bck.rom`/`hdbdw3bc3.rom` load in place of
+  `disk11.rom` while the bus is enabled, with automatic fallback (and an OSD
+  warning) if they're missing.
+- **New Settings → DriveWire OSD screen** to configure and monitor the link.
+- **`tools/dw_test_server.py`**, **`tools/dw_proxy.py`** — a minimal Python 3
+  DriveWire test server and a logging TCP proxy, for testing without a full
+  FujiNet-PC install.
+- Closes the DriveWire socket cleanly before any supervisor-triggered restart,
+  so an external server isn't left holding a dead connection.
 
 ### v0.9.0 — September 21, 2026
 

@@ -44,6 +44,7 @@ enum SV_State : uint8_t {
     SV_KEYMAP_TEST,
     SV_JOY_SENSE,        // Mouse Sensitivity adjust screen
     SV_WIFI,             // WiFi / Debug server status + control screen
+    SV_FUJINET,          // DriveWire / FujiNet bus settings screen
 };
 
 struct SV_FileEntry;
@@ -109,6 +110,9 @@ uint8_t supervisor_load_machine_type(void);
 // state (mounted disks, last_dir) first so the new boot auto-mounts them.
 // Does not return — calls esp_restart().
 void supervisor_set_machine_type(uint8_t machine_type);
+
+// Flush disk caches, save supervisor state and restart. Never returns.
+void supervisor_save_and_restart(void);
 
 // Serial-port ownership persistence (NVS "sv" namespace, key "serial_mode").
 // load returns the stored mode, or SERIAL_MODE_FIRST_BOOT_DEFAULT if unset.

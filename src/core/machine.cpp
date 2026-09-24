@@ -17,6 +17,7 @@
 #include "../utils/debug.h"
 #include "../utils/perf_probe.h"
 #include "mc6551.h"   // RS-232 Pak (Deluxe RS-232 Program Pak) ACIA
+#include "becker.h"   // Becker port (DriveWire) at $FF41/$FF42
 #include "sound.h"    // Sound mixing core (mux/DAC/single-bit)
 
 // Global machine pointer for CPU memory callbacks
@@ -55,6 +56,35 @@ static void sound_pia1_written(Machine* m, uint8_t reg) {
 // sketch; defaults to the compile-time MACHINE_TYPE when NVS has no entry.
 // Not yet branched on in core/HAL — that comes in later steps of coco2and3.md.
 uint8_t g_machine_type = MACHINE_TYPE;
+
+const char* g_cart_rom_request[2]  = { nullptr, nullptr };
+const char* g_cart_rom_loaded[2]   = { nullptr, nullptr };
+bool        g_cart_rom_fallback[2] = { false, false };
+
+// Load the 8 KB cartridge ROM for machine index `idx` (0 = CoCo 2, 1 = CoCo 3):
+// the requested ROM if any, else — or if it is missing — disk11.rom. A missing
+// HDB-DOS ROM must not halt boot, so the fallback keeps the machine usable.
+static bool load_cart_rom(int idx, const char* rom_path, uint8_t* dst) {
+    char path[64];
+    const char* want = g_cart_rom_request[idx];
+    g_cart_rom_loaded[idx]   = nullptr;
+    g_cart_rom_fallback[idx] = false;
+    if (want) {
+        snprintf(path, sizeof(path), "%s/%s", rom_path, want);
+        if (hal_storage_load_file(path, dst, 8192)) {
+            g_cart_rom_loaded[idx] = want;
+            return true;
+        }
+        DEBUG_PRINTF("  MISSING: %s — falling back to %s", path, ROM_DISK_FILE);
+        g_cart_rom_fallback[idx] = true;
+    }
+    snprintf(path, sizeof(path), "%s/%s", rom_path, ROM_DISK_FILE);
+    if (hal_storage_load_file(path, dst, 8192)) {
+        g_cart_rom_loaded[idx] = ROM_DISK_FILE;
+        return true;
+    }
+    return false;
+}
 
 // Cycles per scanline: CPU_CLOCK_HZ / TARGET_FPS / SCANLINES_PER_FRAME
 // 895000 / 60 / 262 ≈ 56.9 → use fixed-point for accuracy
@@ -248,6 +278,11 @@ uint8_t machine_read_coco3(uint16_t addr) {
         }
 
     case 6: // SCS (FDC)
+        // Becker port shares the cartridge I/O area (XRoar rsdos.c).
+        if (becker_enabled()) {
+            if (addr == BECKER_STATUS_ADDR) return becker_read_status();
+            if (addr == BECKER_DATA_ADDR)   return becker_read_data();
+        }
         return sv_disk_read(&m->fdc, addr);
 
     default:
@@ -318,6 +353,10 @@ void machine_write_coco3(uint16_t addr, uint8_t val) {
         break;
 
     case 6: // SCS (FDC)
+        if (becker_enabled() && (addr == BECKER_STATUS_ADDR || addr == BECKER_DATA_ADDR)) {
+            if (addr == BECKER_DATA_ADDR) becker_write_data(val);
+            break;  // $FF41/$FF42 no longer mirror DSKREG
+        }
         sv_disk_write(&m->fdc, addr, val);
         break;
     }
@@ -412,12 +451,11 @@ bool machine_load_roms_coco3(Machine* m, const char* rom_path) {
 
     // Disk BASIC ROM (8KB) — external cartridge at $C000-$DFFF
     // The CoCo3 checks for 'DK' signature at $C000 to detect Disk BASIC
-    snprintf(path, sizeof(path), "%s/%s", rom_path, ROM_DISK_FILE);
-    if (hal_storage_load_file(path, m->rom_disk, 8192)) {
+    if (load_cart_rom(1, rom_path, m->rom_disk)) {
         m->rom_disk_loaded = true;
-        DEBUG_PRINTF("  Loaded %s (Disk BASIC 8KB)", ROM_DISK_FILE);
+        DEBUG_PRINTF("  Loaded %s (Disk BASIC 8KB)", g_cart_rom_loaded[1]);
     } else {
-        DEBUG_PRINTF("  Optional: %s not found (no Disk BASIC)", path);
+        DEBUG_PRINTF("  Optional: %s not found (no Disk BASIC)", ROM_DISK_FILE);
     }
 
     return m->rom_coco3_loaded;
@@ -673,6 +711,7 @@ void machine_run_frame_coco3(Machine* m) {
 
     for (int line = 0; line < SCANLINES_PER_FRAME; line++) {
         machine_run_scanline_coco3(m);
+        becker_scanline_tick();
         {
             PERF_PROBE_SCOPE(PROBE_AUDIO_SCANLINE);
             hal_audio_capture_scanline();
@@ -820,8 +859,12 @@ uint8_t machine_read_coco2(uint16_t addr) {
             return mc6821_read(&m->pia1, addr & 0x03);
         }
 
-        // Disk controller: $FF40-$FF5F (WD1793 FDC)
+        // Disk controller: $FF40-$FF5F (WD1793 FDC), Becker port at $FF41/$FF42
         if (addr < 0xFF60) {
+            if (becker_enabled()) {
+                if (addr == BECKER_STATUS_ADDR) return becker_read_status();
+                if (addr == BECKER_DATA_ADDR)   return becker_read_data();
+            }
             return sv_disk_read(&m->fdc, addr);
         }
 
@@ -938,8 +981,12 @@ void machine_write_coco2(uint16_t addr, uint8_t val) {
             return;
         }
 
-        // Disk controller: $FF40-$FF5F (WD1793 FDC)
+        // Disk controller: $FF40-$FF5F (WD1793 FDC), Becker port at $FF41/$FF42
         if (addr < 0xFF60) {
+            if (becker_enabled() && (addr == BECKER_STATUS_ADDR || addr == BECKER_DATA_ADDR)) {
+                if (addr == BECKER_DATA_ADDR) becker_write_data(val);
+                return;  // $FF41/$FF42 no longer mirror DSKREG
+            }
             sv_disk_write(&m->fdc, addr, val);
             return;
         }
@@ -1079,14 +1126,13 @@ bool machine_load_roms_coco2(Machine* m, const char* rom_path) {
         DEBUG_PRINTF("  MISSING: %s", path);
     }
 
-    // Disk BASIC / Cartridge ROM → $C000-$DFFF (8K-16K, optional)
-    snprintf(path, sizeof(path), "%s/%s", rom_path, ROM_DISK_FILE);
-    if (hal_storage_load_file(path, m->rom_cart, 8192)) {
+    // Disk BASIC / Cartridge ROM → $C000-$DFFF (8K, optional)
+    if (load_cart_rom(0, rom_path, m->rom_cart)) {
         m->rom_cart_loaded = true;
         m->cart_inserted = true;
-        DEBUG_PRINTF("  Loaded %s → $C000", ROM_DISK_FILE);
+        DEBUG_PRINTF("  Loaded %s → $C000", g_cart_rom_loaded[0]);
     } else {
-        DEBUG_PRINTF("  Optional: %s not found", path);
+        DEBUG_PRINTF("  Optional: %s not found", ROM_DISK_FILE);
     }
 
     // Verify reset vector is readable
@@ -1236,6 +1282,7 @@ void machine_run_frame_coco2(Machine* m) {
 
     for (int line = 0; line < SCANLINES_PER_FRAME; line++) {
         machine_run_scanline_coco2(m);
+        becker_scanline_tick();
         // Capture audio level after each scanline for pitch-correct playback
         hal_audio_capture_scanline();
     }
@@ -1303,6 +1350,7 @@ void machine_reset(Machine* m) {
     // deliberately NOT touched here — a CoCo reset must not let debug noise
     // corrupt an active host link.
     mc6551_reset();
+    becker_reset();
 }
 
 void machine_run_scanline(Machine* m) {

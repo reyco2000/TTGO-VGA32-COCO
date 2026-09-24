@@ -25,8 +25,8 @@
 // Firmware version (reported by the WiFi debug API /api/status and shown on
 // the supervisor About screen). Bump both of these together on a release —
 // they are the single source of truth; nothing else should hardcode a version.
-#define FIRMWARE_VERSION        "0.9.0"
-#define FIRMWARE_BUILD_DATE     "21.09.2026"
+#define FIRMWARE_VERSION        "0.10.0"
+#define FIRMWARE_BUILD_DATE     "23.09.2026"
 
 // ------------------------------------------------------------
 // Build target — standalone USB flash vs. ESP32_Bootloader
@@ -199,6 +199,14 @@
 #define ROM_BASIC_FILE          "bas13.rom"
 #define ROM_EXT_BASIC_FILE      "extbas11.rom"
 #define ROM_DISK_FILE           "disk11.rom"
+
+// HDB-DOS DriveWire Becker ROMs (8 KB), used instead of disk11.rom when the
+// DriveWire bus is enabled. The "t" builds time out after 2 s instead of
+// hanging when the DriveWire server goes away.
+#define ROM_BECKER_COCO2_FILE     "hdbdw3bck.rom"
+#define ROM_BECKER_COCO3_FILE     "hdbdw3bc3.rom"
+#define ROM_BECKER_TO_COCO2_FILE  "hdbdw3bckt.rom"
+#define ROM_BECKER_TO_COCO3_FILE  "hdbdw3bc3t.rom"
 
 #define ROM_COCO3_FILE          "coco3.rom"
 #define COCO3_ROM_SIZE          (32 * 1024)

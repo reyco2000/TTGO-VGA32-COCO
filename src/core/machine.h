@@ -61,6 +61,15 @@
 // Step 1: declared but not yet branched on — all paths still use #if MACHINE_TYPE.
 extern uint8_t g_machine_type;
 
+// Cartridge ROM selection, indexed [0] = CoCo 2, [1] = CoCo 3.
+// g_cart_rom_request: file to load instead of ROM_DISK_FILE (nullptr = disk11);
+//   set before machine_load_roms() by the DriveWire bus (HDB-DOS Becker ROM).
+// g_cart_rom_loaded: file actually loaded (nullptr = none).
+// g_cart_rom_fallback: the requested ROM was missing and disk11 was loaded.
+extern const char* g_cart_rom_request[2];
+extern const char* g_cart_rom_loaded[2];
+extern bool        g_cart_rom_fallback[2];
+
 typedef struct Machine {
     // --- Core chips ---
     MC6809   cpu;
