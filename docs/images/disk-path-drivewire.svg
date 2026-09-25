@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="590" viewBox="0 0 960 590" role="img" aria-label="DriveWire path: LOAD calls HDB-DOS, which writes a READEX request to the Becker port at $FF42. The bytes cross to core 0 through a 1 KB TX ring and wake the dw_server task. The server maps the drive and LSN, copies the sector from the same PSRAM images the Disk Manager mounts, and pushes 256 bytes plus a status byte back through a 4 KB RX ring. HDB-DOS polls $FF41 and reads $FF42. Writes are flushed to SD about two seconds after the last write.">
+<style>
+svg{--ground:#ffffff;--surface:#ffffff;--ink:#18202c;--muted:#5b6577;--line:#c3ccd8;--lane:#eef1f5;--fdc:#2f63a8;--dw:#0d7f73;--ring:#8a5a00;--ring-soft:#f6ead2;color:var(--ink)}
+@media (prefers-color-scheme: dark){svg{--ground:#0d1117;--surface:#1a2029;--ink:#e4e9f0;--muted:#9aa5b6;--line:#3a4453;--lane:#161b23;--fdc:#7fa9e6;--dw:#4fc4b5;--ring:#e0b060;--ring-soft:#33291a;}}
+.bg{fill:var(--ground)}
+text{fill:var(--ink);font-family:"IBM Plex Sans","Segoe UI",Helvetica,Arial,sans-serif;font-size:13px}
+.t-title{font-weight:600;font-size:14px}
+.t-mono{font-family:"IBM Plex Mono",Consolas,Menlo,"DejaVu Sans Mono",monospace;font-size:12px}
+.t-small{font-size:11.5px;fill:var(--muted)}
+.t-lane{font-family:"IBM Plex Mono",Consolas,Menlo,monospace;font-size:11px;letter-spacing:.08em;fill:var(--muted)}
+.t-edge{font-family:"IBM Plex Mono",Consolas,Menlo,monospace;font-size:11px;fill:var(--muted)}
+.lane{fill:var(--lane);stroke:var(--line);stroke-width:1}
+.box{fill:var(--surface);stroke:var(--line);stroke-width:1.2}
+.box.fdc{stroke:var(--fdc);stroke-width:1.8}
+.box.dw{stroke:var(--dw);stroke-width:1.8}
+.box.ring{fill:var(--ring-soft);stroke:var(--ring);stroke-width:1.5}
+.box.store{stroke:var(--muted);stroke-dasharray:4 3}
+.edge{stroke:var(--ink);stroke-width:1.4;fill:none}
+.edge.fdc{stroke:var(--fdc)}.edge.dw{stroke:var(--dw)}.edge.ring{stroke:var(--ring)}
+.edge.soft{stroke:var(--muted);stroke-dasharray:5 4}
+.head{fill:var(--ink)}.head.fdc{fill:var(--fdc)}.head.dw{fill:var(--dw)}.head.ring{fill:var(--ring)}.head.soft{fill:var(--muted)}
+.boundary{stroke:var(--ring);stroke-width:1.2;stroke-dasharray:6 5}
+</style>
+<rect class="bg" x="0" y="0" width="960" height="590"/>
+          <!-- core 1 lane -->
+          <rect class="lane" x="10" y="10" width="940" height="170" rx="10"/>
+          <text class="t-lane" x="28" y="36">CORE 1 · EMULATION LOOP</text>
+          <!-- core 0 lane -->
+          <rect class="lane" x="10" y="300" width="940" height="180" rx="10"/>
+          <text class="t-lane" x="28" y="326">CORE 0 · dw_server TASK (4 KB STACK)</text>
+
+          <rect class="box" x="24" y="50" width="130" height="110" rx="6"/>
+          <text class="t-title" x="89" y="86" text-anchor="middle">CoCo BASIC</text>
+          <text class="t-mono" x="89" y="110" text-anchor="middle">LOAD "PROG"</text>
+          <text class="t-small" x="89" y="134" text-anchor="middle">your program</text>
+
+          <rect class="box dw" x="214" y="50" width="170" height="110" rx="6"/>
+          <text class="t-title" x="299" y="80" text-anchor="middle">hdbdw3bc3.rom</text>
+          <text class="t-small" x="299" y="104" text-anchor="middle">HDB-DOS DSKCON</text>
+          <text class="t-mono" x="299" y="126" text-anchor="middle">DWWrite / DWRead</text>
+          <text class="t-small" x="299" y="146" text-anchor="middle">IRQs masked while waiting</text>
+
+          <rect class="box dw" x="444" y="50" width="170" height="110" rx="6"/>
+          <text class="t-title" x="529" y="80" text-anchor="middle">Becker port</text>
+          <text class="t-mono" x="529" y="106" text-anchor="middle">$FF41 status bit 1</text>
+          <text class="t-mono" x="529" y="126" text-anchor="middle">$FF42 data</text>
+          <text class="t-small" x="529" y="146" text-anchor="middle">becker.cpp</text>
+
+          <rect class="box" x="774" y="50" width="160" height="110" rx="6"/>
+          <text class="t-title" x="854" y="86" text-anchor="middle">Disk Manager</text>
+          <text class="t-small" x="854" y="110" text-anchor="middle">F3 · mount / eject</text>
+          <text class="t-small" x="854" y="130" text-anchor="middle">drives 0–3</text>
+
+          <line class="edge dw" x1="154" y1="88" x2="206" y2="88"/><polygon class="head dw" points="214,88 205,83.5 205,92.5"/>
+          <line class="edge dw" x1="384" y1="88" x2="436" y2="88"/><polygon class="head dw" points="444,88 435,83.5 435,92.5"/>
+          <text class="t-edge" x="184" y="78" text-anchor="middle">calls</text>
+          <text class="t-edge" x="414" y="78" text-anchor="middle">STA</text>
+          <line class="edge" x1="214" y1="126" x2="162" y2="126"/><polygon class="head" points="154,126 163,121.5 163,130.5"/>
+          <line class="edge" x1="444" y1="126" x2="392" y2="126"/><polygon class="head" points="384,126 393,121.5 393,130.5"/>
+          <text class="t-edge" x="184" y="146" text-anchor="middle">data</text>
+          <text class="t-edge" x="414" y="146" text-anchor="middle">LDA</text>
+
+          <!-- boundary band -->
+          <line class="boundary" x1="10" y1="250" x2="950" y2="250"/>
+          <text class="t-lane" x="28" y="214" style="fill: var(--ring)">CROSS-CORE RINGS · LOCK-FREE · IN PSRAM</text>
+          <text class="t-small" x="28" y="236">The CPU side never blocks. The first byte of a request</text>
+          <text class="t-small" x="28" y="276">wakes the server task (checked once per scanline).</text>
+
+          <rect class="box ring" x="444" y="222" width="80" height="56" rx="5"/>
+          <text class="t-title" x="484" y="246" text-anchor="middle">TX</text>
+          <text class="t-mono" x="484" y="266" text-anchor="middle">1 KB</text>
+          <rect class="box ring" x="534" y="222" width="80" height="56" rx="5"/>
+          <text class="t-title" x="574" y="246" text-anchor="middle">RX</text>
+          <text class="t-mono" x="574" y="266" text-anchor="middle">4 KB</text>
+
+          <line class="edge ring" x1="484" y1="160" x2="484" y2="214"/><polygon class="head ring" points="484,222 479.5,213 488.5,213"/>
+          <line class="edge ring" x1="574" y1="222" x2="574" y2="168"/><polygon class="head ring" points="574,160 569.5,169 578.5,169"/>
+          <text class="t-edge" x="474" y="196" text-anchor="end">request</text>
+          <text class="t-edge" x="584" y="196">reply</text>
+
+          <line class="edge ring" x1="484" y1="278" x2="484" y2="342"/><polygon class="head ring" points="484,350 479.5,341 488.5,341"/>
+          <line class="edge ring" x1="574" y1="350" x2="574" y2="286"/><polygon class="head ring" points="574,278 569.5,287 578.5,287"/>
+          <text class="t-edge" x="474" y="322" text-anchor="end">wakes task</text>
+          <text class="t-edge" x="584" y="322">256 B + status</text>
+
+
+          <rect class="box dw" x="444" y="350" width="170" height="110" rx="6"/>
+          <text class="t-title" x="529" y="380" text-anchor="middle">dw_server.cpp</text>
+          <text class="t-small" x="529" y="404" text-anchor="middle">parses opcodes</text>
+          <text class="t-mono" x="529" y="426" text-anchor="middle">READEX · WRITE</text>
+          <text class="t-mono" x="529" y="446" text-anchor="middle">DWINIT · TIME</text>
+
+          <rect class="box dw" x="654" y="350" width="150" height="110" rx="6"/>
+          <text class="t-title" x="729" y="380" text-anchor="middle">Drive mapping</text>
+          <text class="t-small" x="729" y="404" text-anchor="middle">LSN inside image: as-is</text>
+          <text class="t-small" x="729" y="424" text-anchor="middle">past the end: HDB-DOS</text>
+          <text class="t-mono" x="729" y="446" text-anchor="middle">DRIVE n = LSN n×630</text>
+
+          <rect class="box" x="834" y="350" width="110" height="110" rx="6"/>
+          <text class="t-title" x="889" y="386" text-anchor="middle">PSRAM image</text>
+          <text class="t-small" x="889" y="410" text-anchor="middle">same drives 0–3</text>
+          <text class="t-mono" x="889" y="434" text-anchor="middle">161,280 B</text>
+
+          <line class="edge dw" x1="614" y1="405" x2="646" y2="405"/><polygon class="head dw" points="654,405 645,400.5 645,409.5"/>
+          <line class="edge dw" x1="804" y1="405" x2="826" y2="405"/><polygon class="head dw" points="834,405 825,400.5 825,409.5"/>
+          <text class="t-edge" x="634" y="395" text-anchor="middle">LSN</text>
+          <text class="t-edge" x="819" y="392" text-anchor="middle">copy</text>
+          <text class="t-small" x="28" y="400">Copies hold sv_disk_lock for one</text>
+          <text class="t-small" x="28" y="420">256-byte memcpy, so a mount or eject</text>
+          <text class="t-small" x="28" y="440">on core 1 never sees a half-read drive.</text>
+
+          <!-- disk manager mounts into cache -->
+          <line class="edge soft" x1="889" y1="160" x2="889" y2="342"/><polygon class="head soft" points="889,350 884.5,341 893.5,341"/>
+          <text class="t-edge" x="899" y="214">mounts</text>
+
+          <!-- SD -->
+          <rect class="box store" x="834" y="520" width="110" height="60" rx="6"/>
+          <text class="t-title" x="889" y="546" text-anchor="middle">SD card</text>
+          <text class="t-mono" x="889" y="566" text-anchor="middle">/PRUEBA.DSK</text>
+          <line class="edge soft" x1="889" y1="460" x2="889" y2="512"/><polygon class="head soft" points="889,520 884.5,511 893.5,511"/>
+          <text class="t-edge" x="878" y="502" text-anchor="end">dirty sectors ~2 s after the last write</text>
+        </svg>
