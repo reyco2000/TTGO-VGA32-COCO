@@ -484,7 +484,18 @@ static void h_screenshot() {
 //  Config portal handlers (AP mode)
 // =============================================================
 
+// The setup portal exists only to get the board onto a network: it answers
+// only while the setup SoftAP is up. On a joined network it would let anyone
+// on the LAN scan or change the WiFi credentials; to reconfigure, use the
+// supervisor (WiFi / Debug: Stop, Forget Credentials, Start Config Portal).
+static bool portal_active(void) {
+    if (wifi_mgr_state() == WIFI_MGR_AP_CONFIG) return true;
+    send_err(404, "not found");
+    return false;
+}
+
 static void h_portal_root() {
+    if (!portal_active()) return;
     String html =
         "<!doctype html><html><head><meta name=viewport content='width=device-width,initial-scale=1'>"
         "<title>CoCo3 WiFi Setup</title>"
@@ -509,10 +520,11 @@ static void h_portal_root() {
         "msg.textContent=d.state+(d.ip!='0.0.0.0'?(' — '+d.ip):'');"
         "if(d.state!='Connected'&&d.state!='Failed')setTimeout(poll,1500);});}"
         "</script></body></html>";
-    s_server.send(200, "text/html", html);
+    s_server.send(200, "text/html; charset=utf-8", html);
 }
 
 static void h_portal_scan() {
+    if (!portal_active()) return;
     int n = wifi_mgr_scan();
     String j = "{\"networks\":[";
     for (int i = 0; i < n; i++) {
@@ -528,6 +540,7 @@ static void h_portal_scan() {
 }
 
 static void h_portal_save() {
+    if (!portal_active()) return;
     String ssid = s_server.arg("ssid");
     String pass = s_server.arg("pass");
     if (ssid.length() == 0) { send_err(400, "missing ssid"); return; }
@@ -536,6 +549,7 @@ static void h_portal_save() {
 }
 
 static void h_portal_status() {
+    if (!portal_active()) return;
     String j = String("{\"state\":\"") + wifi_mgr_state_str() +
                "\",\"ip\":\"" + wifi_mgr_ip() + "\"}";
     send_json(200, j);
@@ -565,7 +579,7 @@ static void register_routes() {
     s_server.on("/api/disk",          HTTP_POST, h_post_disk);
     s_server.on("/api/screenshot.png",HTTP_GET,  h_screenshot);
 
-    // Config portal (AP)
+    // Config portal (AP mode only — see portal_active)
     s_server.on("/",        HTTP_GET,  h_portal_root);
     s_server.on("/scan",    HTTP_GET,  h_portal_scan);
     s_server.on("/save",    HTTP_POST, h_portal_save);
