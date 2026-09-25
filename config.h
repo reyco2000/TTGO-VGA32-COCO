@@ -25,7 +25,7 @@
 // Firmware version (reported by the WiFi debug API /api/status and shown on
 // the supervisor About screen). Bump both of these together on a release —
 // they are the single source of truth; nothing else should hardcode a version.
-#define FIRMWARE_VERSION        "0.10.0"
+#define FIRMWARE_VERSION        "0.11.0"
 #define FIRMWARE_BUILD_DATE     "23.09.2026"
 
 // ------------------------------------------------------------
