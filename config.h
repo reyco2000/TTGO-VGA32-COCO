@@ -208,6 +208,10 @@
 #define ROM_BECKER_TO_COCO2_FILE  "hdbdw3bckt.rom"
 #define ROM_BECKER_TO_COCO3_FILE  "hdbdw3bc3t.rom"
 
+// Time zone (POSIX TZ string) for the Internal DriveWire server's OP_TIME,
+// e.g. "EST5EDT,M3.2.0,M11.1.0". The clock is set by SNTP once WiFi is up.
+#define DW_SERVER_TZ              "UTC0"
+
 #define ROM_COCO3_FILE          "coco3.rom"
 #define COCO3_ROM_SIZE          (32 * 1024)
 #define COCO3_PHYSICAL_RAM      (512 * 1024)

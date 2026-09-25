@@ -23,15 +23,18 @@
 #include <WebServer.h>
 #include <nvs.h>
 #include <nvs_flash.h>
+#include <esp_heap_caps.h>
 
 #include "debug_rpc.h"
 #include "wifi_mgr.h"
 #include "dw_bus.h"
 #include "dw_client.h"
+#include "dw_server.h"
 #include "png_writer.h"
 #include "../hal/hal.h"             // hal_video_capture_*
 #include "../core/machine.h"        // g_machine_type, machine types
 #include "../supervisor/supervisor.h" // supervisor_set_machine_type
+#include "../supervisor/sv_disk.h"
 #include "../utils/debug.h"
 #include "../../config.h"           // MACHINE_NAME_COCO2/3, FW version
 
@@ -136,6 +139,10 @@ static void h_status() {
     }
     j += ",\"bus_to_coco\":" + String(becker_bytes_to_coco());
     j += ",\"bus_from_coco\":" + String(becker_bytes_from_coco());
+    // Internal RAM headroom (free now / lowest since boot / largest block).
+    j += ",\"int_free\":" + String(heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+    j += ",\"int_min\":" + String(heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL));
+    j += ",\"int_largest\":" + String(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
     j += "}";
     send_json(200, j);
 }
@@ -159,12 +166,20 @@ static void h_get_bus() {
     j += ",\"connects\":" + String(dw_client_connects());
     j += ",\"max_reply_ms\":" + String(dw_client_max_reply_ms());
     j += ",\"slow_replies\":" + String(dw_client_slow_replies());
+    if (dw_bus_mode() == BUS_MODE_INTERNAL_DW) {
+        j += ",\"server\":{\"reads\":" + String(dw_server_reads());
+        j += ",\"writes\":" + String(dw_server_writes());
+        j += ",\"errors\":" + String(dw_server_errors());
+        j += ",\"flushes\":" + String(dw_server_flushes());
+        j += ",\"last_op\":" + String(dw_server_last_op());
+        j += ",\"stack_free\":" + String(dw_server_stack_free()) + "}";
+    }
     j += "}";
     send_json(200, j);
 }
 
 static void h_post_bus() {
-    if (!s_server.hasArg("mode")) { send_err(400, "missing mode (0=Off,1=External)"); return; }
+    if (!s_server.hasArg("mode")) { send_err(400, "missing mode (0=Off,1=External,2=Internal DW)"); return; }
     uint32_t m = arg_u32("mode", 0);
     if (m >= BUS_MODE_COUNT || !dw_bus_mode_supported((BusMode)m)) {
         send_err(400, "mode not supported in this build");
@@ -184,6 +199,54 @@ static void h_post_bus() {
     debug_rpc_set_paused(true);
     delay(50);
     supervisor_save_and_restart();
+}
+
+// Disk Manager drives 0-3 (the WD1793 drives, and the Internal DriveWire
+// server's drives). Mount/eject run on core 1 and are remembered in NVS.
+static void h_get_disk() {
+    Machine* m = debug_rpc_machine();
+    if (!m) { send_err(400, "no machine"); return; }
+    String j = "{\"drives\":[";
+    sv_disk_lock();   // a mount on core 1 may be rewriting the entry
+    for (int d = 0; d < SV_DISK_MAX_DRIVES; d++) {
+        SV_DiskImage* img = &m->fdc.drives[d];
+        if (d) j += ",";
+        j += "{\"drive\":" + String(d) + ",\"mounted\":" + (img->mounted ? "true" : "false");
+        if (img->mounted) {
+            j += ",\"path\":\"" + String(img->path) + "\"";
+            j += ",\"bytes\":" + String(img->cache_size);
+            j += ",\"read_only\":" + String(img->read_only ? "true" : "false");
+            j += ",\"dirty\":" + String(img->dirty ? "true" : "false");
+        }
+        j += "}";
+    }
+    sv_disk_unlock();
+    j += "]}";
+    send_json(200, j);
+}
+
+static void h_post_disk() {
+    String op = s_server.arg("op");
+    DebugCmd c = {};
+    c.type = DBG_CMD_DISK;
+    c.addr = arg_u32("drive", 0);
+    String path = s_server.arg("path");
+    if (op == "mount") {
+        if (path.length() == 0) { send_err(400, "mount needs path"); return; }
+        c.disk_op = DBG_DISK_MOUNT;
+        c.path = path.c_str();
+    } else if (op == "eject") {
+        c.disk_op = DBG_DISK_EJECT;
+    } else if (op == "flush") {
+        c.disk_op = DBG_DISK_FLUSH;
+    } else {
+        send_err(400, "op must be mount|eject|flush");
+        return;
+    }
+    // Loading a large image from SD takes a while — longer than other RPCs.
+    if (!debug_rpc_submit(&c, 10000)) { send_err(504, "rpc timeout"); return; }
+    if (c.result != DBG_OK) { send_err(400, op == "mount" ? "mount failed" : "bad drive"); return; }
+    send_json(200, String("{\"ok\":true,\"op\":\"") + op + "\",\"drive\":" + c.addr + "}");
 }
 
 static void h_pause()  { debug_rpc_set_paused(true);  send_json(200, "{\"paused\":true}"); }
@@ -498,6 +561,8 @@ static void register_routes() {
     s_server.on("/api/nvram",         HTTP_GET,  h_nvram);
     s_server.on("/api/bus",           HTTP_GET,  h_get_bus);
     s_server.on("/api/bus",           HTTP_POST, h_post_bus);
+    s_server.on("/api/disk",          HTTP_GET,  h_get_disk);
+    s_server.on("/api/disk",          HTTP_POST, h_post_disk);
     s_server.on("/api/screenshot.png",HTTP_GET,  h_screenshot);
 
     // Config portal (AP)

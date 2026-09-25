@@ -397,19 +397,26 @@ checkout before `./build.sh -p COCO` if you see this. Using the `t`-suffixed
 HDB-DOS ROMs (2 s DriveWire timeout, retries instead of hanging) is a
 complementary mitigation on the CoCo side.
 
+**Internal DriveWire mode (no PC, no WiFi needed):** F3 → Settings →
+DriveWire → Mode: Internal DW, Save & Restart. A disk-only DriveWire server
+built into the firmware serves the Disk Manager's drives 0–3 (the same `.DSK`
+images the floppy controller uses) as DriveWire drives 0–3. HDB-DOS's
+`DRIVE 1`–`3` (which it addresses as 630-sector slices of DriveWire drive 0)
+are mapped to Disk Manager drives 1–3, while NitrOS-9 and HDB-DOS hard-drive
+images in drive 0 are served as-is. Writes go to the PSRAM cache and are
+flushed to the SD card ~2 s after the last write (and on eject, reset and
+restart). `TIME` uses SNTP when WiFi is up (`DW_SERVER_TZ` in `config.h`).
+
 **Not yet implemented:**
-- **Internal DriveWire mode** — a disk-only DriveWire server built into the
-  firmware itself (serving `.DSK` images from the SD card, no PC needed).
 - **Internal FujiNet mode** — the FUJI (`0xE2`) and NET (`0xE3`) devices
   embedded in the firmware, so CONFIG/TNFS/`N:` work standalone.
 
-Both are on the [roadmap](#planned) below.
+It is on the [roadmap](#planned) below.
 
 ## Planned
 
-- **Internal DriveWire / FujiNet** — *ongoing*, next phase of the work above. A
-  disk-only DriveWire server built into the firmware (no PC required), followed
-  by an embedded FujiNet FUJI/NET device dispatcher.
+- **Internal FujiNet** — *ongoing*, next phase of the work above: an embedded
+  FujiNet FUJI/NET device dispatcher on top of the built-in DriveWire server.
 - **HD6309 CPU support** — *ongoing*. `CPU_VARIANT` already exists in `config.h`, but the core currently emulates the MC6809 only; the 6309's native mode, extra registers and inline instructions are not implemented yet.
 - Testing and adjustment of RS-232 Pak support
 - Migrate to an MQTT-based MCP Bridge gateway (replacing the current WiFi API)

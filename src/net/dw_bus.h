@@ -25,6 +25,8 @@
 #include <Arduino.h>
 #include "../core/becker.h"
 
+struct Machine;
+
 #define DW_DEFAULT_PORT 65504
 
 // Read NVS and, when the bus is on, request the HDB-DOS Becker ROMs in place
@@ -44,13 +46,15 @@ void        dw_bus_save_config(BusMode mode, const String& host, uint16_t port,
                                bool rom_timeout);
 
 // Enable the Becker port and start the back end for the configured mode.
-// Call after WiFi init; the back end waits for STA itself.
-void        dw_bus_begin(void);
+// Call after WiFi init; the External back end waits for STA itself. The
+// Internal server serves the machine's Disk Manager drives.
+void        dw_bus_begin(Machine* m);
 
 // Short human-readable link state for the OSD / debug API.
 const char* dw_bus_link_str(void);
 
-// Close the back end's connection before a software restart.
+// Before a software restart: close the External connection / flush the
+// Internal server's pending writes.
 void        dw_bus_shutdown(void);
 
 #endif // NET_DW_BUS_H

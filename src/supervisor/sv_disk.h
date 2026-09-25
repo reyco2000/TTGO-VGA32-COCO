@@ -51,6 +51,10 @@ struct SV_DiskImage {
     // Entire disk image cached in PSRAM — eliminates SD read issues
     uint8_t* cache;          // PSRAM buffer (ps_malloc), NULL if not cached
     uint32_t cache_size;     // Size of data portion (excluding header)
+
+    // One bit per 256-byte sector written since the last flush, so a flush
+    // writes only what changed. NULL (allocation failed) = flush everything.
+    uint8_t* dirty_map;
 };
 
 struct SV_DiskController {
@@ -121,5 +125,16 @@ void sv_disk_flush(SV_DiskController* fdc, uint8_t drive);
 void sv_disk_flush_all(SV_DiskController* fdc);
 
 bool sv_disk_detect_geometry(SV_DiskImage* img);
+
+// Drive-table lock. The images are shared with the built-in DriveWire server
+// (src/net/dw_server.cpp, core 0), which reads and writes the PSRAM caches
+// directly. Mount, eject and flush take it (it is recursive); core 0 holds it
+// only for a 256-byte copy or a background flush. The WD1793 path on core 1
+// does not take it — it never frees or reallocates a cache.
+void sv_disk_lock(void);
+void sv_disk_unlock(void);
+
+// Record a write to [off, off+len) of the image's data area (sets dirty).
+void sv_disk_mark_dirty(SV_DiskImage* img, uint32_t off, uint32_t len);
 
 #endif // SV_DISK_H
