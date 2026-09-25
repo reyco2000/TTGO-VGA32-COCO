@@ -118,6 +118,11 @@ curl       http://$IP/api/nvram
 
 ## Config-portal routes (AP mode)
 
+These routes answer **only while the setup SoftAP is up** (`AP_CONFIG`); on a
+joined network they return 404, so nobody on the LAN can scan or change the
+WiFi credentials. To reconfigure, use the supervisor's **WiFi / Debug** screen:
+**Stop / Disconnect**, **Forget Credentials**, then **Start Config Portal**.
+
 | Method / Path | Description |
 |---|---|
 | `GET /` | HTML page: Scan button, SSID dropdown, password field |
