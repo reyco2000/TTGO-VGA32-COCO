@@ -19,6 +19,8 @@
 #include "freertos/semphr.h"
 
 #include "../core/mc6809.h"
+#include "../supervisor/supervisor.h"
+#include "../supervisor/sv_disk.h"
 #include "../utils/debug.h"
 
 static Machine*         s_machine   = nullptr;
@@ -104,6 +106,23 @@ static void exec_inject(DebugCmd* c) {
     c->result = DBG_OK;
 }
 
+// Same effect as the OSD Disk Manager, including remembering the mounts.
+Machine* debug_rpc_machine(void) { return s_machine; }
+
+static void exec_disk(DebugCmd* c) {
+    if (c->addr >= SV_DISK_MAX_DRIVES) { c->result = DBG_ERR_RANGE; return; }
+    uint8_t d = (uint8_t)c->addr;
+    bool ok = true;
+    switch (c->disk_op) {
+        case DBG_DISK_MOUNT: ok = c->path && sv_disk_mount(&s_machine->fdc, d, c->path); break;
+        case DBG_DISK_EJECT: sv_disk_eject(&s_machine->fdc, d); break;
+        case DBG_DISK_FLUSH: sv_disk_flush(&s_machine->fdc, d); break;
+        default:             ok = false; break;
+    }
+    if (ok && c->disk_op != DBG_DISK_FLUSH) supervisor_save_state();
+    c->result = ok ? DBG_OK : DBG_ERR_RANGE;
+}
+
 static void exec_one(DebugCmd* c) {
     if (!s_machine) { c->result = DBG_ERR_NOMACHINE; return; }
     switch (c->type) {
@@ -114,6 +133,7 @@ static void exec_one(DebugCmd* c) {
         case DBG_CMD_INJECT:     exec_inject(c);     break;
         case DBG_CMD_RESET:      machine_reset(s_machine); c->result = DBG_OK; break;
         case DBG_CMD_STEP_FRAME: machine_run_frame(s_machine); c->result = DBG_OK; break;
+        case DBG_CMD_DISK:       exec_disk(c);       break;
         default:                 c->result = DBG_ERR_RANGE; break;
     }
 }

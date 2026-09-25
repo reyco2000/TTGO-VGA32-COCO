@@ -52,7 +52,13 @@ typedef enum {
     DBG_CMD_INJECT,
     DBG_CMD_RESET,
     DBG_CMD_STEP_FRAME,   // run exactly one machine_run_frame() (for screenshots)
+    DBG_CMD_DISK,         // Disk Manager: mount / eject / flush a drive
 } DebugCmdType;
+
+// --- DBG_CMD_DISK operations ---
+#define DBG_DISK_MOUNT  0
+#define DBG_DISK_EJECT  1
+#define DBG_DISK_FLUSH  2
 
 // --- Result codes ---
 #define DBG_OK            0
@@ -81,6 +87,10 @@ typedef struct {
     bool set_pc;
     bool resume_after;
 
+    // Disk (DBG_CMD_DISK): drive in `addr`, path valid until submit returns
+    uint8_t     disk_op;
+    const char* path;
+
     // Output
     int8_t result;
 } DebugCmd;
@@ -95,6 +105,9 @@ bool debug_rpc_submit(DebugCmd* cmd, uint32_t timeout_ms);
 
 // Core 1: drain at most one pending command. Call between frames in loop().
 void debug_rpc_poll(void);
+
+// The bound machine (for read-only status that needs no RPC).
+Machine* debug_rpc_machine(void);
 
 // Pause flag (set/read from either core).
 void debug_rpc_set_paused(bool paused);

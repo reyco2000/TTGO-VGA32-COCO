@@ -69,7 +69,7 @@ Responses are JSON. Transfers are capped at 4 KB per request.
 
 | Method / Path | Description |
 |---|---|
-| `GET /api/status` | machine type, paused flag, firmware/API version |
+| `GET /api/status` | machine type, paused flag, firmware/API version, bus summary, internal RAM (`int_free`, `int_min`, `int_largest`) |
 | `POST /api/pause`, `POST /api/resume` | freeze / un-freeze at frame boundary |
 | `GET /api/registers` | A,B,D,X,Y,U,S,PC,DP,CC + decoded flags + cycles |
 | `POST /api/registers` | set any subset: `pc=`, `a=`, `b=`, `d=`, `x=`, `y=`, `u=`, `s=`, `dp=`, `cc=` |
@@ -81,6 +81,10 @@ Responses are JSON. Transfers are capped at 4 KB per request.
 | `GET /api/machine` | current machine type (3 = CoCo 2, 4 = CoCo 3) |
 | `POST /api/machine` | `type=3\|4` — **reboots the device** (see below) |
 | `GET /api/nvram` | dump all `"sv"` NVS settings as JSON |
+| `GET /api/bus` | DriveWire bus mode, link, byte counters; `server{reads,writes,errors,flushes,last_op,stack_free}` in Internal DW mode |
+| `POST /api/bus` | `mode=0\|1\|2` (Off / External / Internal DW), `host=`, `port=`, `rom_to=` — **reboots** |
+| `GET /api/disk` | Disk Manager drives 0–3: path, size, read-only, dirty |
+| `POST /api/disk` | `op=mount&drive=N&path=/X.DSK`, `op=eject&drive=N`, `op=flush&drive=N` (runs on core 1; mounts are remembered like the OSD's) |
 
 ### Examples (curl)
 

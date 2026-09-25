@@ -209,7 +209,7 @@ void setup() {
     debug_server_begin();  // creates the core-0 WebServer task (idle until WiFi up)
 
     // Becker port + DriveWire back end (no-op when the bus mode is Off).
-    dw_bus_begin();
+    dw_bus_begin(&coco);
 
     DEBUG_PRINT("=== Post-Init Memory Report ===");
     DEBUG_PRINTF("SRAM  free:  %d bytes (used: %d)", ESP.getFreeHeap(), ESP.getHeapSize() - ESP.getFreeHeap());

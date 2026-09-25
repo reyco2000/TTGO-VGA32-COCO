@@ -35,6 +35,27 @@
 #include "../utils/debug.h"
 #include <SD.h>
 #include <esp_heap_caps.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+
+// Drive-table lock (see sv_disk_lock in sv_disk.h). Created in sv_disk_init.
+static SemaphoreHandle_t s_lock = nullptr;
+
+void sv_disk_lock(void) {
+    if (s_lock) xSemaphoreTakeRecursive(s_lock, portMAX_DELAY);
+}
+
+void sv_disk_unlock(void) {
+    if (s_lock) xSemaphoreGiveRecursive(s_lock);
+}
+
+void sv_disk_mark_dirty(SV_DiskImage* img, uint32_t off, uint32_t len) {
+    img->dirty = true;
+    if (!img->dirty_map || len == 0) return;
+    for (uint32_t s = off / DISK_SECTOR_SIZE; s <= (off + len - 1) / DISK_SECTOR_SIZE; s++) {
+        img->dirty_map[s >> 3] |= (uint8_t)(1u << (s & 7));
+    }
+}
 
 // FDC debug traces (disabled — disk I/O confirmed working)
 #define FDC_TRACE(fmt, ...)
@@ -405,7 +426,7 @@ static void fdc_write_track_byte(SV_DiskController* fdc, uint8_t value) {
                 if (off != UINT32_MAX && disk->cache &&
                     (off + disk->sector_size) <= disk->cache_size) {
                     memcpy(disk->cache + off, fdc->sector_buf, disk->sector_size);
-                    disk->dirty = true;
+                    sv_disk_mark_dirty(disk, off, disk->sector_size);
                 }
                 fdc->wt_state = WT_IDLE;
             }
@@ -447,7 +468,7 @@ static void fdc_write_data(SV_DiskController* fdc, uint8_t value) {
             if (off != UINT32_MAX && disk->cache &&
                 (off + disk->sector_size) <= disk->cache_size) {
                 memcpy(disk->cache + off, fdc->sector_buf, disk->sector_size);
-                disk->dirty = true;
+                sv_disk_mark_dirty(disk, off, disk->sector_size);
             }
             fdc->writing = false;
             fdc->drq = false;
@@ -517,6 +538,7 @@ static void fdc_write_drive_select(SV_DiskController* fdc, uint8_t value) {
 // ============================================================
 
 void sv_disk_init(SV_DiskController* fdc) {
+    if (!s_lock) s_lock = xSemaphoreCreateRecursiveMutex();
     memset(fdc, 0, sizeof(SV_DiskController));
     fdc->step_direction = -1;
     fdc->status = 0x04;  // Track 0
@@ -525,6 +547,7 @@ void sv_disk_init(SV_DiskController* fdc) {
         fdc->drives[i].dirty = false;
         fdc->drives[i].cache = nullptr;
         fdc->drives[i].cache_size = 0;
+        fdc->drives[i].dirty_map = nullptr;
         fdc->drives[i].sectors_per_track = DISK_SECTORS;
         fdc->drives[i].sector_size = DISK_SECTOR_SIZE;
         fdc->drives[i].tracks = DISK_TRACKS;
@@ -650,16 +673,20 @@ bool sv_disk_detect_geometry(SV_DiskImage* img) {
     uint32_t track_size = (uint32_t)img->sectors_per_track * img->sector_size;
     if (track_size == 0) return false;
 
-    img->tracks = data_size / track_size;
-    if (img->tracks == 0) return false;
+    uint32_t linear_tracks = data_size / track_size;
+    if (linear_tracks == 0) return false;
+    // tracks is 8-bit: reject images too big for the geometry fields (and far
+    // too big for the PSRAM cache anyway) instead of silently wrapping.
+    if (linear_tracks > 2 * 255) return false;
+    img->tracks = (linear_tracks > 255) ? 255 : linear_tracks;
 
     // Detect double-sided images.
     // JVC stores sides interleaved: T0S0, T0S1, T1S0, T1S1, ...
     // 360K (40T DS) → 80 linear tracks; 720K (80T DS) → 160 linear tracks.
     // Single-sided: 35T → 35, 40T → 40.  Threshold at 40 tracks.
-    if (img->tracks > 40) {
+    if (linear_tracks > 40) {
         img->sides = 2;
-        img->tracks /= 2;
+        img->tracks = linear_tracks / 2;
     } else {
         img->sides = 1;
     }
@@ -667,9 +694,19 @@ bool sv_disk_detect_geometry(SV_DiskImage* img) {
     return true;
 }
 
+static bool mount_locked(SV_DiskController* fdc, uint8_t drive, const char* path);
+
 bool sv_disk_mount(SV_DiskController* fdc, uint8_t drive, const char* path) {
     if (drive >= SV_DISK_MAX_DRIVES) return false;
+    // Held for the whole load: the DriveWire server must not see a drive
+    // whose cache is still being filled.
+    sv_disk_lock();
+    bool ok = mount_locked(fdc, drive, path);
+    sv_disk_unlock();
+    return ok;
+}
 
+static bool mount_locked(SV_DiskController* fdc, uint8_t drive, const char* path) {
     SV_DiskImage* img = &fdc->drives[drive];
 
     // Eject any currently mounted image
@@ -740,6 +777,9 @@ bool sv_disk_mount(SV_DiskController* fdc, uint8_t drive, const char* path) {
     }
     DEBUG_PRINTF("FDC: Loaded %lu/%lu bytes into cache", total_read, img->cache_size);
 
+    // Dirty-sector bitmap (small — 90 bytes for a 35-track disk).
+    img->dirty_map = (uint8_t*)calloc((img->cache_size / DISK_SECTOR_SIZE + 7) / 8, 1);
+
     // Close read-only handle, reopen as r+ for write-back
     img->file.close();
     img->file = SD.open(path, "r+");
@@ -763,7 +803,8 @@ void sv_disk_eject(SV_DiskController* fdc, uint8_t drive) {
     if (drive >= SV_DISK_MAX_DRIVES) return;
 
     SV_DiskImage* img = &fdc->drives[drive];
-    if (!img->mounted) return;
+    sv_disk_lock();
+    if (!img->mounted) { sv_disk_unlock(); return; }
 
     // Flush dirty cache back to SD before ejecting
     if (img->dirty && img->cache && img->file) {
@@ -778,10 +819,13 @@ void sv_disk_eject(SV_DiskController* fdc, uint8_t drive) {
         img->cache = nullptr;
         img->cache_size = 0;
     }
+    free(img->dirty_map);
+    img->dirty_map = nullptr;
 
     img->mounted = false;
     img->dirty = false;
     img->path[0] = '\0';
+    sv_disk_unlock();
 
     DEBUG_PRINTF("FDC: Ejected drive %d", drive);
 }
@@ -796,35 +840,60 @@ const char* sv_disk_get_path(SV_DiskController* fdc, uint8_t drive) {
     return fdc->drives[drive].path;
 }
 
-void sv_disk_flush(SV_DiskController* fdc, uint8_t drive) {
-    if (drive >= SV_DISK_MAX_DRIVES) return;
-    SV_DiskImage* img = &fdc->drives[drive];
-    if (!img->mounted || !img->dirty || !img->cache) return;
-    if (img->read_only || !img->file) return;
+// Write sectors [first, first+count) of the cache back to the image file.
+static size_t flush_run(SV_DiskImage* img, uint32_t first, uint32_t count) {
+    // Bounce buffer in internal RAM (PSRAM→DMA safe). Static: this may run
+    // on the small DriveWire server stack; callers hold the drive lock.
+    static uint8_t bounce[512];
 
-    // Write cache back to SD file using bounce buffer (PSRAM→DMA safe)
-    DEBUG_PRINTF("FDC: Flushing drive %d (%lu bytes) to SD...", drive, img->cache_size);
-    img->file.seek(img->header_size);
-
-    const size_t BOUNCE_SIZE = 512;
-    uint8_t bounce[BOUNCE_SIZE];
-
+    uint32_t pos = first * DISK_SECTOR_SIZE;
+    size_t remaining = count * DISK_SECTOR_SIZE;
+    if (pos + remaining > img->cache_size) remaining = img->cache_size - pos;
     size_t total_written = 0;
-    size_t remaining = img->cache_size;
+    img->file.seek(img->header_size + pos);
     while (remaining > 0) {
-        size_t chunk = (remaining > BOUNCE_SIZE) ? BOUNCE_SIZE : remaining;
-        memcpy(bounce, img->cache + total_written, chunk);
+        size_t chunk = (remaining > sizeof(bounce)) ? sizeof(bounce) : remaining;
+        memcpy(bounce, img->cache + pos, chunk);
         size_t wrote = img->file.write(bounce, chunk);
         if (wrote == 0) {
-            DEBUG_PRINTF("FDC: Write stalled at %lu/%lu bytes", total_written, img->cache_size);
+            DEBUG_PRINTF("FDC: Write stalled at offset %lu", (unsigned long)pos);
             break;
         }
+        pos += wrote;
         total_written += wrote;
         remaining -= wrote;
     }
+    return total_written;
+}
+
+void sv_disk_flush(SV_DiskController* fdc, uint8_t drive) {
+    if (drive >= SV_DISK_MAX_DRIVES) return;
+    SV_DiskImage* img = &fdc->drives[drive];
+    sv_disk_lock();
+    if (!img->mounted || !img->dirty || !img->cache || img->read_only || !img->file) {
+        sv_disk_unlock();
+        return;
+    }
+
+    size_t total_written = 0;
+    uint32_t nsec = img->cache_size / DISK_SECTOR_SIZE;
+    if (!img->dirty_map) {
+        total_written = flush_run(img, 0, nsec);
+    } else {
+        // Coalesce consecutive dirty sectors into one seek + write.
+        uint32_t s = 0;
+        while (s < nsec) {
+            if (!(img->dirty_map[s >> 3] & (1u << (s & 7)))) { s++; continue; }
+            uint32_t run = s;
+            while (s < nsec && (img->dirty_map[s >> 3] & (1u << (s & 7)))) s++;
+            total_written += flush_run(img, run, s - run);
+        }
+        memset(img->dirty_map, 0, (nsec + 7) / 8);
+    }
     img->file.flush();
     img->dirty = false;
-    DEBUG_PRINTF("FDC: Flush complete (%lu bytes written)", total_written);
+    DEBUG_PRINTF("FDC: Flushed drive %d (%lu bytes written)", drive, (unsigned long)total_written);
+    sv_disk_unlock();
 }
 
 void sv_disk_flush_all(SV_DiskController* fdc) {
