@@ -349,6 +349,7 @@ All technical documentation is in the `docs/` directory:
 | [core.md](docs/core.md) | MC6809 CPU, MC6821 PIA, MC6847 VDG, SAM6883, GIME machine integration |
 | [coco3-gime.md](docs/coco3-gime.md) | CoCo 3 GIME porting guide, register map, MMU |
 | [disk-hal.md](docs/disk-hal.md) | WD1793 FDC emulation, HALT/NMI flow, PSRAM disk cache |
+| [drivewire.md](docs/drivewire.md) | DriveWire modes, Becker port, built-in server; diagrams of the floppy vs DriveWire sector path |
 | [keyboard-hal.md](docs/keyboard-hal.md) | PS/2 → CoCo matrix mapping (note: older revisions describe the USB HID variant) |
 | [supervisor.md](docs/supervisor.md) | OSD state machine, file browser, NVS persistence |
 | [video.md](docs/video.md) | Video rendering pipeline, scale modes, palette |
@@ -406,6 +407,8 @@ are mapped to Disk Manager drives 1–3, while NitrOS-9 and HDB-DOS hard-drive
 images in drive 0 are served as-is. Writes go to the PSRAM cache and are
 flushed to the SD card ~2 s after the last write (and on eject, reset and
 restart). `TIME` uses SNTP when WiFi is up (`DW_SERVER_TZ` in `config.h`).
+See [docs/drivewire.md](docs/drivewire.md) for how a sector travels in each
+mode, with diagrams.
 
 **Not yet implemented:**
 - **Internal FujiNet mode** — the FUJI (`0xE2`) and NET (`0xE3`) devices

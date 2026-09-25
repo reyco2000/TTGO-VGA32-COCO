@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="420" viewBox="0 0 960 420" role="img" aria-label="Disk BASIC path: LOAD calls DSKCON in disk11.rom, which writes WD1793 registers at $FF40 to $FF4B; sv_disk.cpp on core 1 copies the sector from the PSRAM image and hands it back one byte per $FF4B read, ending with an NMI. The SD card is read at mount and written on eject, reset or restart.">
+<style>
+svg{--ground:#ffffff;--surface:#ffffff;--ink:#18202c;--muted:#5b6577;--line:#c3ccd8;--lane:#eef1f5;--fdc:#2f63a8;--dw:#0d7f73;--ring:#8a5a00;--ring-soft:#f6ead2;color:var(--ink)}
+@media (prefers-color-scheme: dark){svg{--ground:#0d1117;--surface:#1a2029;--ink:#e4e9f0;--muted:#9aa5b6;--line:#3a4453;--lane:#161b23;--fdc:#7fa9e6;--dw:#4fc4b5;--ring:#e0b060;--ring-soft:#33291a;}}
+.bg{fill:var(--ground)}
+text{fill:var(--ink);font-family:"IBM Plex Sans","Segoe UI",Helvetica,Arial,sans-serif;font-size:13px}
+.t-title{font-weight:600;font-size:14px}
+.t-mono{font-family:"IBM Plex Mono",Consolas,Menlo,"DejaVu Sans Mono",monospace;font-size:12px}
+.t-small{font-size:11.5px;fill:var(--muted)}
+.t-lane{font-family:"IBM Plex Mono",Consolas,Menlo,monospace;font-size:11px;letter-spacing:.08em;fill:var(--muted)}
+.t-edge{font-family:"IBM Plex Mono",Consolas,Menlo,monospace;font-size:11px;fill:var(--muted)}
+.lane{fill:var(--lane);stroke:var(--line);stroke-width:1}
+.box{fill:var(--surface);stroke:var(--line);stroke-width:1.2}
+.box.fdc{stroke:var(--fdc);stroke-width:1.8}
+.box.dw{stroke:var(--dw);stroke-width:1.8}
+.box.ring{fill:var(--ring-soft);stroke:var(--ring);stroke-width:1.5}
+.box.store{stroke:var(--muted);stroke-dasharray:4 3}
+.edge{stroke:var(--ink);stroke-width:1.4;fill:none}
+.edge.fdc{stroke:var(--fdc)}.edge.dw{stroke:var(--dw)}.edge.ring{stroke:var(--ring)}
+.edge.soft{stroke:var(--muted);stroke-dasharray:5 4}
+.head{fill:var(--ink)}.head.fdc{fill:var(--fdc)}.head.dw{fill:var(--dw)}.head.ring{fill:var(--ring)}.head.soft{fill:var(--muted)}
+.boundary{stroke:var(--ring);stroke-width:1.2;stroke-dasharray:6 5}
+</style>
+<rect class="bg" x="0" y="0" width="960" height="420"/>
+          <rect class="lane" x="10" y="10" width="940" height="300" rx="10"/>
+          <text class="t-lane" x="28" y="36">CORE 1 · EMULATION LOOP · ONE THREAD, NO HAND-OFF</text>
+
+          <!-- A -->
+          <rect class="box" x="24" y="60" width="130" height="120" rx="6"/>
+          <text class="t-title" x="89" y="96" text-anchor="middle">CoCo BASIC</text>
+          <text class="t-mono" x="89" y="120" text-anchor="middle">LOAD "PROG"</text>
+          <text class="t-small" x="89" y="144" text-anchor="middle">your program</text>
+
+          <!-- B -->
+          <rect class="box fdc" x="214" y="60" width="140" height="120" rx="6"/>
+          <text class="t-title" x="284" y="96" text-anchor="middle">disk11.rom</text>
+          <text class="t-mono" x="284" y="120" text-anchor="middle">DSKCON</text>
+          <text class="t-small" x="284" y="144" text-anchor="middle">via [$C004]</text>
+
+          <!-- C -->
+          <rect class="box fdc" x="414" y="60" width="180" height="120" rx="6"/>
+          <text class="t-title" x="504" y="84" text-anchor="middle">WD1793 registers</text>
+          <text class="t-mono" x="430" y="108">$FF40 DSKREG</text>
+          <text class="t-mono" x="430" y="126">$FF48 cmd $80</text>
+          <text class="t-mono" x="430" y="144">$FF49/4A trk·sec</text>
+          <text class="t-mono" x="430" y="162">$FF4B data</text>
+
+          <!-- D -->
+          <rect class="box fdc" x="654" y="60" width="140" height="120" rx="6"/>
+          <text class="t-title" x="724" y="96" text-anchor="middle">sv_disk.cpp</text>
+          <text class="t-small" x="724" y="120" text-anchor="middle">WD1793 emulation</text>
+          <text class="t-small" x="724" y="140" text-anchor="middle">trk·side·sec → offset</text>
+
+          <!-- E -->
+          <rect class="box" x="834" y="60" width="110" height="120" rx="6"/>
+          <text class="t-title" x="889" y="96" text-anchor="middle">PSRAM image</text>
+          <text class="t-small" x="889" y="120" text-anchor="middle">Disk Mgr drive 0–3</text>
+          <text class="t-mono" x="889" y="144" text-anchor="middle">161,280 B</text>
+
+          <!-- forward arrows y=100 -->
+          <line class="edge fdc" x1="154" y1="100" x2="206" y2="100"/><polygon class="head fdc" points="214,100 205,95.5 205,104.5"/>
+          <line class="edge fdc" x1="354" y1="100" x2="406" y2="100"/><polygon class="head fdc" points="414,100 405,95.5 405,104.5"/>
+          <line class="edge fdc" x1="594" y1="100" x2="646" y2="100"/><polygon class="head fdc" points="654,100 645,95.5 645,104.5"/>
+          <line class="edge fdc" x1="794" y1="100" x2="826" y2="100"/><polygon class="head fdc" points="834,100 825,95.5 825,104.5"/>
+          <text class="t-edge" x="184" y="90" text-anchor="middle">calls</text>
+          <text class="t-edge" x="384" y="90" text-anchor="middle">writes</text>
+          <text class="t-edge" x="624" y="90" text-anchor="middle">cmd</text>
+          <text class="t-edge" x="814" y="90" text-anchor="middle">copy</text>
+
+          <!-- return arrows y=150 -->
+          <line class="edge" x1="214" y1="150" x2="162" y2="150"/><polygon class="head" points="154,150 163,145.5 163,154.5"/>
+          <line class="edge" x1="414" y1="150" x2="362" y2="150"/><polygon class="head" points="354,150 363,145.5 363,154.5"/>
+          <line class="edge" x1="654" y1="150" x2="602" y2="150"/><polygon class="head" points="594,150 603,145.5 603,154.5"/>
+          <text class="t-edge" x="184" y="170" text-anchor="middle">data</text>
+          <text class="t-edge" x="384" y="170" text-anchor="middle">256×</text>
+          <text class="t-edge" x="624" y="170" text-anchor="middle">DRQ</text>
+
+          <!-- notes inside lane -->
+          <text class="t-small" x="28" y="228">1. DSKCON sets drive and motor in DSKREG, track and sector, then issues READ SECTOR ($80).</text>
+          <text class="t-small" x="28" y="250">2. It reads $FF4B 256 times. Each read returns the next byte of the sector copy.</text>
+          <text class="t-small" x="28" y="272">3. INTRQ fires the NMI that breaks DSKCON out of its read loop.</text>
+
+          <!-- SD -->
+          <rect class="box store" x="834" y="340" width="110" height="60" rx="6"/>
+          <text class="t-title" x="889" y="366" text-anchor="middle">SD card</text>
+          <text class="t-mono" x="889" y="386" text-anchor="middle">/PRUEBA.DSK</text>
+          <line class="edge soft" x1="872" y1="332" x2="872" y2="188"/><polygon class="head soft" points="872,180 867.5,189 876.5,189"/>
+          <line class="edge soft" x1="906" y1="180" x2="906" y2="332"/><polygon class="head soft" points="906,340 901.5,331 910.5,331"/>
+          <text class="t-edge" x="862" y="236" text-anchor="end">whole image at mount ↑</text>
+          <text class="t-edge" x="862" y="256" text-anchor="end">dirty sectors on eject, reset, F4, restart ↓</text>
+        </svg>
