@@ -26,7 +26,7 @@
 // the supervisor About screen). Bump both of these together on a release —
 // they are the single source of truth; nothing else should hardcode a version.
 #define FIRMWARE_VERSION        "0.11.0"
-#define FIRMWARE_BUILD_DATE     "23.09.2026"
+#define FIRMWARE_BUILD_DATE     "24.09.2026"
 
 // ------------------------------------------------------------
 // Build target — standalone USB flash vs. ESP32_Bootloader
