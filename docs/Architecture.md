@@ -64,7 +64,7 @@ The Arduino sketch orchestrates boot and the main loop.
 5. `machine_init()` — allocate RAM/ROM from PSRAM, init CPU/PIA/VDG/GIME/SAM
 6. `machine_load_roms()` — load ROMs from SD card
 7. **SD + ROM validation** — `hal_storage_is_ready()` → if false, call `boot_halt_screen()` with "SD card not found" message and halt; check per-machine ROM flags → if any required ROM is missing, call `boot_halt_screen()` naming the missing files and halt. `boot_halt_screen()` initializes the VGA display, paints black/red/white text at Font 2 (8×14 px), mirrors to serial, and loops forever — `setup()` never resumes.
-8. `hal_video_init()` — initialize FabGL VGAController at 640×200 @ 70 Hz (only reached when validation passes)
+8. `hal_video_init()` — initialize FabGL VGAController at 640×200 @ 60 Hz (only reached when validation passes)
 9. `machine_reset()` — cold reset, read reset vector
 10. `supervisor_init()` — OSD menu, FDC, NMI wiring
 11. `supervisor_load_state()` — restore last-mounted disks from NVS
@@ -254,7 +254,7 @@ Each source can route to IRQ or FIRQ independently via the GIME enable masks at 
 
 #### Video — `hal_video.cpp`
 
-FabGL `VGAController` at **640×200 @ 70 Hz**, 64-color direct mode (RGB222, 2 bits per channel).
+FabGL `VGAController` at **640×200 @ 60 Hz**, 64-color direct mode (RGB222, 2 bits per channel).
 
 - `hal_video_init()` brings up FabGL (`begin(R1,R0,G1,G0,B1,B0,HSYNC,VSYNC)`), sets the resolution, and binds the framebuffer to the OSD canvas used by the supervisor.
 - `hal_video_render_scanline_gime()` consumes the pre-converted RGB565 line emitted by the GIME core (OPT-C4) and writes raw VGA pixel bytes via `getScanline(y)`. Each pixel is `s_vga.createRawPixel(RGB222(...))`. Widths of 320 / 640 are 1:1 or pixel-doubled to the 640 framebuffer; other widths are nearest-neighbor scaled.
@@ -434,7 +434,7 @@ All files below are **required**. Missing any will trigger the boot validation h
 ### 9. Performance Characteristics
 
 - CPU emulation: ~20-25 fps on CoCo 3 GIME hi-res content (sustained by emulation core, not display)
-- Display: FabGL DMA scans 640×200 @ 70 Hz continuously — no SPI push step on the critical path
+- Display: FabGL DMA scans 640×200 @ 60 Hz continuously — no SPI push step on the critical path
 - Audio: Real-time via DAC1 timer ISR at 22050 Hz; pitch-corrected scanline buffer
 - Memory: ~160 KB SRAM free, ~3.5 MB PSRAM free after init
 
@@ -516,7 +516,7 @@ TTGO-VGA32-COCO/
   src/hal/
     hal.h                     HAL interface
     hal.cpp                   hal_init, hal_process_input
-    hal_video.cpp             FabGL VGAController @ 640×200 @ 70 Hz
+    hal_video.cpp             FabGL VGAController @ 640×200 @ 60 Hz
     hal_audio.cpp             Internal DAC1 (GPIO25), timer ISR
     hal_keyboard.cpp          FabGL PS/2 → CoCo matrix + deferred release
     hal_joystick.cpp          Neutral stub (hardware not wired)

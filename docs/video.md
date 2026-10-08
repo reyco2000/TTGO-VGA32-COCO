@@ -4,7 +4,7 @@
 
 ## Overview
 
-The video pipeline renders MC6847 VDG (CoCo 2) or TCC1014 GIME (CoCo 3) scanlines to a **640×200 @ 70 Hz VGA framebuffer** managed by the FabGL library. Unlike the earlier TFT/SPI variant of this project, **there is no per-frame `present()` push step**: FabGL's hardware DMA scans the framebuffer out to the VGA DAC continuously, so a write to a scanline byte is visible on the monitor on its next scan cycle.
+The video pipeline renders MC6847 VDG (CoCo 2) or TCC1014 GIME (CoCo 3) scanlines to a **640×200 @ 60 Hz VGA framebuffer** managed by the FabGL library. Unlike the earlier TFT/SPI variant of this project, **there is no per-frame `present()` push step**: FabGL's hardware DMA scans the framebuffer out to the VGA DAC continuously, so a write to a scanline byte is visible on the monitor on its next scan cycle.
 
 ## Hardware
 
@@ -12,7 +12,7 @@ The video pipeline renders MC6847 VDG (CoCo 2) or TCC1014 GIME (CoCo 3) scanline
 |-----------|-------|
 | Board | LilyGo TTGO VGA32 v1.4 (ESP32-WROVER-E) |
 | Output | VGA via on-board 6-bit resistor-ladder DAC (RGB222) |
-| Mode | `VGA_640x200_70Hz` (FabGL built-in modeline) |
+| Mode | `VGA_640x200_60Hz` (FabGL built-in modeline) |
 | Pixel format | 64-color direct (2 bits per channel, packed with HSYNC/VSYNC bits into one byte per pixel) |
 | Library | FabGL 1.0.9 — `fabgl::VGAController` |
 | VGA pins | R0=GPIO21, R1=GPIO22, G0=GPIO18, G1=GPIO19, B0=GPIO4, B1=GPIO5, HSYNC=GPIO23, VSYNC=GPIO15 |
@@ -31,7 +31,7 @@ line_buffer    →   render_scanline*  →  FabGL framebuffer (scanline N)
                                           ▼
                                        FabGL DMA  ───────→  HSYNC/VSYNC + RGB222 pixels
                                        (continuous,
-                                        70 Hz)
+                                        60 Hz)
 ```
 
 ### Per-Scanline Flow

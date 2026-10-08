@@ -826,7 +826,7 @@ The Hardware Abstraction Layer (`src/hal/`) bridges the emulation core to the TT
 | `hal_video_present*()` | `machine_run_frame()` | Frame-end no-op — FabGL DMA scans the framebuffer continuously. Updates the FPS counter and clears the dirty flag. |
 | `hal_video_get_canvas()` | `supervisor.cpp` | Returns the `OSDCanvas` instance backed by FabGL Canvas for OSD rendering. |
 
-**VGA32 backend**: FabGL `VGAController` @ 640×200 @ 70 Hz (64-color RGB222 direct). Scanline writes go through `s_vga.getScanline(y)` with `createRawPixel(RGB222(...))` per pixel. The 64-entry GIME palette is pre-converted to raw VGA bytes once at init. No per-frame "push" — FabGL's DMA scans the framebuffer continuously. See `docs/video.md`.
+**VGA32 backend**: FabGL `VGAController` @ 640×200 @ 60 Hz (64-color RGB222 direct). Scanline writes go through `s_vga.getScanline(y)` with `createRawPixel(RGB222(...))` per pixel. The 64-entry GIME palette is pre-converted to raw VGA bytes once at init. No per-frame "push" — FabGL's DMA scans the framebuffer continuously. See `docs/video.md`.
 
 **Historical S3+TFT backend (removed)**: used a 320×240 `TFT_eSprite` framebuffer in PSRAM with SPI push, VRAM-shadow compare, and CRC32 dirty-skip. That code has been removed from the codebase.
 

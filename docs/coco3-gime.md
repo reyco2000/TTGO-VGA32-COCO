@@ -2,7 +2,7 @@
 
 ## Overview
 
-The **TCC1014 GIME** (General Interface Multi-purpose Enhanced) chip is the heart of the CoCo 3. It replaces the SAM6883 + MC6847 VDG combination from CoCo 2 and adds:
+The **TCC1014 GIME** (Graphics Interrupt Memory Enhancement) chip is the heart of the CoCo 3. It replaces the SAM6883 + MC6847 VDG combination from CoCo 2 and adds:
 
 - 512 KB physical RAM with 8-bank MMU (64 × 8 KB pages)
 - 16-color programmable palette (64 possible RGB colors)
