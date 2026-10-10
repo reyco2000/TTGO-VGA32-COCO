@@ -1,6 +1,3 @@
-TTGO-VGA32-CoCo-0.6-firmware.bin
-TTGO-VGA32-CoCo-0.7-firmware.bin
-TTGO-VGA32-CoCo-0.8-firmware.bin
 docs/graphify-out
 docs/FABGL-improvements.md
 docs/dragon-support.md
@@ -11,10 +8,4 @@ docs/superpowers
 docs/coco3-performance-plan.md
 docs/cpu-enhancements.md
 docs/audio-improvement-plan.md
-TTGO-VGA32-CoCo-0.81-firmware.bin
-TTGO-VGA32-CoCo-0.9.0-firmware.bin
 build/
-TTGO-VGA32-CoCo-0.10.0-firmware.bin
-TTGO-VGA32-CoCo-0.11.0-firmware.bin
-TTGO-VGA32-CoCo-0.12.0-firmware.bin
-TTGO-VGA32-CoCo-0.12.1-firmware.bin
