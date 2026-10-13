@@ -19,7 +19,7 @@ another machine can ask "what is playing right now?" instead of having someone
 read frequency_meter.py's screen and paste it.
 
 Setup, on the PC with the audio input:
-    pip install "mcp>=1.2" sounddevice numpy
+    pip install "mcp>=1.2,<2" sounddevice numpy
     python frequency_meter_mcp.py --list-devices      # find the input
     python frequency_meter_mcp.py --device 0          # serve on port 8765
 
@@ -41,7 +41,11 @@ import threading
 
 import numpy as np
 import sounddevice as sd
-from mcp.server.fastmcp import FastMCP
+try:
+    from mcp.server.fastmcp import FastMCP
+except ModuleNotFoundError:
+    sys.exit('This script uses the MCP SDK 1.x API (FastMCP). SDK 2.x renamed it.\n'
+             'Install a 1.x release:  pip install "mcp>=1.2,<2"')
 
 from frequency_meter import freq_to_note, refine_peak
 
