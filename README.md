@@ -400,7 +400,8 @@ tools/
 ├── perf/                   Benchmark and measurement scripts
 ├── dw_test_server.py, dw_proxy.py   DriveWire test server and proxy
 ├── frequency_meter.py    Audio test: measures the pitch of the board's sound output from a PC audio input
-└── frequency_meter_mcp.py   The same meter as an MCP server (HTTP), so an agent can take the readings
+├── frequency_meter_mcp.py   The same meter as an MCP server (HTTP), so an agent can take the readings
+└── play_pitch_sweep.py   Audio test: plays all 60 PLAY notes on the board and measures each (needs the two above)
 mcp-bridge/                 Host-side MCP server that fronts the WiFi debug API
 docs/                       Technical documentation (see below)
 ```
@@ -422,6 +423,7 @@ All technical documentation is in the `docs/` directory:
 | [supervisor.md](docs/supervisor.md) | OSD state machine, file browser, NVS persistence |
 | [video.md](docs/video.md) | Video rendering pipeline, scale modes, palette |
 | [audio-hal.md](docs/audio-hal.md) | Audio path, ISR, PIA DAC routing |
+| [play-pitch-baseline.md](docs/play-pitch-baseline.md) | Measured pitch of all 60 `PLAY` notes on both machines (v0.16.1), and how to repeat it |
 | [joystick-hal.md](docs/joystick-hal.md) | Joystick HAL — PS/2 mouse as CoCo joystick 1, comparator emulation, lessons learned |
 | [rs232-hal.md](docs/rs232-hal.md) | RS-232 Pak emulation, MC6551 ACIA, HAL bridge |
 | [runtime-machine-switch.md](docs/runtime-machine-switch.md) | Runtime CoCo 2 / CoCo 3 switching, NVS state |
