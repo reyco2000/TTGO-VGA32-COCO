@@ -187,7 +187,7 @@ Re-measured on v0.16.1 (PI rate control), 6809:
 
 The CoCo 3 is unchanged (within 0.04 %). The CoCo 2 uses the same ROM delay tables, and its `O2 A` sits slightly higher because its interrupt handler is shorter. Its `O4 A` is 3.6 % flat for a different reason: that note's delay loop (`DECA` / `BNE`) executes many more instructions per second, the CoCo 2 path has too little speed margin for it, and the frame rate falls to 57.7 FPS. Since v0.16.1 playback follows the emulator's speed, so the note comes out flat instead of breaking up. Running the ROM loop directly on the board shows it: 60.0 FPS and no correction for the `O2 A` loop on both machines and for the `O4 A` loop on the CoCo 3, but 57.7 FPS and a −4.1 % correction for the `O4 A` loop on the CoCo 2. The cure is CoCo 2 frame time, not the audio code.
 
-The measurements were taken with `tools/frequency_meter.py`: connect the board's audio jack to a PC audio input, pick the capture device with `--list-devices`, and read the frequency while the note plays.
+The measurements were taken with `tools/frequency_meter.py`: connect the board's audio jack to a PC audio input, pick the capture device with `--list-devices`, and read the frequency while the note plays. `tools/frequency_meter_mcp.py` serves the same measurement as MCP tools over HTTP (`measure_pitch`, `measure_level`, `list_inputs`), so an agent on another machine can take the readings itself; its header has the setup.
 
 #### Bandwidth
 
