@@ -569,8 +569,13 @@ static long write_hex_buffer(const char* path, const uint8_t* mem,
         f.close();
         return -1;
     }
-    long total = (long)f.size();
     f.close();
+
+    // reopen written file to allow File struct to have updated values
+    f = SD.open(path, FILE_READ);
+    long total = f.size();
+    f.close();
+
     return total;
 }
 
@@ -592,8 +597,13 @@ static long write_hex_cpu(const char* path) {
         f.close();
         return -1;
     }
-    long total = (long)f.size();
     f.close();
+
+    // reopen written file to allow File struct to have updated values
+    f = SD.open(path, FILE_READ);
+    long total = f.size();
+    f.close();
+
     return total;
 }
 
@@ -748,12 +758,16 @@ void sv_debug_dump_render(Supervisor_t* sv) {
         // write, then flip to the result screen on the next redraw.
         dbg_frame(16 + SV_DUMP_SAVING, "Dump RAM to SD", "Saving...");
         if (tft) {
+            char ram_msg[48];
+            snprintf(ram_msg, sizeof(ram_msg), "Writing full RAM as hex (~%dKB).",
+                     (g_machine_type == 4) ? g_coco3_ram_kb : RAM_SIZE_64KB);
+
             tft->setTextFont(1);
             tft->setTextDatum(TL_DATUM);
             tft->setTextColor(SVW_DKBLUE, SVW_GREEN);
             tft->drawString("Saving to SD card, please wait...", x, y); y += 16;
             tft->setTextColor(SVW_BLACK, SVW_GREEN);
-            tft->drawString("Writing full RAM as hex (~512KB).", x, y); y += 12;
+            tft->drawString(ram_msg, x, y); y += 12;
             tft->drawString("This can take ~30s. Do not remove card.", x, y);
         }
         perform_dump(sv);
@@ -804,9 +818,9 @@ void sv_debug_dump_render(Supervisor_t* sv) {
     snprintf(l, sizeof(l), "  %s-CPU.txt  64KB CPU address space",
              dbg.dump_name_len ? dbg.dump_name : "NAME");
     dbg_text(tft, x, y, l); y += 10;
-    snprintf(l, sizeof(l), "  %s-RAM.txt  %uKB physical RAM",
+    snprintf(l, sizeof(l), "  %s-RAM.txt  %dKB physical RAM",
              dbg.dump_name_len ? dbg.dump_name : "NAME",
-             (unsigned)(((g_machine_type == 4) ? (uint32_t)g_coco3_ram_kb * 1024 : 0x10000) / 1024));
+             (g_machine_type == 4) ? g_coco3_ram_kb : RAM_SIZE_64KB);
     dbg_text(tft, x, y, l); y += 14;
     tft->drawString("Machine is paused during the dump.", x, y);
 }

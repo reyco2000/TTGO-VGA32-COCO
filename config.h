@@ -87,6 +87,10 @@
 // RAM size in KB (CoCo3 = 512)
 #define RAM_SIZE_KB             512
 
+// RAM size in KB (CoCo1/2 = 64)
+// don't change unless you are doing something really special with CoCo1/2
+#define RAM_SIZE_64KB           64
+
 // Enable debug output on Serial
 #define DEBUG_ENABLED           1
 
