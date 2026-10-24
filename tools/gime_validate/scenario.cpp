@@ -15,6 +15,7 @@ ScenarioReg::ScenarioReg(const char* area, const char* name, void (*fn)(Ctx&)) {
 void Ctx::reset() {
     static std::map<GimeModel*, std::vector<uint8_t>> rams;   // one RAM per model
     events_.clear();
+    anchors_.clear();
     for (GimeModel* m : models) {
         std::vector<uint8_t>& r = rams[m];
         r.assign(RAM_SIZE, 0);
@@ -35,6 +36,17 @@ void Ctx::advance(uint64_t ticks) {
 }
 
 void Ctx::drain() { events_.clear(); }
+
+void Ctx::anchor() {
+    for (GimeModel* m : models) anchors_[m] = m->now();
+}
+
+int64_t Ctx::event_tick(GimeModel* m, EvType t, unsigned nth) {
+    unsigned n = 0;
+    for (const Event& e : events_[m])
+        if (e.type == t && n++ == nth) return (int64_t)(e.tick - anchors_[m]);
+    return -1;                                       // no such event
+}
 
 void Ctx::check(const std::string& id, std::function<int64_t(GimeModel&)> f,
                 Cap cap, uint32_t tol_ticks) {
@@ -62,10 +74,5 @@ void Ctx::check_event(const std::string& id, EvType t, unsigned nth) {
     for (GimeModel* m : models)
         if (m->caps() & cap) tol = std::max(tol, m->resolution(cap));
 
-    check(id, [&](GimeModel& m) -> int64_t {
-        unsigned n = 0;
-        for (const Event& e : events_[&m])
-            if (e.type == t && n++ == nth) return (int64_t)e.tick;
-        return -1;                                   // no such event
-    }, cap, tol);
+    check(id, [&](GimeModel& m) { return event_tick(&m, t, nth); }, cap, tol);
 }

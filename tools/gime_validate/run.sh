@@ -41,7 +41,7 @@ fi
 
 g++ -std=gnu++17 -O2 -Wall -Wno-unused-function "${DEFS[@]}" -o "$OUT/gime_validate" \
     "$D/gime_validate.cpp" "$D/compare.cpp" "$D/scenario.cpp" "$D/model_ours.cpp" \
-    "$D/scn_reset_regs.cpp" "$D/scn_mmu.cpp" "${OBJS[@]}"
+    "$D/scn_reset_regs.cpp" "$D/scn_mmu.cpp" "$D/scn_timer.cpp" "${OBJS[@]}"
 COMMIT=$(git -C "$D" rev-parse --short HEAD 2>/dev/null || echo unknown)
 "$OUT/gime_validate" --verdicts "$D/verdicts.md" --baseline "$D/known_failures.txt" \
     --json "$OUT/results.json" --ours-commit "$COMMIT" "${ARGS[@]}" "$@"

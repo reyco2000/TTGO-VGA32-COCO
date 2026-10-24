@@ -22,17 +22,23 @@ struct Ctx {
     void advance(uint64_t ticks);
     void lines(unsigned n) { advance((uint64_t)n * 912); }
     void drain();                                  // forget events seen so far
+    void anchor();                                 // event ticks count from each model's now()
+
+    // Tick of the nth event of type t since the last drain(), relative to
+    // the model's anchor (0 until anchor() is called); -1 if there is none.
+    int64_t event_tick(GimeModel* m, EvType t, unsigned nth);
 
     void check(const std::string& id, std::function<int64_t(GimeModel&)> f,
                Cap cap, uint32_t tol_ticks = 0);
     void check_read(const std::string& id, uint16_t addr, uint8_t mask = 0xFF); // CAP_REGS
-    void check_event(const std::string& id, EvType t, unsigned nth);  // nth since drain
+    void check_event(const std::string& id, EvType t, unsigned nth);  // event_tick()
 
     std::vector<CheckRecord>& records() { return records_; }
 
 private:
     std::vector<CheckRecord> records_;
     std::map<GimeModel*, std::vector<Event>> events_;   // since the last drain()
+    std::map<GimeModel*, uint64_t> anchors_;            // since the last reset()
 };
 
 struct Scenario { std::string id; void (*fn)(Ctx&); };
