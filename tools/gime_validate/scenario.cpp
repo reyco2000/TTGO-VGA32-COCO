@@ -43,7 +43,7 @@ void Ctx::check(const std::string& id, std::function<int64_t(GimeModel&)> f,
     r.cap = cap;
     r.tol = tol_ticks;
     for (GimeModel* m : models)
-        r.values[m->name()] = (m->caps() & cap) ? std::optional<int64_t>(f(*m))
+        r.v[m->name()] = (m->caps() & cap) ? std::optional<int64_t>(f(*m))
                                                 : std::nullopt;
     records_.push_back(r);
 }

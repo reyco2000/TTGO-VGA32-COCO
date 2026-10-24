@@ -1,0 +1,6 @@
+# Known failures: checks where our GIME differs from the references and the
+# difference is a real bug or accepted simplification. Format:
+#   <check id>  # reason
+# A listed check that starts passing is reported FIXED and an id that no
+# longer exists is reported STALE; both fail the run until removed here.
+# Regenerate with: tools/gime_validate/run.sh --update-baseline

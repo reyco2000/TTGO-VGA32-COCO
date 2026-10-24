@@ -6,19 +6,12 @@
 #ifndef GIME_SCENARIO_H
 #define GIME_SCENARIO_H
 
+#include "compare.h"
 #include "gime_model.h"
 #include <functional>
 #include <map>
 #include <optional>
 #include <string>
-
-// Minimal record; Task 2 replaces it with the full comparator's CheckRecord.
-struct CheckRecord {
-    std::string id;
-    Cap cap = CAP_REGS;
-    uint32_t tol = 0;
-    std::map<std::string, std::optional<int64_t>> values;   // model name -> value
-};
 
 struct Ctx {
     std::vector<GimeModel*> models;
