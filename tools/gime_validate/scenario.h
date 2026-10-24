@@ -25,7 +25,7 @@ struct Ctx {
 
     void check(const std::string& id, std::function<int64_t(GimeModel&)> f,
                Cap cap, uint32_t tol_ticks = 0);
-    void check_read(const std::string& id, uint16_t addr);            // CAP_REGS
+    void check_read(const std::string& id, uint16_t addr, uint8_t mask = 0xFF); // CAP_REGS
     void check_event(const std::string& id, EvType t, unsigned nth);  // nth since drain
 
     std::vector<CheckRecord>& records() { return records_; }

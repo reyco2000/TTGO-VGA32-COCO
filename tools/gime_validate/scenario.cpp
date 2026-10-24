@@ -48,8 +48,9 @@ void Ctx::check(const std::string& id, std::function<int64_t(GimeModel&)> f,
     records_.push_back(r);
 }
 
-void Ctx::check_read(const std::string& id, uint16_t addr) {
-    check(id, [addr](GimeModel& m) { return (int64_t)m.read(addr); }, CAP_REGS);
+void Ctx::check_read(const std::string& id, uint16_t addr, uint8_t mask) {
+    check(id, [addr, mask](GimeModel& m) { return (int64_t)(m.read(addr) & mask); },
+          CAP_REGS);
 }
 
 void Ctx::check_event(const std::string& id, EvType t, unsigned nth) {
