@@ -1,7 +1,7 @@
 #include "scenario.h"
 #include <algorithm>
 
-static const uint32_t RAM_SIZE = 2048 * 1024;
+static const uint32_t RAM_SIZE = 512 * 1024;
 
 std::vector<Scenario>& scenarios() {
     static std::vector<Scenario> v;
