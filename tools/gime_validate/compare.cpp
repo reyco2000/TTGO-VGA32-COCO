@@ -194,11 +194,11 @@ static std::string jesc(const std::string& s) {
     return o;
 }
 
-void write_results_json(const std::string& path, const std::vector<CheckRecord>& recs,
+bool write_results_json(const std::string& path, const std::vector<CheckRecord>& recs,
                         const std::vector<Cls>& cls, const std::vector<Status>& st,
                         const RunInfo& ri) {
     FILE* f = fopen(path.c_str(), "w");
-    if (!f) { fprintf(stderr, "cannot write %s\n", path.c_str()); return; }
+    if (!f) { fprintf(stderr, "cannot write %s\n", path.c_str()); return false; }
     fprintf(f, "{\n  \"run\": {\"seed\": %u, \"ours_commit\": \"%s\", \"xroar_commit\": \"%s\", "
                "\"mame_commit\": \"%s\", \"mame_form\": \"%s\", \"ref_edits\": [",
             ri.seed, jesc(ri.ours_commit).c_str(), jesc(ri.xroar_commit).c_str(),
@@ -222,13 +222,25 @@ void write_results_json(const std::string& path, const std::vector<CheckRecord>&
                 jesc(r.note).c_str(), i + 1 < recs.size() ? "," : "");
     }
     fprintf(f, "  ]\n}\n");
-    fclose(f);
+    if (fclose(f) != 0) { fprintf(stderr, "cannot write %s\n", path.c_str()); return false; }
+    return true;
 }
 
-void write_baseline(const std::string& path, const std::vector<std::string>& ids,
+std::vector<std::string> baseline_ids(const std::vector<CheckRecord>& recs,
+                                      const std::vector<Status>& st,
+                                      const std::map<std::string, std::string>& old) {
+    std::vector<std::string> ids;
+    for (size_t i = 0; i < recs.size() && i < st.size(); i++)
+        if (st[i] == Status::FAIL || st[i] == Status::KNOWN_FAIL ||
+            (st[i] == Status::SKIP && old.count(recs[i].id)))
+            ids.push_back(recs[i].id);
+    return ids;
+}
+
+bool write_baseline(const std::string& path, const std::vector<std::string>& ids,
                     const std::map<std::string, std::string>& old) {
     FILE* f = fopen(path.c_str(), "w");
-    if (!f) { fprintf(stderr, "cannot write %s\n", path.c_str()); return; }
+    if (!f) { fprintf(stderr, "cannot write %s\n", path.c_str()); return false; }
     fprintf(f, "# Known failures: checks where our GIME differs from the references and the\n"
                "# difference is a real bug or accepted simplification. Format:\n"
                "#   <check id>  # reason\n"
@@ -240,5 +252,6 @@ void write_baseline(const std::string& path, const std::vector<std::string>& ids
         fprintf(f, "%s  # %s\n", id.c_str(),
                 it != old.end() && !it->second.empty() ? it->second.c_str() : "TODO reason");
     }
-    fclose(f);
+    if (fclose(f) != 0) { fprintf(stderr, "cannot write %s\n", path.c_str()); return false; }
+    return true;
 }

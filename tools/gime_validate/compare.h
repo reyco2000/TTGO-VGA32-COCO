@@ -46,10 +46,16 @@ const char* cls_name(Cls c);
 const char* status_name(Status s);        // JSON/long name
 const char* status_console(Status s);     // PASS FAIL KNOWN FIXED STALE DISC UNRES SKIP
 
-void write_results_json(const std::string& path, const std::vector<CheckRecord>&,
+// Both writers return false (after printing why) if the file can't be written.
+bool write_results_json(const std::string& path, const std::vector<CheckRecord>&,
                         const std::vector<Cls>&, const std::vector<Status>&, const RunInfo&);
+// The ids --update-baseline keeps: every FAIL or KNOWN_FAIL check, plus every
+// existing baseline id whose check was SKIPPED this run (its model wasn't
+// built), so a run without a reference source doesn't drop entries.
+std::vector<std::string> baseline_ids(const std::vector<CheckRecord>&, const std::vector<Status>&,
+                                      const std::map<std::string, std::string>& old);
 // Rewrites the baseline with the ids in `ids`, keeping existing reasons.
-void write_baseline(const std::string& path, const std::vector<std::string>& ids,
+bool write_baseline(const std::string& path, const std::vector<std::string>& ids,
                     const std::map<std::string, std::string>& old);
 
 #endif

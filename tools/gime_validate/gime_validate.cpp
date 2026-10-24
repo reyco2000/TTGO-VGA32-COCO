@@ -4,7 +4,8 @@
  * per check and writes results.json.
  *
  * usage: gime_validate [--seed N] [--verdicts PATH] [--baseline PATH]
- *                      [--json PATH] [--ours-commit S] [--update-baseline]
+ *                      [--json PATH] [--ours-commit S] [--xroar-commit S]
+ *                      [--update-baseline]
  *                      [--selftest]
  */
 #include "compare.h"
@@ -80,6 +81,25 @@ static int selftest() {
     { CheckRecord r = mk("a.x", 7, 7, 9);
       CHECK_EQ("resolve_split_without_verdict",
                resolve(r, classify(r), nov, {}) == Status::UNRESOLVED, 1); }
+    {   // --update-baseline keeps a SKIPPED baseline id (and its reason), drops
+        // a now-passing one, adds a new FAIL, and drops nothing else
+        std::vector<CheckRecord> recs = {mk("a.skip", 5, nullopt, nullopt), mk("a.pass", 5, 5, 5),
+                                         mk("a.fail", 5, 7, 7), mk("a.newskip", 5, nullopt, nullopt)};
+        std::vector<Status> st = {Status::SKIP, Status::FIXED, Status::FAIL, Status::SKIP};
+        std::map<std::string, std::string> old = {{"a.skip", "needs xroar"}, {"a.pass", "was bad"}};
+        std::vector<std::string> ids = baseline_ids(recs, st, old);
+        CHECK_EQ("update_baseline_keeps_skipped_ids",
+                 ids == std::vector<std::string>({"a.skip", "a.fail"}), 1);
+        std::string path = std::string(getenv("TMPDIR") ? getenv("TMPDIR") : "/tmp") +
+                           "/gime_validate_selftest_baseline.txt";
+        bool wrote = write_baseline(path, ids, old);
+        std::map<std::string, std::string> back = parse_baseline(path);
+        remove(path.c_str());
+        CHECK_EQ("update_baseline_keeps_skipped_reason",
+                 wrote && back.size() == 2 && back["a.skip"] == "needs xroar", 1);
+        CHECK_EQ("write_baseline_unwritable_fails",
+                 write_baseline("/nonexistent-dir/known_failures.txt", ids, old), 0);
+    }
     {   // malformed verdict file: unknown model must throw and name the line
         std::string path = std::string(getenv("TMPDIR") ? getenv("TMPDIR") : "/tmp") +
                            "/gime_validate_selftest_verdicts.md";
@@ -112,6 +132,7 @@ int main(int argc, char** argv) {
         else if (!strcmp(argv[i], "--baseline") && more) baseline_path = argv[++i];
         else if (!strcmp(argv[i], "--json") && more) json_path = argv[++i];
         else if (!strcmp(argv[i], "--ours-commit") && more) ri.ours_commit = argv[++i];
+        else if (!strcmp(argv[i], "--xroar-commit") && more) ri.xroar_commit = argv[++i];
         else if (!strcmp(argv[i], "--update-baseline")) update_baseline = true;
         else if (!strcmp(argv[i], "--selftest")) return selftest();
         else { fprintf(stderr, "unknown argument: %s\n", argv[i]); return 2; }
@@ -133,9 +154,13 @@ int main(int argc, char** argv) {
     }
     printf("gime_validate seed=0x%X variant=1987\n", seed);
 
-    std::unique_ptr<GimeModel> ours = make_ours();
     Ctx ctx;
+    std::unique_ptr<GimeModel> ours = make_ours();
     ctx.models.push_back(ours.get());
+#ifdef HAVE_XROAR
+    std::unique_ptr<GimeModel> xroar = make_xroar(ctx.variant);
+    ctx.models.push_back(xroar.get());
+#endif
 
     std::vector<Cls> cls;
     std::vector<Status> sts;
@@ -167,14 +192,12 @@ int main(int argc, char** argv) {
            cnt[(int)Status::FIXED], cnt[(int)Status::STALE], cnt[(int)Status::DISC],
            cnt[(int)Status::UNRESOLVED], cnt[(int)Status::SKIP]);
 
-    if (!json_path.empty()) write_results_json(json_path, ctx.records(), cls, sts, ri);
+    if (!json_path.empty() && !write_results_json(json_path, ctx.records(), cls, sts, ri))
+        return 2;
 
     if (update_baseline) {
-        std::vector<std::string> ids;
-        for (size_t i = 0; i < sts.size(); i++)
-            if (sts[i] == Status::FAIL || sts[i] == Status::KNOWN_FAIL)
-                ids.push_back(ctx.records()[i].id);
-        write_baseline(baseline_path, ids, baseline);
+        std::vector<std::string> ids = baseline_ids(ctx.records(), sts, baseline);
+        if (!write_baseline(baseline_path, ids, baseline)) return 2;
         printf("baseline rewritten: %zu entries\n", ids.size());
         return 0;
     }

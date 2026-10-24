@@ -39,5 +39,6 @@ public:
 };
 
 std::unique_ptr<GimeModel> make_ours();
+std::unique_ptr<GimeModel> make_xroar(Variant v);   // built with -DHAVE_XROAR
 
 #endif
