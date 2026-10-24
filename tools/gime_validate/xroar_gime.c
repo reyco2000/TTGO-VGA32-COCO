@@ -129,7 +129,9 @@ void xg_decode(uint16_t addr, unsigned *S, uint32_t *Z, int *RAS) {
 	*S = tcc1014_decode(&xg_gime->public, addr);
 	xg_gime->public.CPUD = &d;
 	tcc1014_mem_cycle(&xg_gime->public, 1, addr);
-	*Z = xg_gime->public.Z;
+	// tcc1014_mem_cycle() leaves Z untouched for $FF00-$FFFF; the suite's
+	// convention (model_ours.cpp too) is Z = 0 there.
+	*Z = addr >= 0xff00 ? 0 : xg_gime->public.Z;
 	*RAS = xg_gime->public.RAS;
 	*xg_gime = saved;
 }

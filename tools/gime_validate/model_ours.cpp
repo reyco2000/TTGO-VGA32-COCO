@@ -59,7 +59,9 @@ public:
         uint8_t d;
         bool is_reg;
         tcc1014_mem_cycle(&g_, addr, true, 0, &d, &is_reg);
-        Decode r = { g_.S, g_.Z, g_.RAS };
+        // Z is only meaningful below $FF00 (XRoar never sets it for I/O);
+        // the suite's convention in every adapter is Z = 0 for $FF00-$FFFF.
+        Decode r = { g_.S, addr >= 0xFF00 ? 0u : g_.Z, g_.RAS };
         g_ = saved;
         return r;
     }

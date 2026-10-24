@@ -15,6 +15,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 static std::string fmt(const CheckRecord& r, const char* model) {
     auto it = r.v.find(model);
@@ -97,8 +99,14 @@ static int selftest() {
         remove(path.c_str());
         CHECK_EQ("update_baseline_keeps_skipped_reason",
                  wrote && back.size() == 2 && back["a.skip"] == "needs xroar", 1);
-        CHECK_EQ("write_baseline_unwritable_fails",
-                 write_baseline("/nonexistent-dir/known_failures.txt", ids, old), 0);
+        fflush(stderr);                      // silence the expected diagnostic
+        int saved_err = dup(2), devnull = open("/dev/null", O_WRONLY);
+        if (devnull >= 0) dup2(devnull, 2);
+        bool unwritable_ok = write_baseline("/nonexistent-dir/known_failures.txt", ids, old);
+        fflush(stderr);
+        if (saved_err >= 0) { dup2(saved_err, 2); close(saved_err); }
+        if (devnull >= 0) close(devnull);
+        CHECK_EQ("write_baseline_unwritable_fails", unwritable_ok, 0);
     }
     {   // malformed verdict file: unknown model must throw and name the line
         std::string path = std::string(getenv("TMPDIR") ? getenv("TMPDIR") : "/tmp") +

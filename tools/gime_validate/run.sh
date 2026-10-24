@@ -16,15 +16,25 @@ OBJS=()
 ARGS=()
 if [ -f "$XROAR_SRC/src/tcc1014/tcc1014.c" ]; then
     XI=(-I"$XROAR_SRC" -I"$XROAR_SRC/src" -I"$XROAR_SRC/portalib" -I"$D")
-    for src in "$D/xroar_gime.c" "$XROAR_SRC/src/events.c" \
-               "$XROAR_SRC/src/tcc1014/font-gime.c" "$XROAR_SRC/portalib/delegate.c"; do
-        gcc -std=gnu11 -O2 -w "${XI[@]}" -c "$src" -o "$OUT/xg_$(basename "$src" .c).o"
-    done
+    XSRCS=("$D/xroar_gime.c" "$XROAR_SRC/src/events.c"
+           "$XROAR_SRC/src/tcc1014/font-gime.c" "$XROAR_SRC/portalib/delegate.c")
+    XOBJS=("$OUT/xg_xroar_gime.o" "$OUT/xg_events.o" "$OUT/xg_font-gime.o" "$OUT/xg_delegate.o")
     # One object holding the XRoar GIME (both variants are chosen at runtime).
-    ld -r -o "$OUT/xroar_gime.o" "$OUT"/xg_*.o
-    DEFS=(-DHAVE_XROAR)
-    OBJS=("$OUT/xroar_gime.o" "$D/model_xroar.cpp")
-    ARGS=(--xroar-commit "$(git -C "$XROAR_SRC" log -1 --format=%h 2>/dev/null || echo unknown)")
+    # A failed build skips the oracle instead of failing the run.
+    # (errexit is off inside an if condition, so each step checks itself.)
+    build_xroar() {
+        for i in "${!XSRCS[@]}"; do
+            gcc -std=gnu11 -O2 -w "${XI[@]}" -c "${XSRCS[$i]}" -o "${XOBJS[$i]}" || return 1
+        done
+        ld -r -o "$OUT/xroar_gime.o" "${XOBJS[@]}" || return 1
+    }
+    if build_xroar; then
+        DEFS=(-DHAVE_XROAR)
+        OBJS=("$OUT/xroar_gime.o" "$D/model_xroar.cpp")
+        ARGS=(--xroar-commit "$(git -C "$XROAR_SRC" log -1 --format=%h 2>/dev/null || echo unknown)")
+    else
+        echo "NOTICE: xroar oracle build failed; skipping"
+    fi
 else
     echo "NOTICE: xroar source not found at $XROAR_SRC; skipping"
 fi
