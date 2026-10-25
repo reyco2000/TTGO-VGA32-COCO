@@ -19,6 +19,8 @@ struct Ctx {
 
     void reset();                                  // reset every model
     void write(uint16_t addr, uint8_t val);
+    void read(uint16_t addr);                      // CPU read, result discarded
+    void set_il(unsigned line, bool level);        // IL0..IL2 on every model
     void advance(uint64_t ticks);
     void lines(unsigned n) { advance((uint64_t)n * 912); }
     void drain();                                  // forget events seen so far
@@ -36,6 +38,7 @@ struct Ctx {
     std::vector<CheckRecord>& records() { return records_; }
 
 private:
+    void collect(GimeModel* m);                          // move m's pending events into events_
     std::vector<CheckRecord> records_;
     std::map<GimeModel*, std::vector<Event>> events_;   // since the last drain()
     std::map<GimeModel*, uint64_t> anchors_;            // since the last reset()

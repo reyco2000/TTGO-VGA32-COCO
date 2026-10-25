@@ -23,15 +23,29 @@ void Ctx::reset() {
     }
 }
 
+// Events can also come from a CPU access (a register write that raises an
+// interrupt output), not just from advance().
+void Ctx::collect(GimeModel* m) {
+    std::vector<Event> e = m->drain_events();
+    events_[m].insert(events_[m].end(), e.begin(), e.end());
+}
+
 void Ctx::write(uint16_t addr, uint8_t val) {
-    for (GimeModel* m : models) m->write(addr, val);
+    for (GimeModel* m : models) { m->write(addr, val); collect(m); }
+}
+
+void Ctx::read(uint16_t addr) {
+    for (GimeModel* m : models) { m->read(addr); collect(m); }
+}
+
+void Ctx::set_il(unsigned line, bool level) {
+    for (GimeModel* m : models) { m->set_il(line, level); collect(m); }
 }
 
 void Ctx::advance(uint64_t ticks) {
     for (GimeModel* m : models) {
         m->advance(ticks);
-        std::vector<Event> e = m->drain_events();
-        events_[m].insert(events_[m].end(), e.begin(), e.end());
+        collect(m);
     }
 }
 
@@ -55,8 +69,11 @@ void Ctx::check(const std::string& id, std::function<int64_t(GimeModel&)> f,
     r.cap = cap;
     r.tol = tol_ticks;
     for (GimeModel* m : models)
+    {
         r.v[m->name()] = (m->caps() & cap) ? std::optional<int64_t>(f(*m))
                                                 : std::nullopt;
+        collect(m);                                  // f may have read a register
+    }
     records_.push_back(r);
 }
 

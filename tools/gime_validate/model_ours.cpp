@@ -38,16 +38,14 @@ public:
         bool is_reg = false;
         tcc1014_mem_cycle(&g_, addr, false, val, nullptr, &is_reg);
         if (!is_reg && g_.RAS) ram_[g_.Z & ram_mask_] = val;
-        irq_prev_ = g_.IRQ;
-        firq_prev_ = g_.FIRQ;
+        sync_edges();
     }
 
     uint8_t read(uint16_t addr) override {
         uint8_t d = 0xFF;
         bool is_reg = false;
         tcc1014_mem_cycle(&g_, addr, true, 0, &d, &is_reg);
-        irq_prev_ = g_.IRQ;
-        firq_prev_ = g_.FIRQ;
+        sync_edges();
         if (is_reg) return d;
         return g_.RAS ? ram_[g_.Z & ram_mask_] : 0xFF;   // no ROM/PIA modelled
     }
@@ -88,6 +86,7 @@ public:
         if (line == 0) g_.IL0 = level;
         else if (line == 1) g_.IL1 = level;
         else if (line == 2) g_.IL2 = level;
+        sync_edges();
     }
 
     std::vector<Event> drain_events() override {
@@ -134,6 +133,15 @@ private:
         }
         if (++scanline_ >= 262) scanline_ = 0;
 
+        sync_edges();
+    }
+
+    // Emit IRQ_RISE / FIRQ_RISE for any rising edge of the outputs since the
+    // last call, stamped at now_. Called after every CPU access and set_il
+    // too, so an edge caused by a register write (enabling an already-pending
+    // source) is reported like XRoar's adapter does (xg_check_edges). Edges
+    // from line-driven sources still carry the line-boundary stamp.
+    void sync_edges() {
         if (g_.IRQ && !irq_prev_) ev_.push_back({ EvType::IRQ_RISE, now_ });
         if (g_.FIRQ && !firq_prev_) ev_.push_back({ EvType::FIRQ_RISE, now_ });
         irq_prev_ = g_.IRQ;
