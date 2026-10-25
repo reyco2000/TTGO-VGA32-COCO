@@ -14,7 +14,7 @@ namespace {
 class Ours : public GimeModel {
 public:
     const char* name() const override { return "ours"; }
-    unsigned caps() const override { return CAP_REGS | CAP_DECODE | CAP_IRQ | CAP_TIMER_EV; }
+    unsigned caps() const override { return CAP_REGS | CAP_DECODE | CAP_IRQ | CAP_TIMER_EV | CAP_SYNC_EV; }
     uint32_t resolution(Cap c) const override {
         return (c == CAP_TIMER_EV || c == CAP_SYNC_EV || c == CAP_IRQ) ? TCC1014_tSL : 1;
     }
@@ -98,40 +98,113 @@ public:
     bool last_line(std::vector<uint8_t>&, int&) override { return false; }
 
 private:
-    // One scanline, in machine_run_scanline_coco3() order.
+    // One scanline, in machine_run_scanline_coco3() order. Everything that
+    // happens at the line's end in machine.cpp is stamped at now_ (the line
+    // boundary): ours resolves sync events to a whole line (912 ticks).
     void run_line() {
+        // mirrors machine.cpp:675-682 (timer tick, HS edges to PIA0 CA1)
         tcc1014_tick_scanline(&g_);
         for (; fires_ < g_.timer_fires; fires_++)
             ev_.push_back({ EvType::TIMER, now_ });
+        ev_.push_back({ EvType::HS_FALL, now_ });  // mc6821_ca1_transition(false)
 
-        // Vertical timing: the interrupt-relevant part of the machine's FS /
-        // border handling (no rendering, no B / row advance).
+        // mirrors machine.cpp:717-848 (vertical timing), except the render
+        // and HAL calls at machine.cpp:796-816; PIA0 CB1 transitions become
+        // FS_FALL / FS_RISE events. Diff this block against those lines.
         TCC1014* g = &g_;
-        unsigned scanline = scanline_;
+        unsigned scanline = scanline_;  // 0-261 absolute
+
         if (scanline == 0) {
+            ev_.push_back({ EvType::FS_FALL, now_ });  // mc6821_cb1_transition(false)
             g->vertical.lAA = g->COCO ? 192 :
                 (g->LPF == 0 ? 192 : g->LPF == 1 ? 199 : g->LPF == 3 ? 225 : 0xFFFF);
-            if (g->COCO) g->vertical.lTB = g->H50 ? 63 : 36;
+            if (g->COCO) {
+                g->vertical.lTB = g->H50 ? 63 : 36;
+            }
         }
+
+        if (scanline == 4) {
+            ev_.push_back({ EvType::FS_RISE, now_ });  // mc6821_cb1_transition(true)
+        }
+
         if (scanline == 7) {
+            if (g->COCO) {
+                g->B = (g->Y & 0x701FF) | ((uint32_t)g->SAM_F << 9);
+            } else {
+                g->B = g->Y;
+            }
             g->vertical.lcount = 0;
             g->vertical.active_area = false;
         }
+
         if (scanline >= 7) {
             unsigned vline = g->vertical.lcount;
-            if (!g->vertical.active_area && vline == g->vertical.lTB)
+            unsigned top_border_end = g->vertical.lTB;
+
+            if (!g->vertical.active_area && vline == top_border_end) {
                 g->vertical.active_area = true;
+                if (!g->COCO) {
+                    g->row = g->VSC;
+                    if ((g->row & g->rowmask) == g->rowmask) {
+                        g->row = 0;
+                    }
+                } else {
+                    g->row = 0;
+                }
+            }
+
             if (g->vertical.active_area) {
-                unsigned display_line = vline - g->vertical.lTB;
+                unsigned display_line = vline - top_border_end;
+
+                g->Xoff = g->X;
+                if (g->COCO || g->BP) {
+                    g->row_stride = g->HVEN ? 256 : g->BPR;
+                } else {
+                    g->row_stride = g->HVEN ? 256 : (g->BPR << (g->CRES & 1));
+                }
+                if (g->COCO) {
+                    if (!g->VDG.GnA) {
+                        bool GM2 = g->PIA1B_shadow.pdr & 0x40;
+                        bool text_border = !g->VDG.GM1 && GM2;
+                        unsigned text_border_colour = g->VDG.CSS ? 0x26 : 0x12;
+                        g->border_colour = text_border ? text_border_colour : 0;
+                    } else {
+                        unsigned c = g->VDG.CSS ? TCC1014_RGCSS1_1 : TCC1014_RGCSS0_1;
+                        g->border_colour = g->palette_reg[c];
+                    }
+                } else {
+                    g->border_colour = g->BRDR;
+                }
+
+                // machine.cpp:796-816 renders display_line here (not modelled yet).
+
+                g->row = (g->row + 1) & 15;
+                bool row_advance = false;
+                if ((g->row & g->rowmask) == g->rowmask) {
+                    row_advance = true;
+                    g->row = 0;
+                }
+                if (!g->COCO && g->LPR == 7) {
+                    row_advance = false;
+                }
+                if (row_advance) {
+                    g->B += g->row_stride;
+                }
                 tcc1014_set_interrupt(g, TCC1014_INT_HBORD);
+
                 if (display_line + 1 >= g->vertical.lAA) {
                     g->vertical.active_area = false;
                     tcc1014_set_interrupt(g, TCC1014_INT_VBORD);
                 }
             }
+
             g->vertical.lcount++;
         }
-        if (++scanline_ >= 262) scanline_ = 0;
+
+        scanline_++;
+        if (scanline_ >= 262) {  // SCANLINES_PER_FRAME, config.h:256
+            scanline_ = 0;
+        }
 
         sync_edges();
     }

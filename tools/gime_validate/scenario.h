@@ -25,6 +25,14 @@ struct Ctx {
     void lines(unsigned n) { advance((uint64_t)n * 912); }
     void drain();                                  // forget events seen so far
     void anchor();                                 // event ticks count from each model's now()
+    void fill_ram(uint8_t (*f)(uint32_t addr));    // same contents in every model's RAM
+
+    // Per model: advance whole lines until an event of type t has been seen
+    // since the last drain(), then on to that event's tick + offset (offset
+    // >= 912; t is a sync event). Models without CAP_SYNC_EV just advance offset.
+    // Afterwards the models sit at the same point relative to their own
+    // event, not at the same absolute tick.
+    void sync_after(EvType t, uint64_t offset);
 
     // Tick of the nth event of type t since the last drain(), relative to
     // the model's anchor (0 until anchor() is called); -1 if there is none.

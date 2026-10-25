@@ -12,12 +12,16 @@ ScenarioReg::ScenarioReg(const char* area, const char* name, void (*fn)(Ctx&)) {
     scenarios().push_back({ std::string(area) + "." + name, fn });
 }
 
+static std::map<GimeModel*, std::vector<uint8_t>>& rams() {   // one RAM per model
+    static std::map<GimeModel*, std::vector<uint8_t>> r;
+    return r;
+}
+
 void Ctx::reset() {
-    static std::map<GimeModel*, std::vector<uint8_t>> rams;   // one RAM per model
     events_.clear();
     anchors_.clear();
     for (GimeModel* m : models) {
-        std::vector<uint8_t>& r = rams[m];
+        std::vector<uint8_t>& r = rams()[m];
         r.assign(RAM_SIZE, 0);
         m->reset(variant, r.data(), RAM_SIZE);
     }
@@ -50,6 +54,29 @@ void Ctx::advance(uint64_t ticks) {
 }
 
 void Ctx::drain() { events_.clear(); }
+
+void Ctx::fill_ram(uint8_t (*f)(uint32_t)) {
+    for (GimeModel* m : models) {
+        std::vector<uint8_t>& r = rams()[m];
+        for (uint32_t a = 0; a < r.size(); a++) r[a] = f(a);
+    }
+}
+
+void Ctx::sync_after(EvType t, uint64_t offset) {
+    const unsigned max_lines = 1000;                 // more than three fields
+    for (GimeModel* m : models) {
+        if (!(m->caps() & CAP_SYNC_EV)) { m->advance(offset); collect(m); continue; }
+        int64_t e = -1;
+        for (unsigned n = 0; n < max_lines && (e = event_tick(m, t, 0)) < 0; n++) {
+            m->advance(912);
+            collect(m);
+        }
+        if (e < 0) continue;                         // never seen: leave it there
+        uint64_t target = (uint64_t)e + anchors_[m] + offset;
+        if (target > m->now()) m->advance(target - m->now());
+        collect(m);
+    }
+}
 
 void Ctx::anchor() {
     for (GimeModel* m : models) anchors_[m] = m->now();

@@ -4,7 +4,10 @@
 #include <stdexcept>
 #include <stdio.h>
 
+// -1 is the "event never seen" value of event checks (Ctx::event_tick): it
+// equals only itself, whatever the tolerance.
 static bool eq(int64_t a, int64_t b, uint32_t tol) {
+    if ((a == -1) != (b == -1)) return false;
     int64_t d = a > b ? a - b : b - a;
     return d <= (int64_t)tol;
 }

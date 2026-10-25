@@ -52,6 +52,11 @@ static int selftest() {
       CHECK_EQ("classify_all_equal_is_agree", classify(r) == Cls::AGREE, 1); }
     { CheckRecord r = mk("a.x", 912, 40, 40, 912);
       CHECK_EQ("classify_ours_within_tolerance_is_resolution", classify(r) == Cls::RESOLUTION, 1); }
+    { CheckRecord r = mk("a.x", -1, 817, nullopt, 912);   // -1: event never seen
+      Cls c = classify(r);
+      CHECK_EQ("classify_no_event_is_not_within_tolerance", (c == Cls::REF_SPLIT) && r.two_way, 1); }
+    { CheckRecord r = mk("a.x", -1, -1, nullopt, 912);
+      CHECK_EQ("classify_no_event_both_is_agree", classify(r) == Cls::AGREE, 1); }
     { CheckRecord r = mk("a.x", 5, 7, 7);
       CHECK_EQ("classify_ours_odd", classify(r) == Cls::OURS_ODD, 1); }
     { CheckRecord r = mk("a.x", 5, 7, 9);
