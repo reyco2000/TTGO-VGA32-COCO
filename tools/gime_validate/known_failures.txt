@@ -4,3 +4,786 @@
 # A listed check that starts passing is reported FIXED and an id that no
 # longer exists is reported STALE; both fail the run until removed here.
 # Regenerate with: tools/gime_validate/run.sh --update-baseline
+regs.readback_FF92_AA  # ours: no TMR latch when $FF92/$FF93 enables TMR at timer 0 (pre-d9bba8a3 XRoar interrupt logic)
+regs.readback_FF92_FF  # ours: no TMR latch when $FF92/$FF93 enables TMR at timer 0 (pre-d9bba8a3 XRoar interrupt logic)
+regs.readback_FF93_AA  # ours: no TMR latch when $FF92/$FF93 enables TMR at timer 0 (pre-d9bba8a3 XRoar interrupt logic)
+regs.readback_FF93_FF  # ours: no TMR latch when $FF92/$FF93 enables TMR at timer 0 (pre-d9bba8a3 XRoar interrupt logic)
+regs.undriven_bits_ff92  # harness convention: ours drives undriven bits 7-6 as 0, adapters float $FF (not a GIME accuracy claim); also no TMR latch when $FF92/$FF93 enables TMR at timer 0 (pre-d9bba8a3 XRoar interrupt logic)
+regs.undriven_bits_mmu  # harness convention: ours drives undriven bits 7-6 as 0, adapters float $FF (not a GIME accuracy claim)
+regs.undriven_bits_palette  # harness convention: ours drives undriven bits 7-6 as 0, adapters float $FF (not a GIME accuracy claim)
+timer.tins1_period_1_ev2  # ours: TINS=1 timer fires at most once per scanline
+timer.tins1_period_1_ev10  # ours: TINS=1 timer fires at most once per scanline
+timer.tins1_period_2_ev2  # ours: TINS=1 timer fires at most once per scanline
+timer.tins1_period_2_ev10  # ours: TINS=1 timer fires at most once per scanline
+timer.tins1_period_3_ev2  # ours: TINS=1 timer fires at most once per scanline
+timer.tins1_period_3_ev10  # ours: TINS=1 timer fires at most once per scanline
+timer.tins1_period_100_ev10  # ours: TINS=1 timer fires at most once per scanline
+timer.restart_on_lsb_write_tins1_ev2  # ours: TINS=1 re-arm reuses the old count, does not re-read $FF94/$FF95
+timer.tins1_period_4095_ev100  # ours: TINS=1 counts 227.5 per line instead of 228
+timer.tins1_period_596_ev1000  # ours: TINS=1 counts 227.5 per line instead of 228
+irq.enable_hbord_irq_en1_m1_rise  # ours: HBORD raised only on active-area lines
+irq.enable_hbord_firq_en1_m1_rise  # ours: HBORD raised only on active-area lines
+irq.enable_vbord_irq_en1_m1_rise  # ours: VBORD one line early (end of last active line) (first VBORD after reset; MAME also differs by reset phase)
+irq.enable_vbord_firq_en1_m1_rise  # ours: VBORD one line early (end of last active line) (first VBORD after reset; MAME also differs by reset phase)
+irq.enable_ei2_irq_en1_m1_line_after_read  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
+irq.enable_ei2_firq_en1_m1_line_after_read  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
+irq.enable_ei1_irq_en1_m1_line_after_read  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
+irq.enable_ei1_firq_en1_m1_line_after_read  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
+irq.enable_ei0_irq_en1_m1_line_after_read  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
+irq.enable_ei0_firq_en1_m1_line_after_read  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
+irq.clear_on_read_ff92_line_after  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
+irq.clear_on_read_ff92_read2  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
+irq.clear_on_read_ff93_line_after  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
+irq.clear_on_read_ff93_read2  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
+irq.both_outputs_ei2_irq_after92  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
+irq.both_outputs_ei2_firq_after93  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
+irq.both_outputs_ei1_irq_after92  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
+irq.both_outputs_ei1_firq_after93  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
+irq.both_outputs_ei0_irq_after92  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
+irq.both_outputs_ei0_firq_after93  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
+irq.edge_only_il0_line_held  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
+irq.edge_only_il0_read2  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
+irq.edge_only_il1_line_held  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
+irq.edge_only_il1_read2  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
+irq.edge_only_il2_line_held  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
+irq.edge_only_il2_read2  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
+video.lines_per_field_lpf0_txt  # ours: 262-line field, XRoar (measured) 263
+video.lines_per_field_lpf0_gfx  # ours: 262-line field, XRoar (measured) 263
+video.lines_per_field_lpf1_txt  # ours: 262-line field, XRoar (measured) 263
+video.lines_per_field_lpf1_gfx  # ours: 262-line field, XRoar (measured) 263
+video.lines_per_field_lpf2_txt  # ours: 262-line field, XRoar (measured) 263
+video.lines_per_field_lpf2_gfx  # ours: 262-line field, XRoar (measured) 263
+video.lines_per_field_lpf3_txt  # ours: 262-line field, XRoar (measured) 263
+video.lines_per_field_lpf3_gfx  # ours: 262-line field, XRoar (measured) 263
+video.vbord_line_lpf0_txt  # ours: VBORD one line early (end of last active line)
+video.vbord_line_lpf0_gfx  # ours: VBORD one line early (end of last active line)
+video.vbord_line_lpf1_txt  # ours: VBORD one line early (end of last active line)
+video.vbord_line_lpf1_gfx  # ours: VBORD one line early (end of last active line)
+video.vbord_line_lpf3_txt  # ours: VBORD one line early (end of last active line)
+video.vbord_line_lpf3_gfx  # ours: VBORD one line early (end of last active line)
+video.hbord_tick_vsync_txt  # ours: HBORD raised only on active-area lines
+video.hbord_tick_vsync_gfx  # ours: HBORD raised only on active-area lines
+video.vsc_latch  # ours: 262-line field, XRoar (measured) 263 (latch lands one field later)
+video.voffset_latch_top_border  # ours: 262-line field, XRoar (measured) 263 (latch lands one field later)
+video.voffset_latch_lsb_top_border  # ours: 262-line field, XRoar (measured) 263 (latch lands one field later)
+video.voffset_latch_active  # ours: 262-line field, XRoar (measured) 263 (latch lands one field later)
+video.voffset_latch_lsb_active  # ours: 262-line field, XRoar (measured) 263 (latch lands one field later)
+video.reg_effect_same_line_first_px  # ours: whole-line rendering, a mid-line register write affects the whole line (simplification)
+render.txt32_noattr.line100_hash  # ours: font byte for character $15 row 4 is $5C (MAME, VCC: $54)
+render.txt40_attr.line100_hash  # ours: font byte for character $15 row 4 is $5C (MAME, VCC: $54)
+render.txt80_noattr.line100_hash  # ours: font byte for character $15 row 4 is $5C (MAME, VCC: $54)
+render.txt80_attr.line100_hash  # ours: font byte for character $15 row 4 is $5C (MAME, VCC: $54)
+render.hven_x1.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
+render.hven_x1.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
+render.hven_x1.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
+render.hven_x1.line8_hash  # ours: X offset ($FF9F bits 6-0) ignored
+render.hven_x1.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+render.hven_x1.line191_hash  # ours: X offset ($FF9F bits 6-0) ignored
+render.hven_x64.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
+render.hven_x64.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
+render.hven_x64.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
+render.hven_x64.line8_hash  # ours: X offset ($FF9F bits 6-0) ignored
+render.hven_x64.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+render.hven_x64.line191_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.timer.2.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.22.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.23.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.32.ev2  # ours: TINS=1 re-arm reuses the old count, does not re-read $FF94/$FF95
+random.timer.33.ev2  # ours: TINS=1 re-arm reuses the old count, does not re-read $FF94/$FF95
+random.timer.35.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.37.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.39.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.43.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.49.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.72.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.73.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.75.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.83.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.86.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.89.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.94.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.95.ev1  # ours: TINS=1 counts 227.5 per line instead of 228
+random.timer.95.ev2  # ours: TINS=1 re-arm reuses the old count, does not re-read $FF94/$FF95
+random.timer.103.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.106.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.115.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.116.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.120.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.122.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.142.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.143.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.151.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.153.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.163.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.169.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.177.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.178.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.185.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.196.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.timer.198.ev2  # ours: TINS=1 timer fires at most once per scanline
+random.irq.0.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.0.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.1.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.2.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.5.irq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.5.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.5.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.6.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.6.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.9.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.9.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.9.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.10.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.10.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.11.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.13.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.15.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.15.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.15.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.16.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.16.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.17.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.17.read_ff92  # ours: HBORD raised only on active-area lines
+random.irq.17.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.18.irq  # ours: HBORD raised only on active-area lines
+random.irq.18.firq  # ours: HBORD raised only on active-area lines
+random.irq.18.read_ff92  # ours: HBORD raised only on active-area lines
+random.irq.18.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.19.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.19.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.19.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.20.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.21.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.22.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.23.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.24.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.24.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.25.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.26.irq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.26.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.26.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.26.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.26.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.27.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.28.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.28.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.29.firq  # ours: HBORD raised only on active-area lines
+random.irq.29.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.30.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.30.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.30.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.30.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.31.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.31.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.32.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.32.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.33.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.33.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.33.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.33.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.35.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.37.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.37.read_ff92  # ours: HBORD raised only on active-area lines
+random.irq.37.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.38.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.39.irq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.39.firq  # ours: HBORD raised only on active-area lines
+random.irq.39.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.39.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.39.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.40.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.41.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.41.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.41.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.41.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.42.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.46.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.46.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.47.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.47.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.48.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.48.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.48.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.48.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.49.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.51.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.51.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.52.irq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.52.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.52.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.55.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.55.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.55.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.56.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.56.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.57.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.58.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.58.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.60.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.60.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.61.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.61.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.62.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.62.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.62.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.63.irq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.63.firq  # ours: HBORD raised only on active-area lines
+random.irq.63.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.63.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.63.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.64.irq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.64.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.64.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.65.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.65.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.66.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.66.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.67.firq  # ours: HBORD raised only on active-area lines
+random.irq.67.read_ff92  # ours: HBORD raised only on active-area lines
+random.irq.67.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.68.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.68.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.68.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.70.irq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.70.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.70.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.71.irq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.71.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.71.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.72.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.72.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.74.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.75.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.75.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.76.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.78.irq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.78.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.79.irq  # ours: HBORD raised only on active-area lines
+random.irq.79.read_ff92  # ours: HBORD raised only on active-area lines
+random.irq.79.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.81.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.81.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.82.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.82.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.82.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.83.irq  # ours: HBORD raised only on active-area lines
+random.irq.83.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.83.read_ff92  # ours: HBORD raised only on active-area lines
+random.irq.83.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.83.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.84.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.84.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.84.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.86.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.86.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.86.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.87.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.88.irq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.88.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.88.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.88.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.88.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.90.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.90.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.90.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.92.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.93.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.94.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.94.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.94.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.94.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.94.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.97.irq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.97.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.97.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.98.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.100.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.101.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.102.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.102.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.104.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.104.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.106.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.107.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.107.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.108.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.111.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.112.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.114.irq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.114.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.114.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.114.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.114.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.115.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.115.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.115.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.116.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.117.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.117.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.118.read_ff92  # ours: HBORD raised only on active-area lines
+random.irq.118.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.118.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.119.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.119.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.120.read_ff92  # ours: HBORD raised only on active-area lines
+random.irq.120.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.120.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.125.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.125.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.125.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.126.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.126.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.127.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.129.irq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.129.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.129.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.129.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.130.read_ff92  # ours: HBORD raised only on active-area lines
+random.irq.132.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.132.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.134.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.134.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.135.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.136.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.137.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.137.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.137.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.138.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.138.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.139.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.140.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.140.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.141.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.141.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.142.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.142.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.142.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.145.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.145.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.146.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.146.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.146.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.148.read_ff92  # ours: HBORD raised only on active-area lines
+random.irq.148.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.150.read_ff92  # ours: HBORD raised only on active-area lines
+random.irq.151.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.151.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.151.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.152.read_ff92  # ours: HBORD raised only on active-area lines
+random.irq.152.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.153.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.153.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.153.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.154.read_ff92  # ours: HBORD raised only on active-area lines
+random.irq.154.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.154.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.155.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.155.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.155.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.156.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.157.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.157.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.158.firq  # ours: HBORD raised only on active-area lines
+random.irq.158.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.159.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.162.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.164.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.166.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.166.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.166.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.168.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.168.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.168.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.169.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.169.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.169.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.171.read_ff92  # ours: HBORD raised only on active-area lines
+random.irq.171.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.171.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.171.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.172.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.173.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.173.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.173.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.174.read_ff92  # ours: HBORD raised only on active-area lines
+random.irq.174.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.174.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.175.irq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.175.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.175.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.175.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.177.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.177.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.177.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.177.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.178.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.178.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.179.read_ff92  # ours: HBORD raised only on active-area lines
+random.irq.179.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.180.read_ff92  # ours: HBORD raised only on active-area lines
+random.irq.181.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.182.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.182.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.182.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.182.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.183.irq  # ours: HBORD raised only on active-area lines
+random.irq.183.firq  # ours: HBORD raised only on active-area lines
+random.irq.183.read_ff92  # ours: HBORD raised only on active-area lines
+random.irq.183.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.184.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.184.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.185.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.185.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.186.irq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.186.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.186.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.187.irq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.187.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.189.irq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.189.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.189.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.190.irq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.190.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.190.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.191.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.192.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.193.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.194.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.194.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.195.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.195.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.196.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable) + HBORD raised only on active-area lines
+random.irq.196.read_ff92  # ours: HBORD raised only on active-area lines
+random.irq.196.read_ff93  # ours: HBORD raised only on active-area lines
+random.irq.196.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.197.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.197.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.198.read_ff92  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.198.read_ff93  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.198.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.198.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.199.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.irq.199.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
+random.video.0.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.1.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.2.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.3.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.4.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.5.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.6.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.7.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.8.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.9.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.10.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.11.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.12.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.13.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.14.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.15.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.16.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.17.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.18.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.19.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.20.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.21.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.22.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.23.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.24.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.25.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.26.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.27.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.28.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.29.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.30.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.31.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.32.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.33.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.34.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.35.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.36.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.37.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.38.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.39.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.40.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.41.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.42.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.43.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.44.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.45.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.46.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.47.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.48.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.49.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.50.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.51.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.52.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.53.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.54.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.55.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.56.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.57.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.58.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.59.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.60.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.61.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.62.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.63.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.64.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.65.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.66.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.67.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.68.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.69.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.70.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.71.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.72.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.73.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.74.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.75.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.76.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.77.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.78.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.79.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.80.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.81.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.82.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.83.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.84.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.85.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.86.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.87.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.88.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.89.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.90.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.91.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.92.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.93.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.94.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.95.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.96.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.97.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.98.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.99.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.100.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.101.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.102.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.103.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.104.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.105.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.106.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.107.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.108.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.109.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.110.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.111.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.112.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.113.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.114.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.115.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.116.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.117.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.118.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.119.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.120.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.121.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.122.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.123.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.124.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.125.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.126.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.127.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.128.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.129.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.130.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.131.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.132.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.133.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.134.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.135.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.136.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.137.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.138.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.139.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.140.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.141.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.142.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.143.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.144.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.145.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.146.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.147.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.148.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.149.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.150.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.151.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.152.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.153.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.154.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.155.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.156.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.157.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.158.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.159.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.160.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.161.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.162.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.163.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.164.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.165.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.166.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.167.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.168.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.169.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.170.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.171.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.172.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.173.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.174.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.175.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.176.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.177.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.178.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.179.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.180.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.181.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.182.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.183.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.184.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.185.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.186.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.187.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.188.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.189.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.190.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.191.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.192.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.193.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.194.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.195.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.196.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
+random.video.197.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.198.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.199.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.render.6.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.6.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.6.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.6.line8_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.6.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.6.line191_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.34.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.34.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.34.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.34.line8_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.34.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.34.line191_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.36.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.36.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.36.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.36.line8_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.36.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.47.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.47.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.47.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.47.line8_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.47.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.47.line191_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.57.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.57.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.57.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.57.line8_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.57.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.57.line191_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.60.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.60.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.60.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.60.line8_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.60.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.60.line191_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.69.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.69.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.69.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.69.line8_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.69.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.69.line191_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.72.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.72.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.72.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.77.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.77.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.77.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.77.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.77.line191_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.86.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.86.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.86.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.86.line8_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.86.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.86.line191_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.87.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.87.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.87.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.87.line8_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.87.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.87.line191_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.96.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.96.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.96.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.96.line8_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.96.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.122.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.122.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.122.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.122.line8_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.122.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.122.line191_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.128.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.128.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.128.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.128.line8_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.128.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.128.line191_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.139.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.139.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.139.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.139.line8_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.139.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.139.line191_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.143.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.143.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.143.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.143.line8_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.143.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.143.line191_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.146.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.146.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.146.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.146.line8_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.146.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.146.line191_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.151.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.151.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.151.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.151.line8_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.151.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.151.line191_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.158.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.158.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.158.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.158.line8_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.158.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.158.line191_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.168.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.168.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.168.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.182.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.182.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.182.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.182.line8_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.182.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.192.line100_hash  # ours: X offset ignored; XRoar applies it in COCO mode too, MAME matches XRoar on this line by chance
+random.render.193.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.193.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.193.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.193.line8_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.193.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.193.line191_hash  # ours: X offset ($FF9F bits 6-0) ignored

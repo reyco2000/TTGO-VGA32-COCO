@@ -500,3 +500,97 @@ static const unsigned LPR_rowmask[8] = { 0, 1, 7, 8, 9, 10, 0xffff, 0xffff };
 // SAM V rowmask — tcc1014.c:422
 static const unsigned SAM_V_rowmask[8] = { 11, 0, 2, 0, 1, 0, 0, 0 };
 ```
+
+---
+
+## Validation suite
+
+`tools/gime_validate/` is a host-side suite (it never runs on the board) that drives our GIME
+(`src/core/tcc1014.cpp` plus a mirror of the GIME part of `machine.cpp`'s scanline loop) side by side
+with two reference implementations compiled unmodified: XRoar's `src/tcc1014/tcc1014.c` and MAME's
+`src/mame/trs/gime.cpp`, the latter built as a 1987 and a 1986 GIME. Each scenario applies the same
+register writes, IL changes and line advances to every model and records one check per observation
+(register reads, MMU decode, timer and interrupt event ticks, sync timing, rendered line hashes).
+The common time base is the 14.31818 MHz pixel clock, 912 ticks per scanline. Only accuracy is
+compared, never speed.
+
+### Running it
+
+```bash
+tools/gime_validate/run.sh                  # build and run (~90 s); exit 0 = no new failures
+tools/gime_validate/run.sh --seed 7         # different random runs (exploration: never gates)
+tools/gime_validate/run.sh --selftest       # the comparator's own tests
+tools/gime_validate/run.sh --update-baseline
+```
+
+`XROAR_SRC` and `MAME_SRC` default to `~/proyectos/coco-emu-other-projects-source/{xroar,mame}`.
+A missing tree or a failed oracle build prints a NOTICE and that model's checks are SKIPPED. The run
+writes `${TMPDIR:-/tmp}/gime_validate/results.json` and `gime_validation_report.md` (summary by area,
+failures, baseline, discrepancy table, every verdict with the checks it covered, UNRESOLVED list, and the
+reference edits).
+
+### Statuses
+
+| Status | Meaning |
+|---|---|
+| PASS | All models agree, or differ by less than ours' resolution for that capability (ours resolves events to a whole line, 912 ticks). |
+| FAIL | Ours differs from the hardware-true value: both references agree against ours, or the verdict's model disagrees with ours. Fails the run. |
+| KNOWN | A FAIL listed in `known_failures.txt` (the baseline), with a reason. Does not fail the run. |
+| FIXED | A baselined check that now passes. Fails the run until it is removed from the baseline. |
+| STALE | A baseline id that no longer exists (renamed or deleted check). Fails the run until removed. |
+| DISC | XRoar and MAME disagree, a verdict names the accurate one, and ours matches it. Also every `v86.` (1986 GIME, references only) split, which is information only. |
+| UNRES | XRoar and MAME disagree and no verdict covers the check. Does not fail the run. |
+| SKIP | A model lacks the capability (for example ours has no horizontal position, so `first_active_px` is skipped). |
+
+Random checks (`random.<area>.<run>.<observation>`) gate the run only with the default seed (0x6809)
+and run count (200), because their ids depend on both.
+
+### Updating the baseline
+
+After a change to the GIME (or to a scenario), run `run.sh`. A new FAIL means our GIME moved away
+from the references; a FIXED means a known difference went away. When the change is intended, run
+`run.sh --update-baseline`: it rewrites `known_failures.txt` with every current FAIL and KNOWN id,
+keeps the existing reasons, and writes `# TODO reason` for new ones. Replace each TODO with a one-line
+reason naming the root cause, reusing the existing wording for the same cause, then run `run.sh`
+again and check `exit=0`.
+
+### Adding a verdict
+
+When the references split (UNRES), find out which is hardware-true and add an entry to
+`tools/gime_validate/verdicts.md`: a `## <check id>` heading, an `accurate: ours|xroar|mame` line, an
+optional `confidence: high|medium|low` line, and free markdown with what each model does (file:line),
+the evidence, and whether ours is a bug or a simplification. An id ending in `*` covers every check
+whose id starts with the text before it; matching is a plain string prefix (`a.b*` also matches
+`a.bc`), so end a family prefix at a `.` or `_` and check the report's prefix listing. An exact id beats
+a prefix and the longest prefix wins. Evidence, by weight: measured-hardware statements in XRoar
+(its comments and commit messages), Sock's GIME reference (https://www.6809.org.uk/sock/gime.html) and
+the Tandy service manual, VCC as a third opinion, and software known to depend on the behaviour.
+A malformed entry is a hard error naming the line.
+
+### Findings
+
+The first verdicts (2026-10-25; XRoar 53acd7e3, MAME 9c525573728). "Favours" is the model the verdict
+names as hardware-true; full evidence is in `verdicts.md`.
+
+| Root cause | Favours | Confidence | Ours |
+|---|---|---|---|
+| Interrupt latching: XRoar's post-2025 logic (d9bba8a3, from Tim Lindner's real-hardware tests): TMR latched when $FF92/$FF93 enables it with the timer at 0, EI inputs edge-detected, no TMR re-latch on a status read | XRoar = MAME | high (TMR, keyboard EI tested), medium (other EI inputs, assumed alike) | bug: ours still has the pre-2025 logic (level IL, re-latch on read, no latch on enable) |
+| HBORD on every line, borders included | XRoar = MAME = VCC | high | bug: only on active-area lines |
+| TINS=1 timer: one fire per 4·(n+1) pixel ticks, 228 counts per 912-tick line, reload re-read at each expiry | XRoar = MAME | high | bug: at most one fire per line; 227.5 per line; re-arm keeps the old count |
+| X offset ($FF9F) | XRoar = MAME | high | bug: ignored |
+| Field length: 263 lines at 60 Hz | XRoar | medium | 262 (as MAME and VCC) |
+| VBORD 7 + lTB + lAA lines after FS fall | XRoar | medium | one line early |
+| Mid-line register and palette writes take effect at the beam | XRoar | high | simplification: whole line rendered at line end (MAME too) |
+| Font character $15 row 4 = $54 | MAME = VCC | medium | bug: $5C copied from XRoar |
+| 16-colour 16-byte-per-row modes drop the second byte of each 16-bit fetch | XRoar | medium | same as XRoar |
+| CRES 0 at 128/160 bytes per row | XRoar | low | same as XRoar |
+| EI source enabled while its input is already high latches | XRoar | low | same as XRoar (by level sampling) |
+| MMU registers $38+i after reset | ours = MAME = VCC | low | — |
+| $FE00 page with MC3 clear after a slot 7 write | XRoar (MAME's bank 8 is stale) | high | same as XRoar |
+| $FE00 page with MC3 set in ROM mode: S code | XRoar (MAME has no S) | low | same as XRoar |
+| Undriven bits 7-6 of $FF92, MMU and palette reads | harness convention (bus is floating) | low | drives 0; not a GIME accuracy claim |
+
+`random.render.*` splits (382 checks) have no verdict yet: they mix several of the causes above with
+others found but not judged (50 Hz H50 writes, the X offset in COCO mode, LPF in COCO mode, LPF 1 as 199
+or 200 lines, the attribute underline at LPR < 3), and stay UNRESOLVED. 1986-GIME (`v86.`) splits are
+information only; the timer offset (+2 for 1986, +1 for 1987) is the same in both references.
