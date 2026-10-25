@@ -50,16 +50,18 @@ match runs 60-69), and check the report's prefix listing after adding one.
 verdict, because every split in them comes from causes that favour the same
 model. `random.mmu.*` has an area verdict plus one entry per run for the
 runs whose `$FE00` page splits have a different cause. `random.render.*`
-has no verdict: its splits mix at least seven causes that favour different
-models (50 Hz H50 writes, the X offset in COCO mode, LPF in COCO mode, LPF 1
-as 199 or 200 lines, the attribute underline at LPR < 3, the `$15` glyph and
-the 16- and 128/160-byte modes), and the run ids carry no cause. Those checks
-stay UNRESOLVED (non-failing) until a cause can be attached to each run.
+has no verdict: replaying each run's writes shows its splits mix several
+causes that are not judged yet (the X offset in COCO mode, which XRoar
+applies and calls "needs verifying" in a403bc6a, in 47 of 81 runs; LPF in
+COCO mode; LPF 1 as 199 or 200 lines; the attribute underline row at
+LPR < 3 and LPR 5; the X offset in native text modes; LPR 7), several runs
+have more than one, and the run ids carry no cause. Those checks stay
+UNRESOLVED (non-failing) until a cause can be attached to each run.
 
 # Verdicts
 
 Model sources: ours `src/core/tcc1014.cpp`, `src/core/machine.cpp`,
-`src/config.h` (branch test/gime-validation-suite); XRoar 53acd7e3
+`config.h` at the repository root (branch test/gime-validation-suite); XRoar 53acd7e3
 `src/tcc1014/tcc1014.c` (cited as `tcc1014.c`); MAME 9c525573728
 `src/mame/trs/gime.cpp` (cited as `gime.cpp`) and
 `src/devices/video/mc6847.cpp`; VCC (third opinion) at
@@ -381,11 +383,9 @@ Same cause and evidence as `render.txt32_noattr.line100_hash` (character $15, fo
 accurate: xroar
 confidence: medium
 
-Every split in this area is `field_ticks` (FS fall to FS fall), with ours and MAME at 262 lines. In most runs XRoar
-has 263 lines, the `video.lines_per_field_*` cause. In runs where the random $FF98 writes leave H50 = 1 XRoar
-switches to its 50 Hz field (`lF = 314`, `tcc1014.c:1198`; lTB from the measured 50 Hz row,
-`tcc1014.c:409-412`) while ours and MAME's NTSC device ignore H50. Sock documents H50 as "1=50Hz"; that cause
-also favours XRoar, with high confidence. (The suite is meant to be NTSC-only; the random areas do not mask H50.)
+Every split in this area is `field_ticks` (FS fall to FS fall): XRoar has 263 lines and ours and MAME 262, the
+`video.lines_per_field_*` cause, with the same evidence and confidence. The random $FF98 writes keep H50 = 0
+(the suite is NTSC-only), so no 50 Hz field is involved.
 
 ## random.irq.*
 accurate: xroar

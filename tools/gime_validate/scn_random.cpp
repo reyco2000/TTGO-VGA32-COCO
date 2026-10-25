@@ -25,12 +25,14 @@ struct Rng {
     uint8_t byte() { return (uint8_t)g(); }
 };
 
-// Apply 1-20 writes to addresses drawn from regs[0..nregs).
+// Apply 1-20 writes to addresses drawn from regs[0..nregs); $FF98 always gets H50
+// (bit 3) cleared.
 void random_writes(Ctx& ctx, Rng& r, const uint16_t* regs, unsigned nregs) {
     unsigned n = 1 + r.below(20);
     for (unsigned i = 0; i < n; i++) {
         unsigned which = r.below(nregs);
         uint8_t val = r.byte();
+        if (regs[which] == 0xFF98) val &= (uint8_t)~0x08;   // H50 = 0: the suite is NTSC-only (drawn, then masked)
         ctx.write(regs[which], val);
     }
 }

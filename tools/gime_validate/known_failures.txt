@@ -47,14 +47,14 @@ irq.edge_only_il1_line_held  # ours: EI inputs sampled as levels, re-latched aft
 irq.edge_only_il1_read2  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
 irq.edge_only_il2_line_held  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
 irq.edge_only_il2_read2  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
-video.lines_per_field_lpf0_txt  # ours: 262-line field, XRoar (measured) 263
-video.lines_per_field_lpf0_gfx  # ours: 262-line field, XRoar (measured) 263
-video.lines_per_field_lpf1_txt  # ours: 262-line field, XRoar (measured) 263
-video.lines_per_field_lpf1_gfx  # ours: 262-line field, XRoar (measured) 263
-video.lines_per_field_lpf2_txt  # ours: 262-line field, XRoar (measured) 263
-video.lines_per_field_lpf2_gfx  # ours: 262-line field, XRoar (measured) 263
-video.lines_per_field_lpf3_txt  # ours: 262-line field, XRoar (measured) 263
-video.lines_per_field_lpf3_gfx  # ours: 262-line field, XRoar (measured) 263
+video.lines_per_field_lpf0_txt  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+video.lines_per_field_lpf0_gfx  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+video.lines_per_field_lpf1_txt  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+video.lines_per_field_lpf1_gfx  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+video.lines_per_field_lpf2_txt  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+video.lines_per_field_lpf2_gfx  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+video.lines_per_field_lpf3_txt  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+video.lines_per_field_lpf3_gfx  # ours: 262-line field, XRoar 263 (b24f5281 timings)
 video.vbord_line_lpf0_txt  # ours: VBORD one line early (end of last active line)
 video.vbord_line_lpf0_gfx  # ours: VBORD one line early (end of last active line)
 video.vbord_line_lpf1_txt  # ours: VBORD one line early (end of last active line)
@@ -63,11 +63,11 @@ video.vbord_line_lpf3_txt  # ours: VBORD one line early (end of last active line
 video.vbord_line_lpf3_gfx  # ours: VBORD one line early (end of last active line)
 video.hbord_tick_vsync_txt  # ours: HBORD raised only on active-area lines
 video.hbord_tick_vsync_gfx  # ours: HBORD raised only on active-area lines
-video.vsc_latch  # ours: 262-line field, XRoar (measured) 263 (latch lands one field later)
-video.voffset_latch_top_border  # ours: 262-line field, XRoar (measured) 263 (latch lands one field later)
-video.voffset_latch_lsb_top_border  # ours: 262-line field, XRoar (measured) 263 (latch lands one field later)
-video.voffset_latch_active  # ours: 262-line field, XRoar (measured) 263 (latch lands one field later)
-video.voffset_latch_lsb_active  # ours: 262-line field, XRoar (measured) 263 (latch lands one field later)
+video.vsc_latch  # ours: 262-line field, XRoar 263 (b24f5281 timings) (latch lands one field later)
+video.voffset_latch_top_border  # ours: 262-line field, XRoar 263 (b24f5281 timings) (latch lands one field later)
+video.voffset_latch_lsb_top_border  # ours: 262-line field, XRoar 263 (b24f5281 timings) (latch lands one field later)
+video.voffset_latch_active  # ours: 262-line field, XRoar 263 (b24f5281 timings) (latch lands one field later)
+video.voffset_latch_lsb_active  # ours: 262-line field, XRoar 263 (b24f5281 timings) (latch lands one field later)
 video.reg_effect_same_line_first_px  # ours: whole-line rendering, a mid-line register write affects the whole line (simplification)
 render.txt32_noattr.line100_hash  # ours: font byte for character $15 row 4 is $5C (MAME, VCC: $54)
 render.txt40_attr.line100_hash  # ours: font byte for character $15 row 4 is $5C (MAME, VCC: $54)
@@ -464,206 +464,206 @@ random.irq.198.irq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level r
 random.irq.198.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
 random.irq.199.firq  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
 random.irq.199.firq_after  # ours: pre-d9bba8a3 XRoar interrupt logic (EI level re-latch, TMR re-latch on read, no TMR latch on enable)
-random.video.0.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.1.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.2.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.3.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.4.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.5.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.6.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.7.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.8.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.9.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.10.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.11.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.12.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.13.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.14.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.15.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.16.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.17.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.18.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.19.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.20.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.21.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.22.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.23.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.24.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.25.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.26.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.27.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.28.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.29.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.30.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.31.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.32.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.33.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.34.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.35.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.36.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.37.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.38.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.39.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.40.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.41.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.42.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.43.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.44.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.45.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.46.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.47.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.48.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.49.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.50.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.51.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.52.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.53.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.54.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.55.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.56.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.57.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.58.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.59.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.60.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.61.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.62.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.63.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.64.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.65.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.66.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.67.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.68.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.69.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.70.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.71.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.72.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.73.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.74.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.75.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.76.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.77.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.78.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.79.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.80.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.81.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.82.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.83.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.84.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.85.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.86.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.87.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.88.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.89.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.90.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.91.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.92.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.93.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.94.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.95.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.96.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.97.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.98.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.99.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.100.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.101.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.102.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.103.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.104.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.105.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.106.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.107.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.108.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.109.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.110.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.111.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.112.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.113.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.114.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.115.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.116.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.117.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.118.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.119.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.120.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.121.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.122.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.123.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.124.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.125.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.126.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.127.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.128.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.129.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.130.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.131.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.132.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.133.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.134.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.135.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.136.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.137.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.138.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.139.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.140.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.141.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.142.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.143.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.144.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.145.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.146.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.147.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.148.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.149.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.150.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.151.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.152.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.153.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.154.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.155.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.156.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.157.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.158.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.159.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.160.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.161.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.162.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.163.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.164.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.165.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.166.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.167.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.168.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.169.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.170.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.171.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.172.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.173.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.174.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.175.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.176.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.177.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.178.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.179.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.180.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.181.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.182.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.183.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.184.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.185.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.186.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.187.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.188.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.189.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.190.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.191.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.192.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.193.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.194.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.195.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.196.field_ticks  # ours: H50 (50 Hz) ignored, field stays 262 lines
-random.video.197.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.198.field_ticks  # ours: 262-line field, XRoar (measured) 263
-random.video.199.field_ticks  # ours: 262-line field, XRoar (measured) 263
+random.video.0.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.1.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.2.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.3.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.4.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.5.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.6.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.7.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.8.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.9.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.10.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.11.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.12.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.13.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.14.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.15.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.16.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.17.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.18.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.19.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.20.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.21.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.22.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.23.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.24.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.25.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.26.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.27.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.28.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.29.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.30.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.31.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.32.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.33.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.34.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.35.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.36.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.37.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.38.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.39.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.40.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.41.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.42.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.43.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.44.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.45.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.46.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.47.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.48.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.49.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.50.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.51.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.52.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.53.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.54.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.55.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.56.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.57.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.58.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.59.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.60.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.61.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.62.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.63.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.64.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.65.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.66.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.67.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.68.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.69.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.70.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.71.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.72.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.73.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.74.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.75.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.76.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.77.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.78.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.79.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.80.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.81.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.82.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.83.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.84.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.85.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.86.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.87.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.88.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.89.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.90.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.91.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.92.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.93.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.94.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.95.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.96.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.97.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.98.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.99.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.100.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.101.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.102.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.103.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.104.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.105.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.106.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.107.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.108.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.109.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.110.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.111.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.112.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.113.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.114.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.115.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.116.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.117.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.118.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.119.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.120.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.121.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.122.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.123.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.124.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.125.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.126.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.127.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.128.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.129.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.130.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.131.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.132.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.133.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.134.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.135.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.136.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.137.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.138.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.139.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.140.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.141.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.142.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.143.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.144.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.145.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.146.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.147.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.148.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.149.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.150.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.151.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.152.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.153.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.154.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.155.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.156.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.157.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.158.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.159.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.160.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.161.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.162.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.163.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.164.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.165.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.166.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.167.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.168.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.169.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.170.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.171.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.172.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.173.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.174.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.175.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.176.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.177.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.178.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.179.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.180.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.181.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.182.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.183.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.184.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.185.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.186.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.187.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.188.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.189.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.190.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.191.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.192.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.193.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.194.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.195.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.196.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.197.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.198.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
+random.video.199.field_ticks  # ours: 262-line field, XRoar 263 (b24f5281 timings)
 random.render.6.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
 random.render.6.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
 random.render.6.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
@@ -681,6 +681,7 @@ random.render.36.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
 random.render.36.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
 random.render.36.line8_hash  # ours: X offset ($FF9F bits 6-0) ignored
 random.render.36.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.36.line191_hash  # ours: X offset ($FF9F bits 6-0) ignored
 random.render.47.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
 random.render.47.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
 random.render.47.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
@@ -730,6 +731,7 @@ random.render.96.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
 random.render.96.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
 random.render.96.line8_hash  # ours: X offset ($FF9F bits 6-0) ignored
 random.render.96.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.96.line191_hash  # ours: X offset ($FF9F bits 6-0) ignored
 random.render.122.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
 random.render.122.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
 random.render.122.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
@@ -780,6 +782,7 @@ random.render.182.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored
 random.render.182.line7_hash  # ours: X offset ($FF9F bits 6-0) ignored
 random.render.182.line8_hash  # ours: X offset ($FF9F bits 6-0) ignored
 random.render.182.line100_hash  # ours: X offset ($FF9F bits 6-0) ignored
+random.render.182.line191_hash  # ours: X offset ($FF9F bits 6-0) ignored
 random.render.192.line100_hash  # ours: X offset ignored; XRoar applies it in COCO mode too, MAME matches XRoar on this line by chance
 random.render.193.line0_hash  # ours: X offset ($FF9F bits 6-0) ignored
 random.render.193.line1_hash  # ours: X offset ($FF9F bits 6-0) ignored

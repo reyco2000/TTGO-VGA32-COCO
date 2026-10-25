@@ -574,11 +574,11 @@ names as hardware-true; full evidence is in `verdicts.md`.
 
 | Root cause | Favours | Confidence | Ours |
 |---|---|---|---|
-| Interrupt latching: XRoar's post-2025 logic (d9bba8a3, from Tim Lindner's real-hardware tests): TMR latched when $FF92/$FF93 enables it with the timer at 0, EI inputs edge-detected, no TMR re-latch on a status read | XRoar = MAME | high (TMR, keyboard EI tested), medium (other EI inputs, assumed alike) | bug: ours still has the pre-2025 logic (level IL, re-latch on read, no latch on enable) |
+| Interrupt latching: XRoar's post-2025 logic (d9bba8a3): TMR re-latched when $FF92/$FF93 enables it with the timer at 0 (shown by Tim Lindner's GIME-MMU-TESTER), EI inputs edge-detected (shown for the keyboard by coco_key_test), no TMR re-latch on a status read; the re-latch on enable was assumed by XRoar for IL0-2 | XRoar = MAME | high (TMR, keyboard edge), low (re-latch on enable for IL0-2, assumed) | bug: ours still has the pre-2025 logic (level IL, re-latch on read, no latch on enable) |
 | HBORD on every line, borders included | XRoar = MAME = VCC | high | bug: only on active-area lines |
 | TINS=1 timer: one fire per 4·(n+1) pixel ticks, 228 counts per 912-tick line, reload re-read at each expiry | XRoar = MAME | high | bug: at most one fire per line; 227.5 per line; re-arm keeps the old count |
 | X offset ($FF9F) | XRoar = MAME | high | bug: ignored |
-| Field length: 263 lines at 60 Hz | XRoar | medium | 262 (as MAME and VCC) |
+| Field length: 263 lines at 60 Hz | XRoar | medium | bug: 262 lines (as MAME and VCC) |
 | VBORD 7 + lTB + lAA lines after FS fall | XRoar | medium | one line early |
 | Mid-line register and palette writes take effect at the beam | XRoar | high | simplification: whole line rendered at line end (MAME too) |
 | Font character $15 row 4 = $54 | MAME = VCC | medium | bug: $5C copied from XRoar |
@@ -590,7 +590,8 @@ names as hardware-true; full evidence is in `verdicts.md`.
 | $FE00 page with MC3 set in ROM mode: S code | XRoar (MAME has no S) | low | same as XRoar |
 | Undriven bits 7-6 of $FF92, MMU and palette reads | harness convention (bus is floating) | low | drives 0; not a GIME accuracy claim |
 
-`random.render.*` splits (382 checks) have no verdict yet: they mix several of the causes above with
-others found but not judged (50 Hz H50 writes, the X offset in COCO mode, LPF in COCO mode, LPF 1 as 199
-or 200 lines, the attribute underline at LPR < 3), and stay UNRESOLVED. 1986-GIME (`v86.`) splits are
+`random.render.*` splits (364 checks) have no verdict yet: they mix causes found but not judged (the X
+offset in COCO mode, which XRoar applies and MAME does not, LPF in COCO mode, LPF 1 as 199 or 200 lines,
+the attribute underline row at LPR < 3 and LPR 5, the X offset in native text modes, LPR 7), and stay
+UNRESOLVED. 1986-GIME (`v86.`) splits are
 information only; the timer offset (+2 for 1986, +1 for 1987) is the same in both references.
