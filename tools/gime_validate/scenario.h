@@ -20,6 +20,7 @@ struct Ctx {
     std::vector<GimeModel*> models;
     Variant variant = Variant::G1987;
     std::string scenario;                          // id of the running scenario (for warnings)
+    std::string prefix;                            // prepended to every check id ("v86.")
 
     void reset();                                  // reset every model
     void write(uint16_t addr, uint8_t val);
@@ -64,6 +65,12 @@ private:
 struct Scenario { std::string id; void (*fn)(Ctx&); };
 std::vector<Scenario>& scenarios();
 struct ScenarioReg { ScenarioReg(const char* area, const char* name, void (*fn)(Ctx&)); };
+
+// Randomized runs (scn_random.cpp): n runs per area, seeded from `seed`.
+void run_random(Ctx& ctx, uint32_t seed, unsigned n);
+// Shared with scn_random.cpp.
+void render_observe_after_setup(Ctx& ctx, const std::string& pre);   // scn_render.cpp
+uint8_t regs_read_mask(unsigned addr);                                // scn_reset_regs.cpp
 
 #define SCENARIO(area, name) \
     static void scn_##area##_##name(Ctx&); \

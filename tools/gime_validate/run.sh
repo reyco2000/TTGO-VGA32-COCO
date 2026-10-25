@@ -1,6 +1,6 @@
 #!/bin/bash
 # Build and run the host-side GIME validation suite.
-# usage: tools/gime_validate/run.sh [--seed N] [--update-baseline] [--selftest]
+# usage: tools/gime_validate/run.sh [--seed N] [--random N] [--update-baseline] [--selftest]
 #
 # XROAR_SRC (default ~/proyectos/coco-emu-other-projects-source/xroar) is an
 # XRoar source tree; its tcc1014.c is built unmodified as the XRoar oracle.
@@ -79,7 +79,7 @@ fi
 
 g++ -std=gnu++17 -O2 -Wall -Wno-unused-function -I"$D/stub" "${DEFS[@]}" -o "$OUT/gime_validate" \
     "$D/gime_validate.cpp" "$D/compare.cpp" "$D/scenario.cpp" "$D/model_ours.cpp" \
-    "$D/scn_reset_regs.cpp" "$D/scn_mmu.cpp" "$D/scn_timer.cpp" "$D/scn_irq.cpp" "$D/scn_video.cpp" "$D/scn_render.cpp" "${OBJS[@]}"
+    "$D/scn_reset_regs.cpp" "$D/scn_mmu.cpp" "$D/scn_timer.cpp" "$D/scn_irq.cpp" "$D/scn_video.cpp" "$D/scn_render.cpp" "$D/scn_random.cpp" "${OBJS[@]}"
 COMMIT=$(git -C "$D" rev-parse --short HEAD 2>/dev/null || echo unknown)
 "$OUT/gime_validate" --verdicts "$D/verdicts.md" --baseline "$D/known_failures.txt" \
     --json "$OUT/results.json" --ours-commit "$COMMIT" "${ARGS[@]}" "$@"

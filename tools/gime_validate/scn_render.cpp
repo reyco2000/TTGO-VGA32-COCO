@@ -161,31 +161,50 @@ std::string diff_note(Ctx& ctx, Field& f, unsigned y) {
     return s;
 }
 
+// Observations on the field after the setup already applied to ctx:
+//   <pre>.line<y>_hash  hash of display lines 0, 1, 7, 8, 100 and the
+//                               last; absent for a model with no valid line y
+//   <pre>.active_lines  how many lines the model reported as active
+//                               over the field (catches short/long fields and
+//                               missing lines, which the per-line checks skip)
+//   <pre>.first_active_px  the left border width (first active pixel
+//                               from HS fall); absent for a model with no
+//                               valid line 0 or no horizontal position (ours
+//                               keeps none)
+void render_observe(Ctx& ctx, const std::string& pre) {
+    Field f = trace_field(ctx);
+    std::vector<unsigned> ys(std::begin(YS), std::end(YS));
+    ys.push_back(LAST_Y);
+    for (unsigned y : ys) {
+        char id[96];
+        snprintf(id, sizeof id, "%s.line%u_hash", pre.c_str(), y);
+        ctx.check_opt(id, [&](GimeModel& m) -> std::optional<int64_t> {
+            const Line* l = line_at(f, &m, y);
+            if (!l || !l->ok) return std::nullopt;
+            return line_hash(l->c); }, CAP_RENDER, 0, diff_note(ctx, f, y));
+    }
+    ctx.check(pre + ".active_lines", [&](GimeModel& m) {
+        auto it = f.find(&m);
+        int64_t n = 0;
+        if (it != f.end())
+            for (const Line& l : it->second) n += l.ok;
+        return n; }, CAP_RENDER);
+    ctx.check_opt(pre + ".first_active_px",
+                  [&](GimeModel& m) -> std::optional<int64_t> {
+        const Line* l = line_at(f, &m, 0);
+        if (!l || !l->ok || l->first_px < 0) return std::nullopt;
+        return l->first_px; }, CAP_RENDER);
+}
+
 } // namespace
 
-// For every mode: the hash of display lines 0, 1, 7, 8, 100 and the last,
-// and the left border width (first active pixel from HS fall; ours keeps no
-// horizontal position, so it has none). -1: the model rendered fewer lines.
+// For scn_random.cpp: the same observations, ids prefixed with `pre`.
+void render_observe_after_setup(Ctx& ctx, const std::string& pre) { render_observe(ctx, pre); }
+
 SCENARIO(render, modes) {
     for (const Mode& md : modes()) {
         setup(ctx, md);
-        Field f = trace_field(ctx);
-        std::vector<unsigned> ys(std::begin(YS), std::end(YS));
-        ys.push_back(LAST_Y);
-        for (unsigned y : ys) {
-            char id[96];
-            snprintf(id, sizeof id, "render.%s.line%u_hash", md.name.c_str(), y);
-            ctx.check_opt(id, [&](GimeModel& m) -> std::optional<int64_t> {
-                const Line* l = line_at(f, &m, y);
-                if (!l || !l->ok) return -1;
-                return line_hash(l->c); }, CAP_RENDER, 0, diff_note(ctx, f, y));
-        }
-        ctx.check_opt("render." + md.name + ".first_active_px",
-                      [&](GimeModel& m) -> std::optional<int64_t> {
-            const Line* l = line_at(f, &m, 0);
-            if (!l || !l->ok) return -1;
-            if (l->first_px < 0) return std::nullopt;
-            return l->first_px; }, CAP_RENDER);
+        render_observe(ctx, "render." + md.name);
     }
 }
 

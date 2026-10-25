@@ -136,12 +136,14 @@ static int selftest() {
 
 int main(int argc, char** argv) {
     uint32_t seed = 0x6809;
+    unsigned nrandom = 200;
     std::string verdicts_path, baseline_path, json_path;
     RunInfo ri;
     bool update_baseline = false;
     for (int i = 1; i < argc; i++) {
         bool more = i + 1 < argc;
         if (!strcmp(argv[i], "--seed") && more) seed = (uint32_t)strtoul(argv[++i], nullptr, 0);
+        else if (!strcmp(argv[i], "--random") && more) nrandom = (unsigned)strtoul(argv[++i], nullptr, 0);
         else if (!strcmp(argv[i], "--verdicts") && more) verdicts_path = argv[++i];
         else if (!strcmp(argv[i], "--baseline") && more) baseline_path = argv[++i];
         else if (!strcmp(argv[i], "--json") && more) json_path = argv[++i];
@@ -171,7 +173,7 @@ int main(int argc, char** argv) {
     ri.mame_form = "standin";       // model_mame.cpp: why not the extract form
     ri.ref_edits.push_back("mame gime.cpp:99 GIME_TYPE_1987 0->1 (1987 build)");
 #endif
-    printf("gime_validate seed=0x%X variant=1987\n", seed);
+    printf("gime_validate seed=0x%X random=%u variant=1987 (+v86 reference-only copies)\n", seed, nrandom);
     printf("mame form: %s\n", ri.mame_form.empty() ? "none (not built)" : ri.mame_form.c_str());
 
     Ctx ctx;
@@ -186,28 +188,52 @@ int main(int argc, char** argv) {
     ctx.models.push_back(mame.get());
 #endif
 
+    // Scripted scenarios and the randomized runs on the 1987 models.
+    for (const Scenario& s : scenarios()) { ctx.scenario = s.id; s.fn(ctx); }
+    run_random(ctx, seed, nrandom);
+    std::vector<CheckRecord> all = ctx.records();
+
+    // Every scripted scenario again on the 1986 references. Ours has no 1986
+    // variant and classify() ignores it for "v86." ids, but it stays in the
+    // run: the tolerances (sync/timer resolution) come from the models
+    // present, and must be the same as in the 1987 run. Information only.
+    {
+        Ctx c86;
+        c86.variant = Variant::G1986;
+        c86.prefix = "v86.";
+        std::unique_ptr<GimeModel> x86, m86;
+        std::unique_ptr<GimeModel> o86 = make_ours();
+        c86.models.push_back(o86.get());
+#ifdef HAVE_XROAR
+        x86 = make_xroar(c86.variant);
+        c86.models.push_back(x86.get());
+#endif
+#ifdef HAVE_MAME
+        m86 = make_mame(c86.variant);
+        c86.models.push_back(m86.get());
+#endif
+        if (c86.models.size() == 3) {
+            for (const Scenario& s : scenarios()) { c86.scenario = "v86." + s.id; s.fn(c86); }
+            all.insert(all.end(), c86.records().begin(), c86.records().end());
+        }
+    }
+
     std::vector<Cls> cls;
     std::vector<Status> sts;
     unsigned cnt[8] = {0};
     std::map<std::string, unsigned> per_area;
-    for (const Scenario& s : scenarios()) {
-        size_t first = ctx.records().size();
-        ctx.scenario = s.id;
-        s.fn(ctx);
-        for (size_t i = first; i < ctx.records().size(); i++) {
-            CheckRecord& r = ctx.records()[i];
-            Cls c = classify(r);
-            Status st = resolve(r, c, verdicts, baseline);
-            cls.push_back(c);
-            sts.push_back(st);
-            cnt[(int)st]++;
-            per_area[r.id.substr(0, r.id.find('.'))]++;
-            printf("%-6s %-40s ours=%-8s xroar=%-8s mame=%-8s%s%s\n", status_console(st),
-                   r.id.c_str(), fmt(r, "ours").c_str(), fmt(r, "xroar").c_str(),
-                   fmt(r, "mame").c_str(), r.note.empty() ? "" : "  ", r.note.c_str());
-        }
+    for (CheckRecord& r : all) {
+        Cls c = classify(r);
+        Status st = resolve(r, c, verdicts, baseline);
+        cls.push_back(c);
+        sts.push_back(st);
+        cnt[(int)st]++;
+        per_area[r.id.substr(0, r.id.find('.'))]++;
+        printf("%-6s %-40s ours=%-8s xroar=%-8s mame=%-8s%s%s\n", status_console(st),
+               r.id.c_str(), fmt(r, "ours").c_str(), fmt(r, "xroar").c_str(),
+               fmt(r, "mame").c_str(), r.note.empty() ? "" : "  ", r.note.c_str());
     }
-    std::vector<std::string> stale = stale_baseline(ctx.records(), baseline);
+    std::vector<std::string> stale = stale_baseline(all, baseline);
     for (auto& id : stale) printf("STALE  %s\n", id.c_str());
     cnt[(int)Status::STALE] += (unsigned)stale.size();
 
@@ -217,11 +243,11 @@ int main(int argc, char** argv) {
            cnt[(int)Status::FIXED], cnt[(int)Status::STALE], cnt[(int)Status::DISC],
            cnt[(int)Status::UNRESOLVED], cnt[(int)Status::SKIP]);
 
-    if (!json_path.empty() && !write_results_json(json_path, ctx.records(), cls, sts, ri))
+    if (!json_path.empty() && !write_results_json(json_path, all, cls, sts, ri))
         return 2;
 
     if (update_baseline) {
-        std::vector<std::string> ids = baseline_ids(ctx.records(), sts, baseline);
+        std::vector<std::string> ids = baseline_ids(all, sts, baseline);
         if (!write_baseline(baseline_path, ids, baseline)) return 2;
         printf("baseline rewritten: %zu entries\n", ids.size());
         return 0;

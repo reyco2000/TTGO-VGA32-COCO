@@ -146,7 +146,10 @@ void latch_check(Ctx& ctx, const std::string& id, void (*prep)(Ctx&), uint64_t o
         if (pass) op(ctx);
         (pass ? with : base) = trace(ctx, n, first_fetch);
     }
-    ctx.check(id, [&](GimeModel& m) { return first_diff(base[&m], with[&m]); }, CAP_RENDER);
+    // R11: tolerance 1 line. The value is a line count; ours' sync phase
+    // resolves one line (its FS falls at a line boundary, XRoar's and MAME's
+    // mid-line), so a write can land on either side of the latch point.
+    ctx.check(id, [&](GimeModel& m) { return first_diff(base[&m], with[&m]); }, CAP_RENDER, 1);
     ctx.check(id + "_value", [&](GimeModel& m) {
         int64_t i = first_diff(base[&m], with[&m]);
         return i < 0 ? (int64_t)-1 : with[&m].v[(size_t)i]; }, CAP_RENDER);

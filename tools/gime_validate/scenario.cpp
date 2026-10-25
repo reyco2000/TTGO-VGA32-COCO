@@ -104,7 +104,7 @@ int64_t Ctx::event_tick(GimeModel* m, EvType t, unsigned nth) {
 void Ctx::check(const std::string& id, std::function<int64_t(GimeModel&)> f,
                 Cap cap, uint32_t tol_ticks) {
     CheckRecord r;
-    r.id = id;
+    r.id = prefix + id;
     r.cap = cap;
     r.tol = tol_ticks;
     for (GimeModel* m : models)
@@ -120,7 +120,7 @@ void Ctx::check_opt(const std::string& id,
                     std::function<std::optional<int64_t>(GimeModel&)> f,
                     Cap cap, uint32_t tol_ticks, const std::string& note) {
     CheckRecord r;
-    r.id = id;
+    r.id = prefix + id;
     r.cap = cap;
     r.tol = tol_ticks;
     r.note = note;
