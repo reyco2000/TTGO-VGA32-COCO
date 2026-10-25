@@ -194,3 +194,24 @@ static void tmr_flag(Ctx& ctx, bool firq) {
 
 SCENARIO(timer, tmr_flag_irq) { tmr_flag(ctx, false); }
 SCENARIO(timer, tmr_flag_firq) { tmr_flag(ctx, true); }
+
+// Long runs that make a timer rate error visible. Ours counts 227.5 TINS=1
+// ticks per 912-tick line where XRoar counts 228, so each period is
+// 4.00879*(reload+1) ticks instead of 4*(reload+1): the drift grows by
+// 0.00879*(reload+1) ticks per event and soon exceeds one line.
+//   tins1 $FFF ev100:  XRoar 1638400, ours ~1642056 (drift ~3600)
+//   tins1 596 ev1000:  XRoar 2388000, ours ~2393544 (drift ~5250)
+//   tins0 100 ev1000:  line-rate timer, no drift (10-tick phase only); it
+//     needs 101,000 lines, so its cap is raised to 102,000 lines.
+SCENARIO(timer, long_run) {
+    struct { bool tins; unsigned reload, nth, cap; } cases[] = {
+        { true, 0xFFF, 100, CAP_LINES }, { true, 596, 1000, CAP_LINES },
+        { false, 100, 1000, 102000 } };
+    for (auto& c : cases) {
+        char id[48];
+        snprintf(id, sizeof id, "timer.tins%u_period_%u_ev%u", c.tins ? 1 : 0, c.reload, c.nth);
+        arm(ctx, c.tins, c.reload);
+        run_until(ctx, EvType::TIMER, c.nth, c.cap);
+        ctx.check_event(id, EvType::TIMER, c.nth - 1);
+    }
+}
