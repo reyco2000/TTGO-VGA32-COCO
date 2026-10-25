@@ -92,13 +92,10 @@ int64_t first_fetch(GimeModel& m) {
     return (int64_t)((b0 << 8) | b1);
 }
 
-int64_t line_hash(GimeModel& m) {
+int64_t render_hash(GimeModel& m) {
     std::vector<uint8_t> c;
     int px;
-    if (!m.last_line(c, px)) return -1;
-    uint64_t h = 1469598103934665603ull;                     // FNV-1a 64
-    for (uint8_t v : c) { h ^= v; h *= 1099511628211ull; }
-    return (int64_t)(h & 0x7FFFFFFFFFFFFFFFull);
+    return m.last_line(c, px) ? line_hash(c) : -1;
 }
 
 struct Trace {
@@ -272,7 +269,7 @@ SCENARIO(video, reg_effect_same_line) {
         ctx.drain();
         ctx.sync_after(EvType::HS_FALL, LINE + 400); // 400 ticks into a line
         if (pass) ctx.write(0xFF98, 0x00);
-        (pass ? with : base) = trace(ctx, 4, line_hash, true);
+        (pass ? with : base) = trace(ctx, 4, render_hash, true);
     }
     ctx.check("video.reg_effect_same_line",
               [&](GimeModel& m) { return first_diff(base[&m], with[&m]); }, CAP_RENDER);

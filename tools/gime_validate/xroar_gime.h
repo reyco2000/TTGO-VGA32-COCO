@@ -37,6 +37,9 @@ void     xg_set_int_hooks(void (*timer)(void), void (*irq_rise)(void),
 // Active area of the line being handed to the line hook: pixel offsets from
 // HS fall, [start, end). Valid inside the line hook.
 void     xg_active_area(unsigned* start, unsigned* end);
+// Whether the line being handed to the line hook was an active-area line
+// (border and blanking lines keep stale border-colour pixel data).
+int      xg_line_active(void);
 
 #ifdef __cplusplus
 }

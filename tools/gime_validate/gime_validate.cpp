@@ -181,6 +181,7 @@ int main(int argc, char** argv) {
     std::map<std::string, unsigned> per_area;
     for (const Scenario& s : scenarios()) {
         size_t first = ctx.records().size();
+        ctx.scenario = s.id;
         s.fn(ctx);
         for (size_t i = first; i < ctx.records().size(); i++) {
             CheckRecord& r = ctx.records()[i];

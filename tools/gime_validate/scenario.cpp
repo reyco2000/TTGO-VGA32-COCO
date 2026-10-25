@@ -1,5 +1,6 @@
 #include "scenario.h"
 #include <algorithm>
+#include <stdio.h>
 
 static const uint32_t RAM_SIZE = 512 * 1024;
 
@@ -62,16 +63,27 @@ void Ctx::fill_ram(uint8_t (*f)(uint32_t)) {
     }
 }
 
+int64_t line_hash(const std::vector<uint8_t>& c) {
+    uint64_t h = 1469598103934665603ull;             // FNV-1a 64
+    for (uint8_t v : c) { h ^= v; h *= 1099511628211ull; }
+    return (int64_t)(h & 0x7FFFFFFFFFFFFFFFull);
+}
+
 void Ctx::sync_after(EvType t, uint64_t offset) {
     const unsigned max_lines = 1000;                 // more than three fields
     for (GimeModel* m : models) {
         if (!(m->caps() & CAP_SYNC_EV)) { m->advance(offset); collect(m); continue; }
-        int64_t e = -1;
-        for (unsigned n = 0; n < max_lines && (e = event_tick(m, t, 0)) < 0; n++) {
+        int64_t e = event_tick(m, t, 0);
+        for (unsigned n = 0; n < max_lines && e < 0; n++) {
             m->advance(912);
             collect(m);
+            e = event_tick(m, t, 0);                 // includes the final advance
         }
-        if (e < 0) continue;                         // never seen: leave it there
+        if (e < 0) {                                 // never seen: leave it there
+            fprintf(stderr, "warning: %s: %s: sync_after: event %d not seen within %u lines\n",
+                    scenario.c_str(), m->name(), (int)t, max_lines);
+            continue;
+        }
         uint64_t target = (uint64_t)e + anchors_[m] + offset;
         if (target > m->now()) m->advance(target - m->now());
         collect(m);
@@ -100,6 +112,21 @@ void Ctx::check(const std::string& id, std::function<int64_t(GimeModel&)> f,
         r.v[m->name()] = (m->caps() & cap) ? std::optional<int64_t>(f(*m))
                                                 : std::nullopt;
         collect(m);                                  // f may have read a register
+    }
+    records_.push_back(r);
+}
+
+void Ctx::check_opt(const std::string& id,
+                    std::function<std::optional<int64_t>(GimeModel&)> f,
+                    Cap cap, uint32_t tol_ticks, const std::string& note) {
+    CheckRecord r;
+    r.id = id;
+    r.cap = cap;
+    r.tol = tol_ticks;
+    r.note = note;
+    for (GimeModel* m : models) {
+        r.v[m->name()] = (m->caps() & cap) ? f(*m) : std::nullopt;
+        collect(m);
     }
     records_.push_back(r);
 }

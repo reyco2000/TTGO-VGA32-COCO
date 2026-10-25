@@ -13,9 +13,13 @@
 #include <optional>
 #include <string>
 
+// FNV-1a 64 of a line's colours, masked to a non-negative int64_t.
+int64_t line_hash(const std::vector<uint8_t>& colours);
+
 struct Ctx {
     std::vector<GimeModel*> models;
     Variant variant = Variant::G1987;
+    std::string scenario;                          // id of the running scenario (for warnings)
 
     void reset();                                  // reset every model
     void write(uint16_t addr, uint8_t val);
@@ -30,6 +34,8 @@ struct Ctx {
     // Per model: advance whole lines until an event of type t has been seen
     // since the last drain(), then on to that event's tick + offset (offset
     // >= 912; t is a sync event). Models without CAP_SYNC_EV just advance offset.
+    // A model that doesn't see the event within the cap is left where it is,
+    // with a warning on stderr naming the scenario and the model.
     // Afterwards the models sit at the same point relative to their own
     // event, not at the same absolute tick.
     void sync_after(EvType t, uint64_t offset);
@@ -40,6 +46,9 @@ struct Ctx {
 
     void check(const std::string& id, std::function<int64_t(GimeModel&)> f,
                Cap cap, uint32_t tol_ticks = 0);
+    // As check(), but f may report no value (nullopt: SKIP for that model).
+    void check_opt(const std::string& id, std::function<std::optional<int64_t>(GimeModel&)> f,
+                   Cap cap, uint32_t tol_ticks = 0, const std::string& note = std::string());
     void check_read(const std::string& id, uint16_t addr, uint8_t mask = 0xFF); // CAP_REGS
     void check_event(const std::string& id, EvType t, unsigned nth);  // event_tick()
 

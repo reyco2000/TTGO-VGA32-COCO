@@ -39,9 +39,9 @@ else
     echo "NOTICE: xroar source not found at $XROAR_SRC; skipping"
 fi
 
-g++ -std=gnu++17 -O2 -Wall -Wno-unused-function "${DEFS[@]}" -o "$OUT/gime_validate" \
+g++ -std=gnu++17 -O2 -Wall -Wno-unused-function -I"$D/stub" "${DEFS[@]}" -o "$OUT/gime_validate" \
     "$D/gime_validate.cpp" "$D/compare.cpp" "$D/scenario.cpp" "$D/model_ours.cpp" \
-    "$D/scn_reset_regs.cpp" "$D/scn_mmu.cpp" "$D/scn_timer.cpp" "$D/scn_irq.cpp" "$D/scn_video.cpp" "${OBJS[@]}"
+    "$D/scn_reset_regs.cpp" "$D/scn_mmu.cpp" "$D/scn_timer.cpp" "$D/scn_irq.cpp" "$D/scn_video.cpp" "$D/scn_render.cpp" "${OBJS[@]}"
 COMMIT=$(git -C "$D" rev-parse --short HEAD 2>/dev/null || echo unknown)
 "$OUT/gime_validate" --verdicts "$D/verdicts.md" --baseline "$D/known_failures.txt" \
     --json "$OUT/results.json" --ours-commit "$COMMIT" "${ARGS[@]}" "$@"

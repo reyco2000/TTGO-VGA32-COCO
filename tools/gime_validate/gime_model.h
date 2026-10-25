@@ -8,6 +8,7 @@
 
 #include <stdint.h>
 #include <memory>
+#include <string>
 #include <vector>
 
 enum class Variant { G1986, G1987 };
@@ -35,7 +36,11 @@ public:
   virtual std::vector<Event> drain_events() = 0;
   // Colours (6-bit) of the most recent finished line's active area; false
   // if this model has no rendered active area for that line.
+  // first_active_px < 0: the model has no horizontal position for it.
   virtual bool last_line(std::vector<uint8_t>& colours, int& first_active_px) = 0;
+  // Why last_line() returned false for a line that was rendered (e.g.
+  // "undecodable px 12"); empty when there is nothing to say.
+  virtual std::string last_line_note() const { return std::string(); }
 };
 
 std::unique_ptr<GimeModel> make_ours();

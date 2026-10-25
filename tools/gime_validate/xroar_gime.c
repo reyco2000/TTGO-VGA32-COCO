@@ -178,3 +178,10 @@ void xg_active_area(unsigned *start, unsigned *end) {
 	*start = xg_gime->horizontal.tHS_AA;
 	*end = xg_gime->horizontal.tHS_RB;
 }
+
+// The line handed to the line hook (at HS fall) was in the vertical active
+// area: vertical.active_area changes only at the next do_vb_irq(), after HS
+// fall, so it still describes the finished line. Valid inside the line hook.
+int xg_line_active(void) {
+	return xg_gime->vertical.active_area;
+}

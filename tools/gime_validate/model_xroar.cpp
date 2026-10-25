@@ -102,7 +102,11 @@ private:
         Xroar* m = g_live;
         unsigned a, b;
         xg_active_area(&a, &b);
-        if (!data || b > npixels || a >= b) { m->have_line_ = false; return; }
+        // Border and blanking lines have no active area (GimeModel::last_line).
+        if (!data || !xg_line_active() || b > npixels || a >= b) {
+            m->have_line_ = false;
+            return;
+        }
         m->line_.assign(data + a, data + b);
         m->line_first_ = a;
         m->have_line_ = true;

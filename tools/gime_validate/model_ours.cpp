@@ -6,15 +6,20 @@
  */
 #define TCC1014_RENDER_TEST 1
 #include "../../src/core/tcc1014.cpp"
+#include "../../config.h"            // SCANLINES_PER_FRAME (host stub Arduino.h in stub/)
 
 #include "gime_model.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 namespace {
 
 class Ours : public GimeModel {
 public:
     const char* name() const override { return "ours"; }
-    unsigned caps() const override { return CAP_REGS | CAP_DECODE | CAP_IRQ | CAP_TIMER_EV | CAP_SYNC_EV; }
+    unsigned caps() const override {
+        return CAP_REGS | CAP_DECODE | CAP_IRQ | CAP_TIMER_EV | CAP_SYNC_EV | CAP_RENDER;
+    }
     uint32_t resolution(Cap c) const override {
         return (c == CAP_TIMER_EV || c == CAP_SYNC_EV || c == CAP_IRQ) ? TCC1014_tSL : 1;
     }
@@ -32,6 +37,8 @@ public:
         fires_ = g_.timer_fires;
         irq_prev_ = g_.IRQ;
         firq_prev_ = g_.FIRQ;
+        have_line_ = false;
+        line_note_.clear();
     }
 
     void write(uint16_t addr, uint8_t val) override {
@@ -95,7 +102,15 @@ public:
         return r;
     }
 
-    bool last_line(std::vector<uint8_t>&, int&) override { return false; }
+    // Ours renders only the active area (line_width pixels, no borders) and
+    // keeps no horizontal position, so first_active_px is reported as absent.
+    bool last_line(std::vector<uint8_t>& colours, int& first_active_px) override {
+        if (!have_line_) return false;
+        colours = line_;
+        first_active_px = -1;
+        return true;
+    }
+    std::string last_line_note() const override { return line_note_; }
 
 private:
     // One scanline, in machine_run_scanline_coco3() order. Everything that
@@ -113,6 +128,8 @@ private:
         // FS_FALL / FS_RISE events. Diff this block against those lines.
         TCC1014* g = &g_;
         unsigned scanline = scanline_;  // 0-261 absolute
+        have_line_ = false;             // until this line renders an active area
+        line_note_.clear();
 
         if (scanline == 0) {
             ev_.push_back({ EvType::FS_FALL, now_ });  // mc6821_cb1_transition(false)
@@ -176,7 +193,16 @@ private:
                     g->border_colour = g->BRDR;
                 }
 
-                // machine.cpp:796-816 renders display_line here (not modelled yet).
+                // mirrors machine.cpp:796-816, the render call only (no HAL):
+                // raw_output false, so line_buffer holds byte-swapped RGB565.
+                // line_clean (OPT-G5) can only skip a line when raw_output is
+                // set and a raw LUT is registered, neither of which holds
+                // here; the signatures are cleared anyway so that line_buffer
+                // always holds this line, whatever that skip rule becomes.
+                tcc1014_invalidate_lines();
+                g->raw_output = false;
+                tcc1014_render_scanline(g, display_line);
+                capture_line();
 
                 g->row = (g->row + 1) & 15;
                 bool row_advance = false;
@@ -202,11 +228,38 @@ private:
         }
 
         scanline_++;
-        if (scanline_ >= 262) {  // SCANLINES_PER_FRAME, config.h:256
+        if (scanline_ >= SCANLINES_PER_FRAME) {
             scanline_ = 0;
         }
 
         sync_edges();
+    }
+
+    // Decode line_buffer (byte-swapped RGB565) back to 6-bit colours: RGB565
+    // -> palette slot (palette_rgb565) -> palette_reg. The map must be
+    // injective: two slots holding different colours with the same RGB565
+    // value would make the decode ambiguous, so that aborts the run.
+    void capture_line() {
+        const TCC1014* g = &g_;
+        for (unsigned i = 0; i < 16; i++)
+            for (unsigned j = 0; j < i; j++)
+                if (g->palette_rgb565[i] == g->palette_rgb565[j] &&
+                    (g->palette_reg[i] & 0x3F) != (g->palette_reg[j] & 0x3F)) {
+                    fprintf(stderr, "model_ours: palette slots %u ($%02X) and %u ($%02X) "
+                            "share RGB565 $%04X: line decode is ambiguous\n", j,
+                            g->palette_reg[j], i, g->palette_reg[i], g->palette_rgb565[i]);
+                    abort();
+                }
+        if (g->line_clean) { line_note_ = "line_clean: line_buffer not rendered"; return; }
+        unsigned w = g->line_width;
+        line_.resize(w);
+        for (unsigned k = 0; k < w; k++) {
+            unsigned i = 0;
+            while (i < 16 && g->palette_rgb565[i] != g->line_buffer[k]) i++;
+            if (i == 16) { line_note_ = "undecodable px " + std::to_string(k); return; }
+            line_[k] = g->palette_reg[i] & 0x3F;
+        }
+        have_line_ = true;
     }
 
     // Emit IRQ_RISE / FIRQ_RISE for any rising edge of the outputs since the
@@ -230,7 +283,11 @@ private:
     uint32_t fires_ = 0;
     bool irq_prev_ = false, firq_prev_ = false;
     std::vector<Event> ev_;
+    std::vector<uint8_t> line_;     // colours of the last finished line, if have_line_
+    bool have_line_ = false;
+    std::string line_note_;
 };
+
 
 } // namespace
 
