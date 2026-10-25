@@ -1,0 +1,273 @@
+{
+ "run": {
+  "seed": 26633,
+  "ours_commit": "abc1234",
+  "xroar_commit": "53acd7e3",
+  "mame_commit": "9c525573728",
+  "mame_form": "standin",
+  "random_gated": true,
+  "ref_edits": [
+   "mame gime.cpp:99 GIME_TYPE_1987 0->1 (1987 build)"
+  ]
+ },
+ "stale": [
+  "timer.renamed_away"
+ ],
+ "checks": [
+  {
+   "id": "reset.read_FF90",
+   "values": {
+    "ours": 255,
+    "xroar": 255,
+    "mame": 255
+   },
+   "tol": 0,
+   "two_way": false,
+   "class": "AGREE",
+   "status": "PASS",
+   "note": "",
+   "verdict_id": null
+  },
+  {
+   "id": "timer.period",
+   "values": {
+    "ours": 912,
+    "xroar": 40,
+    "mame": 40
+   },
+   "tol": 0,
+   "two_way": false,
+   "class": "RESOLUTION",
+   "status": "PASS",
+   "note": "",
+   "verdict_id": null
+  },
+  {
+   "id": "irq.firq_late",
+   "values": {
+    "ours": 1,
+    "xroar": 0,
+    "mame": 0
+   },
+   "tol": 0,
+   "two_way": false,
+   "class": "OURS_ODD",
+   "status": "FAIL",
+   "note": "",
+   "verdict_id": null
+  },
+  {
+   "id": "mmu.decode_C000_S",
+   "values": {
+    "ours": 2,
+    "xroar": 3,
+    "mame": 3
+   },
+   "tol": 0,
+   "two_way": false,
+   "class": "OURS_ODD",
+   "status": "KNOWN_FAIL",
+   "note": "",
+   "verdict_id": null,
+   "baseline_reason": "accepted: no GIME bank 2 shadow"
+  },
+  {
+   "id": "regs.readback_FF92",
+   "values": {
+    "ours": 0,
+    "xroar": 0,
+    "mame": 0
+   },
+   "tol": 0,
+   "two_way": false,
+   "class": "AGREE",
+   "status": "FIXED",
+   "note": "",
+   "verdict_id": null,
+   "baseline_reason": "was a bug"
+  },
+  {
+   "id": "timer.tins1_period_596",
+   "values": {
+    "ours": 7,
+    "xroar": 7,
+    "mame": 9
+   },
+   "tol": 0,
+   "two_way": false,
+   "class": "REF_SPLIT",
+   "status": "DISC",
+   "note": "",
+   "verdict_id": "timer.tins1_period_596"
+  },
+  {
+   "id": "video.fs_a",
+   "values": {
+    "ours": 5,
+    "xroar": 5,
+    "mame": 9
+   },
+   "tol": 0,
+   "two_way": false,
+   "class": "REF_SPLIT",
+   "status": "DISC",
+   "note": "",
+   "verdict_id": "video.fs_*"
+  },
+  {
+   "id": "video.fs_b",
+   "values": {
+    "ours": 6,
+    "xroar": 9,
+    "mame": 6
+   },
+   "tol": 0,
+   "two_way": false,
+   "class": "REF_SPLIT",
+   "status": "DISC",
+   "note": "",
+   "verdict_id": "video.fs_*"
+  },
+  {
+   "id": "video.fs_special",
+   "values": {
+    "ours": 8,
+    "xroar": 8,
+    "mame": 9
+   },
+   "tol": 0,
+   "two_way": false,
+   "class": "REF_SPLIT",
+   "status": "FAIL",
+   "note": "",
+   "verdict_id": "video.fs_special"
+  },
+  {
+   "id": "reset.read_FFA0",
+   "values": {
+    "ours": 56,
+    "xroar": 0,
+    "mame": 56
+   },
+   "tol": 0,
+   "two_way": false,
+   "class": "REF_SPLIT",
+   "status": "UNRESOLVED",
+   "note": "",
+   "verdict_id": null
+  },
+  {
+   "id": "render.mode_x",
+   "values": {
+    "ours": 1,
+    "xroar": null,
+    "mame": 4
+   },
+   "tol": 0,
+   "two_way": true,
+   "class": "REF_SPLIT",
+   "status": "UNRESOLVED",
+   "note": "",
+   "verdict_id": null
+  },
+  {
+   "id": "render.skipped",
+   "values": {
+    "ours": null,
+    "xroar": null,
+    "mame": null
+   },
+   "tol": 0,
+   "two_way": false,
+   "class": "SKIPPED",
+   "status": "SKIP",
+   "note": "",
+   "verdict_id": null
+  },
+  {
+   "id": "v86.timer.period",
+   "values": {
+    "ours": null,
+    "xroar": 10,
+    "mame": 20
+   },
+   "tol": 0,
+   "two_way": false,
+   "class": "REF_SPLIT",
+   "status": "DISC",
+   "note": "",
+   "verdict_id": null
+  },
+  {
+   "id": "random.regs.1.read_FF90",
+   "values": {
+    "ours": 1,
+    "xroar": 1,
+    "mame": 1
+   },
+   "tol": 0,
+   "two_way": false,
+   "class": "AGREE",
+   "status": "PASS",
+   "note": "",
+   "verdict_id": null
+  },
+  {
+   "id": "random.regs.2.read_FF98",
+   "values": {
+    "ours": 1,
+    "xroar": 2,
+    "mame": 2
+   },
+   "tol": 0,
+   "two_way": false,
+   "class": "OURS_ODD",
+   "status": "FAIL",
+   "note": "",
+   "verdict_id": null
+  },
+  {
+   "id": "random.regs.3.read_FF98",
+   "values": {
+    "ours": 1,
+    "xroar": 2,
+    "mame": 2
+   },
+   "tol": 0,
+   "two_way": false,
+   "class": "OURS_ODD",
+   "status": "KNOWN_FAIL",
+   "note": "",
+   "verdict_id": null,
+   "baseline_reason": "simplification"
+  },
+  {
+   "id": "random.irq.4.irq",
+   "values": {
+    "ours": 0,
+    "xroar": 1,
+    "mame": 0
+   },
+   "tol": 0,
+   "two_way": false,
+   "class": "REF_SPLIT",
+   "status": "UNRESOLVED",
+   "note": "",
+   "verdict_id": null
+  },
+  {
+   "id": "random.timer.5.ev1",
+   "values": {
+    "ours": 0,
+    "xroar": 3,
+    "mame": 3
+   },
+   "tol": 0,
+   "two_way": false,
+   "class": "REF_SPLIT",
+   "status": "DISC",
+   "note": "",
+   "verdict_id": "random.timer.*"
+  }
+ ]
+}

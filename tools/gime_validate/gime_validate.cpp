@@ -36,6 +36,9 @@ static int g_pass = 0, g_fail = 0;
     else { g_fail++; printf("FAIL %s: got %lld want %lld\n", name, g_, w_); } \
 } while (0)
 
+// For expressions with top-level commas (braced initialisers).
+#define CHECK_TRUE(name, ...) do { bool b_ = (__VA_ARGS__); CHECK_EQ(name, b_, 1); } while (0)
+
 static CheckRecord mk(const char* id, std::optional<int64_t> o, std::optional<int64_t> x,
                       std::optional<int64_t> m, uint32_t tol = 0) {
     CheckRecord r;
@@ -128,6 +131,66 @@ static int selftest() {
         remove(path.c_str());
         CHECK_EQ("verdict_parse_rejects_unknown_model", threw && named, 1);
     }
+    {   // R12: random.* gate on the baseline only for the default seed and count
+        CheckRecord r = mk("random.regs.3.read_FF90", 5, 7, 7);
+        Status s = resolve(r, classify(r), nov, {}, false);
+        CheckRecord q = mk("a.x", 5, 7, 7);
+        CHECK_TRUE("random_nondefault_seed_fail_does_not_gate",
+                 s == Status::FAIL && !fails_run(r, s, false) && fails_run(r, s, true) &&
+                 fails_run(q, Status::FAIL, false));
+        CheckRecord g = mk("random.regs.3.read_FF90", 5, 5, 5);
+        CHECK_TRUE("random_nondefault_seed_no_fixed",
+                 resolve(g, classify(g), nov, {{g.id, "why"}}, false) == Status::PASS &&
+                 resolve(g, classify(g), nov, {{g.id, "why"}}, true) == Status::FIXED);
+        std::vector<CheckRecord> recs = {mk("a.x", 5, 5, 5)};
+        std::map<std::string, std::string> base = {{"random.regs.9.x", ""}, {"a.gone", ""}};
+        CHECK_TRUE("random_nondefault_seed_no_stale",
+                 stale_baseline(recs, base, false) == std::vector<std::string>({"a.gone"}) &&
+                 stale_baseline(recs, base, true).size() == 2);
+        std::vector<CheckRecord> rr = {mk("random.regs.0.x", 5, 7, 7), mk("random.regs.1.x", 5, 7, 7),
+                                       mk("a.fail", 5, 7, 7)};
+        std::vector<Status> rs = {Status::FAIL, Status::KNOWN_FAIL, Status::FAIL};
+        CHECK_TRUE("random_nondefault_seed_update_baseline_keeps_old_random_only",
+                 baseline_ids(rr, rs, {{"random.regs.1.x", "r"}}, false) ==
+                     std::vector<std::string>({"random.regs.1.x", "a.fail"}));
+    }
+    {   // R13: prefix verdicts
+        std::map<std::string, Verdict> vp = {{"a.*", {"a.*", "xroar", "high"}}};
+        CheckRecord r = mk("a.x", 7, 7, 9);
+        CHECK_TRUE("verdict_prefix_matches",
+                 resolve(r, classify(r), vp, {}) == Status::DISC &&
+                 find_verdict(vp, "a.x") && find_verdict(vp, "a.x")->id == "a.*" &&
+                 !find_verdict(vp, "b.x"));
+        std::map<std::string, Verdict> ve = {{"a.*", {"a.*", "xroar", "high"}},
+                                             {"a.x", {"a.x", "mame", "low"}}};
+        CheckRecord e = mk("a.x", 9, 7, 9);     // xroar's verdict would FAIL, mame's is DISC
+        CHECK_TRUE("verdict_exact_beats_prefix",
+                 resolve(e, classify(e), ve, {}) == Status::DISC &&
+                 find_verdict(ve, "a.x")->id == "a.x");
+        std::map<std::string, Verdict> vl = {{"a.*", {"a.*", "xroar", "high"}},
+                                             {"a.b*", {"a.b*", "mame", "high"}}};
+        CheckRecord l = mk("a.bc", 9, 7, 9);
+        CHECK_TRUE("verdict_longest_prefix_wins",
+                 resolve(l, classify(l), vl, {}) == Status::DISC &&
+                 find_verdict(vl, "a.bc")->id == "a.b*" && find_verdict(vl, "a.zz")->id == "a.*");
+        std::string path = std::string(getenv("TMPDIR") ? getenv("TMPDIR") : "/tmp") +
+                           "/gime_validate_selftest_prefix.md";
+        auto parse_text = [&](const char* text, bool* threw) {
+            FILE* f = fopen(path.c_str(), "w");
+            if (f) { fputs(text, f); fclose(f); }
+            std::map<std::string, Verdict> m;
+            *threw = false;
+            try { m = parse_verdicts(path); } catch (const std::runtime_error&) { *threw = true; }
+            remove(path.c_str());
+            return m;
+        };
+        bool t1, t2, t3;
+        std::map<std::string, Verdict> ok = parse_text("## a.b*\naccurate: ours\n", &t1);
+        parse_text("## a.*b\naccurate: ours\n", &t2);
+        parse_text("## a.b**\naccurate: ours\n", &t3);
+        CHECK_TRUE("verdict_parse_star_only_final",
+                 !t1 && ok.count("a.b*") && t2 && t3);
+    }
     printf("selftest: %d passed, %d failed\n", g_pass, g_fail);
     return g_fail ? 1 : 0;
 }
@@ -135,8 +198,8 @@ static int selftest() {
 // ---- main -----------------------------------------------------------------
 
 int main(int argc, char** argv) {
-    uint32_t seed = 0x6809;
-    unsigned nrandom = 200;
+    uint32_t seed = DEFAULT_SEED;
+    unsigned nrandom = DEFAULT_RANDOM;
     std::string verdicts_path, baseline_path, json_path;
     RunInfo ri;
     bool update_baseline = false;
@@ -155,6 +218,9 @@ int main(int argc, char** argv) {
         else { fprintf(stderr, "unknown argument: %s\n", argv[i]); return 2; }
     }
     ri.seed = seed;
+    // Random values depend on the seed and the ids on the count, so only the
+    // default run is checked against the baseline (R12).
+    ri.random_gated = (seed == DEFAULT_SEED && nrandom == DEFAULT_RANDOM);
 
     std::map<std::string, Verdict> verdicts;
     std::map<std::string, std::string> baseline;
@@ -174,6 +240,8 @@ int main(int argc, char** argv) {
     ri.ref_edits.push_back("mame gime.cpp:99 GIME_TYPE_1987 0->1 (1987 build)");
 #endif
     printf("gime_validate seed=0x%X random=%u variant=1987 (+v86 reference-only copies)\n", seed, nrandom);
+    if (!ri.random_gated)
+        printf("note: non-default --seed/--random: random.* checks are classified and printed but do not gate\n");
     printf("mame form: %s\n", ri.mame_form.empty() ? "none (not built)" : ri.mame_form.c_str());
 
     Ctx ctx;
@@ -220,11 +288,18 @@ int main(int argc, char** argv) {
 
     std::vector<Cls> cls;
     std::vector<Status> sts;
-    unsigned cnt[8] = {0};
+    unsigned cnt[8] = {0}, gating_fail = 0, ungated_fail = 0;
     std::map<std::string, unsigned> per_area;
     for (CheckRecord& r : all) {
         Cls c = classify(r);
-        Status st = resolve(r, c, verdicts, baseline);
+        Status st = resolve(r, c, verdicts, baseline, ri.random_gated);
+        if (c == Cls::REF_SPLIT)
+            if (const Verdict* v = find_verdict(verdicts, r.id)) r.verdict_id = v->id;
+        auto bit = baseline.find(r.id);
+        if (bit != baseline.end() && (ri.random_gated || !is_random_id(r.id)))
+            r.baseline_reason = bit->second;
+        if (fails_run(r, st, ri.random_gated)) gating_fail++;
+        else if (st == Status::FAIL || st == Status::FIXED) ungated_fail++;
         cls.push_back(c);
         sts.push_back(st);
         cnt[(int)st]++;
@@ -233,7 +308,8 @@ int main(int argc, char** argv) {
                r.id.c_str(), fmt(r, "ours").c_str(), fmt(r, "xroar").c_str(),
                fmt(r, "mame").c_str(), r.note.empty() ? "" : "  ", r.note.c_str());
     }
-    std::vector<std::string> stale = stale_baseline(all, baseline);
+    std::vector<std::string> stale = stale_baseline(all, baseline, ri.random_gated);
+    ri.stale = stale;
     for (auto& id : stale) printf("STALE  %s\n", id.c_str());
     cnt[(int)Status::STALE] += (unsigned)stale.size();
 
@@ -243,14 +319,15 @@ int main(int argc, char** argv) {
            cnt[(int)Status::FIXED], cnt[(int)Status::STALE], cnt[(int)Status::DISC],
            cnt[(int)Status::UNRESOLVED], cnt[(int)Status::SKIP]);
 
+    if (ungated_fail) printf("non-gating random failures: %u\n", ungated_fail);
     if (!json_path.empty() && !write_results_json(json_path, all, cls, sts, ri))
         return 2;
 
     if (update_baseline) {
-        std::vector<std::string> ids = baseline_ids(all, sts, baseline);
+        std::vector<std::string> ids = baseline_ids(all, sts, baseline, ri.random_gated);
         if (!write_baseline(baseline_path, ids, baseline)) return 2;
         printf("baseline rewritten: %zu entries\n", ids.size());
         return 0;
     }
-    return (cnt[(int)Status::FAIL] || cnt[(int)Status::FIXED] || cnt[(int)Status::STALE]) ? 1 : 0;
+    return (gating_fail || cnt[(int)Status::STALE]) ? 1 : 0;
 }

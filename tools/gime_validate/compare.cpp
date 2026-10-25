@@ -81,6 +81,8 @@ std::map<std::string, Verdict> parse_verdicts(const std::string& path) {
             if (cur.id.empty() || cur.id.find(' ') != std::string::npos ||
                 cur.id.find('.') == std::string::npos)
                 throw err(ln, "bad check id '" + cur.id + "'");
+            if (cur.id.find('*') != std::string::npos && cur.id.find('*') != cur.id.size() - 1)
+                throw err(ln, "'*' is only allowed as the last character of '" + cur.id + "'");
             if (out.count(cur.id)) throw err(ln, "duplicate verdict for '" + cur.id + "'");
             in_entry = true;
             have_acc = false;
@@ -120,9 +122,33 @@ std::map<std::string, std::string> parse_baseline(const std::string& path) {
     return out;
 }
 
+bool is_random_id(const std::string& id) { return id.compare(0, 7, "random.") == 0; }
+
+const Verdict* find_verdict(const std::map<std::string, Verdict>& verdicts, const std::string& id) {
+    auto it = verdicts.find(id);
+    if (it != verdicts.end()) return &it->second;
+    const Verdict* best = nullptr;
+    size_t best_len = 0;
+    for (auto& kv : verdicts) {
+        const std::string& k = kv.first;
+        if (k.empty() || k.back() != '*') continue;
+        size_t n = k.size() - 1;
+        if (n >= best_len && id.compare(0, n, k, 0, n) == 0 && id.size() >= n) {
+            best = &kv.second;
+            best_len = n;
+        }
+    }
+    return best;
+}
+
+bool fails_run(const CheckRecord& r, Status s, bool random_gated) {
+    if (s != Status::FAIL && s != Status::FIXED) return false;
+    return random_gated || !is_random_id(r.id);
+}
+
 Status resolve(const CheckRecord& r, Cls c, const std::map<std::string, Verdict>& verdicts,
-               const std::map<std::string, std::string>& baseline) {
-    bool in_base = baseline.count(r.id) != 0;
+               const std::map<std::string, std::string>& baseline, bool random_gated) {
+    bool in_base = baseline.count(r.id) != 0 && (random_gated || !is_random_id(r.id));
     switch (c) {
     case Cls::SKIPPED: return Status::SKIP;
     case Cls::AGREE:
@@ -130,9 +156,9 @@ Status resolve(const CheckRecord& r, Cls c, const std::map<std::string, Verdict>
     case Cls::OURS_ODD: return in_base ? Status::KNOWN_FAIL : Status::FAIL;
     case Cls::REF_SPLIT: {
         if (is_v86(r)) return Status::DISC;
-        auto it = verdicts.find(r.id);
-        if (it == verdicts.end()) return Status::UNRESOLVED;
-        auto o = val(r, "ours"), a = val(r, it->second.accurate.c_str());
+        const Verdict* v = find_verdict(verdicts, r.id);
+        if (!v) return Status::UNRESOLVED;
+        auto o = val(r, "ours"), a = val(r, v->accurate.c_str());
         if (!o || !a) return Status::UNRESOLVED;       // accurate model not observed
         if (eq(*o, *a, r.tol)) return Status::DISC;
         return in_base ? Status::KNOWN_FAIL : Status::FAIL;
@@ -142,9 +168,11 @@ Status resolve(const CheckRecord& r, Cls c, const std::map<std::string, Verdict>
 }
 
 std::vector<std::string> stale_baseline(const std::vector<CheckRecord>& recs,
-                                        const std::map<std::string, std::string>& baseline) {
+                                        const std::map<std::string, std::string>& baseline,
+                                        bool random_gated) {
     std::vector<std::string> out;
     for (auto& kv : baseline) {
+        if (!random_gated && is_random_id(kv.first)) continue;
         bool found = false;
         for (auto& r : recs) if (r.id == kv.first) { found = true; break; }
         if (!found) out.push_back(kv.first);
@@ -203,12 +231,17 @@ bool write_results_json(const std::string& path, const std::vector<CheckRecord>&
     FILE* f = fopen(path.c_str(), "w");
     if (!f) { fprintf(stderr, "cannot write %s\n", path.c_str()); return false; }
     fprintf(f, "{\n  \"run\": {\"seed\": %u, \"ours_commit\": \"%s\", \"xroar_commit\": \"%s\", "
-               "\"mame_commit\": \"%s\", \"mame_form\": \"%s\", \"ref_edits\": [",
+               "\"mame_commit\": \"%s\", \"mame_form\": \"%s\", \"random_gated\": %s, "
+               "\"ref_edits\": [",
             ri.seed, jesc(ri.ours_commit).c_str(), jesc(ri.xroar_commit).c_str(),
-            jesc(ri.mame_commit).c_str(), jesc(ri.mame_form).c_str());
+            jesc(ri.mame_commit).c_str(), jesc(ri.mame_form).c_str(),
+            ri.random_gated ? "true" : "false");
     for (size_t i = 0; i < ri.ref_edits.size(); i++)
         fprintf(f, "%s\"%s\"", i ? ", " : "", jesc(ri.ref_edits[i]).c_str());
-    fprintf(f, "]},\n  \"checks\": [\n");
+    fprintf(f, "]},\n  \"stale\": [");
+    for (size_t i = 0; i < ri.stale.size(); i++)
+        fprintf(f, "%s\"%s\"", i ? ", " : "", jesc(ri.stale[i]).c_str());
+    fprintf(f, "],\n  \"checks\": [\n");
     for (size_t i = 0; i < recs.size(); i++) {
         const CheckRecord& r = recs[i];
         fprintf(f, "    {\"id\": \"%s\", \"values\": {", jesc(r.id).c_str());
@@ -220,9 +253,14 @@ bool write_results_json(const std::string& path, const std::vector<CheckRecord>&
             first = false;
         }
         fprintf(f, "}, \"tol\": %u, \"two_way\": %s, \"class\": \"%s\", \"status\": \"%s\", "
-                   "\"note\": \"%s\"}%s\n",
+                   "\"note\": \"%s\", \"verdict_id\": ",
                 r.tol, r.two_way ? "true" : "false", cls_name(cls[i]), status_name(st[i]),
-                jesc(r.note).c_str(), i + 1 < recs.size() ? "," : "");
+                jesc(r.note).c_str());
+        if (r.verdict_id.empty()) fprintf(f, "null");
+        else fprintf(f, "\"%s\"", jesc(r.verdict_id).c_str());
+        if (!r.baseline_reason.empty() || st[i] == Status::KNOWN_FAIL)
+            fprintf(f, ", \"baseline_reason\": \"%s\"", jesc(r.baseline_reason).c_str());
+        fprintf(f, "}%s\n", i + 1 < recs.size() ? "," : "");
     }
     fprintf(f, "  ]\n}\n");
     if (fclose(f) != 0) { fprintf(stderr, "cannot write %s\n", path.c_str()); return false; }
@@ -231,12 +269,18 @@ bool write_results_json(const std::string& path, const std::vector<CheckRecord>&
 
 std::vector<std::string> baseline_ids(const std::vector<CheckRecord>& recs,
                                       const std::vector<Status>& st,
-                                      const std::map<std::string, std::string>& old) {
+                                      const std::map<std::string, std::string>& old,
+                                      bool random_gated) {
     std::vector<std::string> ids;
-    for (size_t i = 0; i < recs.size() && i < st.size(); i++)
+    for (size_t i = 0; i < recs.size() && i < st.size(); i++) {
+        if (!random_gated && is_random_id(recs[i].id)) {
+            if (old.count(recs[i].id)) ids.push_back(recs[i].id);    // keep, never add
+            continue;
+        }
         if (st[i] == Status::FAIL || st[i] == Status::KNOWN_FAIL ||
             (st[i] == Status::SKIP && old.count(recs[i].id)))
             ids.push_back(recs[i].id);
+    }
     return ids;
 }
 

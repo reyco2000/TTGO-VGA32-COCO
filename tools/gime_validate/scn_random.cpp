@@ -7,7 +7,9 @@
 // then the area's scripted observations on one fixed probe set. Ids are
 // random.<area>.<k>.<observation>. Each area has its own generator, seeded
 // once with seed ^ fnv(area), so adding or reordering areas doesn't shift the
-// others' sequences.
+// others' sequences. Every draw is made into a named local, in a fixed order,
+// never inside a call's argument list (whose evaluation order is unspecified),
+// so a seed gives the same sequence on any compiler.
 
 namespace {
 
@@ -26,7 +28,11 @@ struct Rng {
 // Apply 1-20 writes to addresses drawn from regs[0..nregs).
 void random_writes(Ctx& ctx, Rng& r, const uint16_t* regs, unsigned nregs) {
     unsigned n = 1 + r.below(20);
-    for (unsigned i = 0; i < n; i++) ctx.write(regs[r.below(nregs)], r.byte());
+    for (unsigned i = 0; i < n; i++) {
+        unsigned which = r.below(nregs);
+        uint8_t val = r.byte();
+        ctx.write(regs[which], val);
+    }
 }
 
 uint16_t range_list(uint16_t* out, unsigned lo, unsigned hi, unsigned at) {
@@ -96,11 +102,17 @@ void area_timer(Ctx& ctx, Rng& r, unsigned k) {
     ctx.write(0xFF90, 0x40);
     unsigned n = 1 + r.below(20);
     for (unsigned i = 0; i < n; i++) {
-        switch (r.below(4)) {
-        case 0: ctx.write(0xFF91, (uint8_t)(r.byte() & 0x21)); break;     // TINS, TR
-        case 1: ctx.write(0xFF95, r.byte()); break;
-        case 2: ctx.write(0xFF94, (uint8_t)(r.below(4) ? 0 : r.byte() & 0x0F)); break;
-        default: ctx.write(0xFF90, (uint8_t)(0x40 | (r.byte() & 0x07))); break;
+        unsigned kind = r.below(4);
+        switch (kind) {
+        case 0: { uint8_t b = r.byte(); ctx.write(0xFF91, (uint8_t)(b & 0x21)); break; }   // TINS, TR
+        case 1: { uint8_t b = r.byte(); ctx.write(0xFF95, b); break; }
+        case 2: {
+            unsigned nonzero = r.below(4);                // 3 in 4: MSB 0
+            uint8_t b = nonzero ? 0 : r.byte();           // drawn only when not zeroed
+            ctx.write(0xFF94, (uint8_t)(b & 0x0F));
+            break;
+        }
+        default: { uint8_t b = r.byte(); ctx.write(0xFF90, (uint8_t)(0x40 | (b & 0x07))); break; }
         }
     }
     ctx.lines(r.below(4));
@@ -117,14 +129,18 @@ void area_irq(Ctx& ctx, Rng& r, unsigned k) {
     ctx.reset();
     unsigned n = 1 + r.below(20);
     for (unsigned i = 0; i < n; i++) {
-        switch (r.below(4)) {
-        case 0: ctx.write(0xFF90, (uint8_t)(0x40 | (r.byte() & 0x30))); break;
-        case 1: ctx.write(0xFF92, r.byte()); break;
-        case 2: ctx.write(0xFF93, r.byte()); break;
-        default:
-            ctx.set_il(r.below(3), r.below(2) != 0);
+        unsigned kind = r.below(4);
+        switch (kind) {
+        case 0: { uint8_t b = r.byte(); ctx.write(0xFF90, (uint8_t)(0x40 | (b & 0x30))); break; }
+        case 1: { uint8_t b = r.byte(); ctx.write(0xFF92, b); break; }
+        case 2: { uint8_t b = r.byte(); ctx.write(0xFF93, b); break; }
+        default: {
+            unsigned line = r.below(3);
+            bool level = r.below(2) != 0;
+            ctx.set_il(line, level);
             ctx.read(0x0000);                         // IL is sampled on an access
             break;
+        }
         }
     }
     ctx.lines(r.below(4));
@@ -162,7 +178,11 @@ void area_video(Ctx& ctx, Rng& r, unsigned k) {
 }
 
 // render: INIT0 COCO bit (VDG compatible modes), VMODE, VRES, $FF9F and the
-// palette. Probe: render_observe() (line hashes, active line count, left border).
+// palette. After the random writes INIT0 is rewritten as $40 or $C0 (COCO set
+// half the time; MMUEN stays on, the other bits are as the setup left them).
+// With COCO set the VDG mode comes from the SAM V bits (0 after reset, never
+// written here) and PIA1 B, which is set to the alpha mode like scripted
+// render.vdg_alpha so that every model starts from the same state. Probe: render_observe() (line hashes, active line count, left border).
 void area_render(Ctx& ctx, Rng& r, unsigned k) {
     static const uint16_t w[] = { 0xFF98, 0xFF99, 0xFF9F, 0xFF9D, 0xFF9E,
                                   0xFFB0, 0xFFB1, 0xFFB2, 0xFFB3, 0xFFB4, 0xFFB5, 0xFFB6, 0xFFB7,
@@ -171,6 +191,14 @@ void area_render(Ctx& ctx, Rng& r, unsigned k) {
     ctx.fill_ram(ram_pattern);
     ctx.write(0xFF90, 0x40);
     random_writes(ctx, r, w, sizeof w / sizeof w[0]);
+    bool coco = r.below(2) != 0;
+    if (coco) {
+        ctx.write(0xFF23, 0x04);                          // CRB bit 2: $FF22 is the data register
+        ctx.write(0xFF22, 0x00);                          // alpha, CSS 0
+        ctx.write(0xFF90, 0xC0);
+    } else {
+        ctx.write(0xFF90, 0x40);
+    }
     ctx.lines(r.below(4));
     ctx.drain();
     char b[32];
