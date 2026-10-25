@@ -16,7 +16,9 @@ enum Cap : unsigned { CAP_REGS=1, CAP_DECODE=2, CAP_IRQ=4, CAP_TIMER_EV=8,
                       CAP_SYNC_EV=16, CAP_RENDER=32 };
 enum class EvType { TIMER, HS_FALL, FS_FALL, FS_RISE, IRQ_RISE, FIRQ_RISE };
 struct Event { EvType type; uint64_t tick; };
-struct Decode { unsigned S; uint32_t Z; bool RAS; };   // XRoar semantics
+// XRoar semantics. z_valid false: the model has no Z for this address (MAME
+// keeps none for ROM and cartridge slots).
+struct Decode { unsigned S = 0; uint32_t Z = 0; bool RAS = false; bool z_valid = true; };
 
 class GimeModel {
 public:
@@ -45,5 +47,6 @@ public:
 
 std::unique_ptr<GimeModel> make_ours();
 std::unique_ptr<GimeModel> make_xroar(Variant v);   // built with -DHAVE_XROAR
+std::unique_ptr<GimeModel> make_mame(Variant v);    // built with -DHAVE_MAME
 
 #endif

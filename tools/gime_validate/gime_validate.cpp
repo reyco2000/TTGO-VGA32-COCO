@@ -5,6 +5,7 @@
  *
  * usage: gime_validate [--seed N] [--verdicts PATH] [--baseline PATH]
  *                      [--json PATH] [--ours-commit S] [--xroar-commit S]
+ *                      [--mame-commit S]
  *                      [--update-baseline]
  *                      [--selftest]
  */
@@ -146,6 +147,7 @@ int main(int argc, char** argv) {
         else if (!strcmp(argv[i], "--json") && more) json_path = argv[++i];
         else if (!strcmp(argv[i], "--ours-commit") && more) ri.ours_commit = argv[++i];
         else if (!strcmp(argv[i], "--xroar-commit") && more) ri.xroar_commit = argv[++i];
+        else if (!strcmp(argv[i], "--mame-commit") && more) ri.mame_commit = argv[++i];
         else if (!strcmp(argv[i], "--update-baseline")) update_baseline = true;
         else if (!strcmp(argv[i], "--selftest")) return selftest();
         else { fprintf(stderr, "unknown argument: %s\n", argv[i]); return 2; }
@@ -165,7 +167,12 @@ int main(int argc, char** argv) {
         fprintf(stderr, "--update-baseline needs --baseline PATH\n");
         return 2;
     }
+#ifdef HAVE_MAME
+    ri.mame_form = "standin";       // model_mame.cpp: why not the extract form
+    ri.ref_edits.push_back("mame gime.cpp:99 GIME_TYPE_1987 0->1 (1987 build)");
+#endif
     printf("gime_validate seed=0x%X variant=1987\n", seed);
+    printf("mame form: %s\n", ri.mame_form.empty() ? "none (not built)" : ri.mame_form.c_str());
 
     Ctx ctx;
     std::unique_ptr<GimeModel> ours = make_ours();
@@ -173,6 +180,10 @@ int main(int argc, char** argv) {
 #ifdef HAVE_XROAR
     std::unique_ptr<GimeModel> xroar = make_xroar(ctx.variant);
     ctx.models.push_back(xroar.get());
+#endif
+#ifdef HAVE_MAME
+    std::unique_ptr<GimeModel> mame = make_mame(ctx.variant);
+    ctx.models.push_back(mame.get());
 #endif
 
     std::vector<Cls> cls;

@@ -3,8 +3,12 @@
 
 // MMU / address-decode scenarios (1987 GIME). RAM is whatever Ctx gives.
 static void check_decode(Ctx& ctx, const std::string& id, uint16_t addr, bool main_is_z) {
-    ctx.check(id + (main_is_z ? "" : "_Z"),
-              [addr](GimeModel& m) { return (int64_t)m.decode(addr).Z; }, CAP_DECODE);
+    ctx.check_opt(id + (main_is_z ? "" : "_Z"),
+                  [addr](GimeModel& m) -> std::optional<int64_t> {
+                      Decode d = m.decode(addr);
+                      if (!d.z_valid) return std::nullopt;
+                      return (int64_t)d.Z;
+                  }, CAP_DECODE);
     ctx.check(id + (main_is_z ? "_S" : ""),
               [addr](GimeModel& m) { return (int64_t)m.decode(addr).S; }, CAP_DECODE);
 }

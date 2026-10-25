@@ -4,12 +4,18 @@
 #
 # XROAR_SRC (default ~/proyectos/coco-emu-other-projects-source/xroar) is an
 # XRoar source tree; its tcc1014.c is built unmodified as the XRoar oracle.
-# A missing tree prints a NOTICE and that model's checks are SKIPPED.
+# MAME_SRC (default ~/proyectos/coco-emu-other-projects-source/mame) is a MAME
+# source tree; its src/mame/trs/gime.cpp and src/devices/video/mc6847.cpp are
+# built unmodified against mame_shim/ as the MAME oracle, twice: as is (1986
+# GIME) and from a copy whose line 99 is rewritten to GIME_TYPE_1987 1.
+# A missing tree or a failed oracle build prints a NOTICE and that model's
+# checks are SKIPPED.
 set -euo pipefail
 D=$(cd "$(dirname "$0")" && pwd)
 OUT=${TMPDIR:-/tmp}/gime_validate
 mkdir -p "$OUT"
 XROAR_SRC=${XROAR_SRC:-$HOME/proyectos/coco-emu-other-projects-source/xroar}
+MAME_SRC=${MAME_SRC:-$HOME/proyectos/coco-emu-other-projects-source/mame}
 
 DEFS=()
 OBJS=()
@@ -37,6 +43,38 @@ if [ -f "$XROAR_SRC/src/tcc1014/tcc1014.c" ]; then
     fi
 else
     echo "NOTICE: xroar source not found at $XROAR_SRC; skipping"
+fi
+
+MG=$MAME_SRC/src/mame/trs/gime.cpp
+if [ -f "$MG" ] && [ -f "$MAME_SRC/src/devices/video/mc6847.cpp" ]; then
+    # The only edit to MAME: the 1987 copy of gime.cpp, line 99 0 -> 1.
+    # The copy must differ from the source in that one line and nowhere else.
+    build_mame() {
+        mkdir -p "$OUT/mame87" || return 1
+        sed '99s/^#define GIME_TYPE_1987          0$/#define GIME_TYPE_1987          1/' \
+            "$MG" > "$OUT/mame87/gime.cpp" || return 1
+        if [ "$(diff "$MG" "$OUT/mame87/gime.cpp" | grep -c '^[<>]')" != 2 ] ||
+           ! sed -n 99p "$OUT/mame87/gime.cpp" | grep -qx '#define GIME_TYPE_1987          1'; then
+            echo "gime.cpp:99 is not '#define GIME_TYPE_1987          0'"
+            return 1
+        fi
+        # mame_shim/ comes before $MAME_SRC/src/devices, so its machine/ram.h
+        # and bus/coco/cococart.h replace MAME's; no emu/ directory is used.
+        local MI=(-I"$D" -I"$D/mame_shim" -I"$MAME_SRC/src/mame/trs" -I"$MAME_SRC/src/devices")
+        g++ -std=gnu++17 -O2 -w -DMAME_GIME_NS=mame86 "${MI[@]}" \
+            -c "$D/mame_gime.cpp" -o "$OUT/mame86.o" || return 1
+        g++ -std=gnu++17 -O2 -w -DMAME_GIME_NS=mame87 -I"$OUT/mame87" "${MI[@]}" \
+            -c "$D/mame_gime.cpp" -o "$OUT/mame87.o" || return 1
+    }
+    if build_mame; then
+        DEFS+=(-DHAVE_MAME)
+        OBJS+=("$OUT/mame86.o" "$OUT/mame87.o" "$D/model_mame.cpp")
+        ARGS+=(--mame-commit "$(git -C "$MAME_SRC" log -1 --format=%h 2>/dev/null || echo unknown)")
+    else
+        echo "NOTICE: mame oracle build failed; skipping"
+    fi
+else
+    echo "NOTICE: mame source not found at $MAME_SRC; skipping"
 fi
 
 g++ -std=gnu++17 -O2 -Wall -Wno-unused-function -I"$D/stub" "${DEFS[@]}" -o "$OUT/gime_validate" \

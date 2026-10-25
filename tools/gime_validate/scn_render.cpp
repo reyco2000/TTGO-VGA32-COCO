@@ -131,26 +131,33 @@ GimeModel* model(Ctx& ctx, const char* name) {
     return nullptr;
 }
 
-// Note for line y: ours' decoder note, and the first pixel where ours and
-// xroar differ (or their widths, if those differ).
-std::string diff_note(Ctx& ctx, Field& f, unsigned y) {
-    const Line* o = line_at(f, model(ctx, "ours"), y);
-    const Line* x = line_at(f, model(ctx, "xroar"), y);
-    std::string s;
-    if (o && !o->note.empty()) s = "ours: " + o->note;
-    if (!o || !x || !o->ok || !x->ok) return s;
-    char b[96] = "";
-    if (o->c.size() != x->c.size()) {
-        snprintf(b, sizeof b, "width ours=%zu xroar=%zu", o->c.size(), x->c.size());
+// First pixel where line a differs from line b (or their widths, if those
+// differ); empty if they are the same or either is missing.
+std::string first_diff(const char* an, const Line* a, const char* bn, const Line* b) {
+    if (!a || !b || !a->ok || !b->ok) return std::string();
+    char s[112] = "";
+    if (a->c.size() != b->c.size()) {
+        snprintf(s, sizeof s, "width %s=%zu %s=%zu", an, a->c.size(), bn, b->c.size());
     } else {
-        for (size_t k = 0; k < o->c.size(); k++)
-            if (o->c[k] != x->c[k]) {
-                snprintf(b, sizeof b, "first diff px %zu (ours=%u xroar=%u)", k,
-                         o->c[k], x->c[k]);
+        for (size_t k = 0; k < a->c.size(); k++)
+            if (a->c[k] != b->c[k]) {
+                snprintf(s, sizeof s, "first diff px %zu (%s=%u %s=%u)", k, an, a->c[k], bn, b->c[k]);
                 break;
             }
     }
-    if (b[0]) s += (s.empty() ? "" : "; ") + std::string(b);
+    return s;
+}
+
+// Note for line y: ours' decoder note, and the first pixel where ours, and
+// then mame, differ from xroar.
+std::string diff_note(Ctx& ctx, Field& f, unsigned y) {
+    const Line* o = line_at(f, model(ctx, "ours"), y);
+    const Line* x = line_at(f, model(ctx, "xroar"), y);
+    const Line* m = line_at(f, model(ctx, "mame"), y);
+    std::string s;
+    if (o && !o->note.empty()) s = "ours: " + o->note;
+    for (const std::string& d : { first_diff("ours", o, "xroar", x), first_diff("mame", m, "xroar", x) })
+        if (!d.empty()) s += (s.empty() ? "" : "; ") + d;
     return s;
 }
 
