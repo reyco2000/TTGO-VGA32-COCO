@@ -25,8 +25,75 @@
 // but the GIME core emits pre-converted RGB565 pixels — OPT-C4 — not palette
 // indices. VGAController accepts raw 6-bit color per pixel, so RGB565→RGB222
 // truncation is the only conversion needed and the core stays untouched.)
-static fabgl::VGAController s_vga;
+// Tall GIME screens (225 lines, at most 512 pixels wide: DK, Rick Dangerous)
+// switch the output to 512x240. Same signal as 640x480@60 (25.175 MHz, 800
+// clocks per line, 262 lines double-scanned): 512 active pixels with 64
+// extra blank clocks each side, so pixels keep their 640-mode width.
+#define VGA_512x240_60HzD "\"512x240@60HzD\" 25.175 512 592 688 800 240 245 247 262 -HSync -VSync DoubleScan"
+
+// VGAController whose framebuffer is allocated once and kept: a mode switch
+// re-points the rows instead of freeing 128 KB and allocating it again
+// (which other allocations could fragment in between). Chunks are whole
+// 2560-byte units (lcm of 640 and 512), so 200 rows of 640 and 240 rows of
+// 512 both fit the same 50 units with no row straddling two chunks.
+class CocoVGAController : public fabgl::VGAController {
+    static constexpr int UNIT = 2560;
+    static constexpr int UNITS = 128000 / UNIT;
+    static constexpr int MAX_CHUNKS = 32;
+    uint8_t* m_chunk[MAX_CHUNKS] = {};
+    int      m_chunkUnits[MAX_CHUNKS] = {};
+    int      m_chunks = 0;
+
+    void allocatePool() {
+        // Same policy as VGABaseController::allocateViewPort(): leave
+        // FABGLIB_MINFREELARGESTBLOCK free for the rest of the system.
+        int remaining = UNITS;
+        while (remaining > 0 && m_chunks < MAX_CHUNKS) {
+            const int largest = heap_caps_get_largest_free_block(MALLOC_CAP_DMA);
+            if (largest < FABGLIB_MINFREELARGESTBLOCK) break;
+            const int n = fabgl::tmax(1, fabgl::tmin(remaining, (largest - FABGLIB_MINFREELARGESTBLOCK) / UNIT));
+            uint8_t* p = (uint8_t*)heap_caps_malloc(n * UNIT, MALLOC_CAP_DMA);
+            if (!p) break;
+            m_chunk[m_chunks] = p;
+            m_chunkUnits[m_chunks++] = n;
+            remaining -= n;
+        }
+    }
+
+    void allocateViewPort() override {
+        if (m_chunks == 0) allocatePool();
+        const int rowlen = m_viewPortWidth;
+        int rows = 0;
+        const int want = m_viewPortHeight;
+        m_viewPort = m_viewPorts[0] = (volatile uint8_t**)heap_caps_malloc(
+            sizeof(uint8_t*) * want, MALLOC_CAP_32BIT | MALLOC_CAP_INTERNAL);
+        for (int c = 0; c < m_chunks && rows < want; c++) {
+            uint8_t* p = m_chunk[c];
+            for (int r = 0; r < m_chunkUnits[c] * UNIT / rowlen && rows < want; r++, p += rowlen)
+                m_viewPort[rows++] = p;
+        }
+        m_viewPortHeight = rows;   // fewer if the pool came up short
+        m_viewPortVisible = m_viewPort;
+    }
+
+    void freeViewPort() override {
+        // Keep the pool; free only the row-pointer tables.
+        for (int i = 0; i < 2; ++i)
+            if (m_viewPorts[i]) {
+                heap_caps_free(m_viewPorts[i]);
+                m_viewPorts[i] = nullptr;
+            }
+        m_viewPort = m_viewPortVisible = nullptr;
+    }
+};
+
+static CocoVGAController    s_vga;
 static fabgl::Canvas        s_canvas(&s_vga);
+static bool                 s_tall = false;      // 512x240 output active
+static int                  s_tall_votes = 0;    // frames the other layout was wanted
+static uint32_t             s_switches = 0;
+static uint32_t             s_switch_us = 0;
+static void set_tall(bool tall);
 
 // OSDCanvas shim instance the supervisor draws into via hal_video_get_canvas().
 static OSDCanvas             s_tft_shim;
@@ -192,6 +259,7 @@ void hal_video_render_scanline(int line, const uint8_t* pixels, int width) {
 
 void hal_video_present(const uint8_t* ram, uint16_t vdg_base, uint8_t vdg_mode) {
     (void)ram; (void)vdg_base; (void)vdg_mode;
+    set_tall(false);   // the VDG path draws for 640x200
     // FabGL scans out continuously — present is a no-op apart from FPS.
     fps_tick_and_draw();
 }
@@ -498,6 +566,41 @@ void hal_video_render_scanline_gime_raw(int line, int total_lines,
             for (int x = 0; x < vp_w; x++) row[x ^ 2] = raw[x * width / vp_w];
         }
     }
+}
+
+// Switch the output between 640x200 and 512x240. The framebuffer comes back
+// black, so every GIME line and border row is redrawn.
+static void set_tall(bool tall) {
+    if (tall == s_tall || !display_available) return;
+    const int64_t t0 = esp_timer_get_time();
+    s_vga.setResolution(tall ? VGA_512x240_60HzD : VGA_640x200_60HzD);
+    s_switch_us = (uint32_t)(esp_timer_get_time() - t0);
+    s_tall = tall;
+    s_tall_votes = 0;
+    s_switches++;
+    tcc1014_invalidate_lines();
+    border_rows_invalidate();
+    DEBUG_PRINTF("  Video: %s, viewport=%dx%d, %u us", tall ? "512x240" : "640x200",
+                 s_vga.getViewPortWidth(), s_vga.getViewPortHeight(), (unsigned)s_switch_us);
+}
+
+void hal_video_gime_frame(unsigned total_lines, int width) {
+    const bool want = total_lines > 200 && total_lines <= 240 && width > 0 && width <= 512;
+    if (want == s_tall) { s_tall_votes = 0; return; }
+    // Only after 30 frames in a row, so a brief mode change (a loader, a
+    // one-frame glitch) doesn't blank the monitor twice.
+    if (++s_tall_votes >= 30) set_tall(want);
+}
+
+void hal_video_standard_layout(void) {
+    set_tall(false);
+}
+
+void hal_video_layout_info(int* w, int* h, uint32_t* switches, uint32_t* switch_us) {
+    *w = display_available ? s_vga.getViewPortWidth() : 0;
+    *h = display_available ? s_vga.getViewPortHeight() : 0;
+    *switches = s_switches;
+    *switch_us = s_switch_us;
 }
 
 void hal_video_present_gime(bool* dirty) {

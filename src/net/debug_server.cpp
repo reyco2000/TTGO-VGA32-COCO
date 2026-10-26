@@ -180,6 +180,14 @@ static void h_status() {
         j += ",\"tins\":" + String(tins ? "true" : "false");
         j += ",\"reload\":" + String(reload) + "}";
     }
+    // Output layout (640x200, or 512x240 for tall GIME screens)
+    {
+        int w, h;
+        uint32_t sw, us;
+        hal_video_layout_info(&w, &h, &sw, &us);
+        j += ",\"video\":{\"w\":" + String(w) + ",\"h\":" + String(h);
+        j += ",\"switches\":" + String(sw) + ",\"switch_us\":" + String(us) + "}";
+    }
     // GIME video registers ($FF90-$FF9F as last written) and line counts
     {
         uint8_t r[16];

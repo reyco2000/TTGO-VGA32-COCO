@@ -407,6 +407,17 @@ All technical documentation is in the `docs/` directory:
 - Joystick 2 (left port) is a stub — returns centered, button released; only Joystick 1 is active via PS/2 mouse
 - NTSC composite simulation covers RG6 (PMODE 4) artifact colour only — there is no
   chroma/luma bleed modelling for the other modes
+- **The monitor flickers when the video output changes resolution.** The normal output is
+  640×200. CoCo 3 screens taller than 200 lines and at most 512 pixels wide (the 225-line
+  mode used by games such as Rick Dangerous and Donkey Kong) switch the VGA output to
+  512×240, so that all 225 lines show, with border rows above and below. The switch
+  happens about half a second after such a screen appears, and again when it goes away
+  or the OSD opens (the OSD always uses 640×200). Each switch restarts the VGA signal, so
+  the monitor blanks or flickers briefly. 640-wide 225-line screens (NitrOS-9's 80×25
+  text) can't use 512×240: they stay at 640×200, which drops one line in nine (the
+  blank gap under each text row)
+- Only 192-line screens show part of the top and bottom border (4 lines each) at
+  640×200; there is no room for side borders in 320- and 640-wide modes
 
 ## DriveWire / FujiNet Support
 

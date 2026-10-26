@@ -350,6 +350,7 @@ void loop() {
 
     // Check if supervisor is handling this frame
     static bool osd_was_active = false;
+    if (supervisor_is_active()) hal_video_standard_layout();   // OSD draws for 640x200
     if (supervisor_update_and_render()) {
         // Supervisor is active — emulation paused
         osd_was_active = true;

@@ -65,7 +65,11 @@ There is no equivalent of the old `DISPLAY_SCALE_MODE 0/1/2` for the VGA32 path.
 | anything `< 640` | Centered, side margins filled with GIME border color |
 | anything `> 640` | Nearest-neighbor downscale |
 
-Vertically, 192-line (VDG) and 199-line (GIME) modes are centered within the 200-line surface (small top/bottom margin); 200-line modes fit 1:1; 225-line modes (rare GIME LPF=3) are clipped or rendered with `y_off = 0`.
+Vertically, 192-line (VDG) and 199-line (GIME) modes are centered within the 200-line surface; the spare rows of a 192-line GIME screen (4 above, 4 below) show the border colour of the matching border lines (`hal_video_render_border_gime()`). 200-line modes fit 1:1.
+
+225-line GIME modes (LPF=3):
+- **At most 512 pixels wide** (e.g. 256×225, Rick Dangerous, DK): after 30 frames the output switches to **512×240** (`VGA_512x240_60HzD`: the 640×480@60 signal with 512 active pixels and 64 extra blank clocks per side), showing all 225 lines centred with 7–8 border rows above and below. It switches back to 640×200 when the screen changes, when the OSD opens, and on CoCo 2. The framebuffer is a persistent 128,000-byte pool in 2,560-byte units (`CocoVGAController`), so a switch re-points rows and doesn't re-allocate it. A switch takes about 71 ms and the monitor resyncs (README, Known Limitations).
+- **640 wide** (NitrOS-9 80×25): stays at 640×200 and drops the last line of each 9-line block (`gime_display_y()`), the blank gap under each text row.
 
 ## Pixel Format Conversion
 

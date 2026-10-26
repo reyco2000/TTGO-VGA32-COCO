@@ -908,6 +908,7 @@ void machine_run_frame_coco3(Machine* m) {
     hal_audio_commit_frame();
     {
         PERF_PROBE_SCOPE(PROBE_PUSH_SPRITE);
+        hal_video_gime_frame(m->gime.vertical.lAA, m->gime.line_width);
         hal_video_present_gime(&m->gime.dirty_frame);
     }
 
