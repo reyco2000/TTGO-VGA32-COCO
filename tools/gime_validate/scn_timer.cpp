@@ -47,10 +47,18 @@ static void run_until(Ctx& ctx, EvType t, unsigned n, unsigned cap = CAP_LINES) 
         ctx.lines(cap - done < step ? cap - done : step);
 }
 
-static void check_timer_evs(Ctx& ctx, const std::string& id) {
-    ctx.check_event(id + "_ev1", EvType::TIMER, 0);
-    ctx.check_event(id + "_ev2", EvType::TIMER, 1);
-    ctx.check_event(id + "_ev10", EvType::TIMER, 9);
+// A TINS=0 timer counts lines, so ours' 912-tick resolution would also pass
+// a fire one whole line early or late. line_rate adds the _line variants: the
+// fire's line index in each model's own HS grid, compared exactly.
+static void check_ev(Ctx& ctx, const std::string& id, unsigned nth, bool line_rate) {
+    ctx.check_event(id, EvType::TIMER, nth);
+    if (line_rate) ctx.check_event_line(id, EvType::TIMER, nth);
+}
+
+static void check_timer_evs(Ctx& ctx, const std::string& id, bool line_rate) {
+    check_ev(ctx, id + "_ev1", 0, line_rate);
+    check_ev(ctx, id + "_ev2", 1, line_rate);
+    check_ev(ctx, id + "_ev10", 9, line_rate);
 }
 
 SCENARIO(timer, period) {
@@ -60,7 +68,7 @@ SCENARIO(timer, period) {
             snprintf(id, sizeof id, "timer.tins%u_period_%u", tins, reload);
             arm(ctx, tins != 0, reload);
             run_until(ctx, EvType::TIMER, 10);
-            check_timer_evs(ctx, id);
+            check_timer_evs(ctx, id, tins == 0);
         }
 }
 
@@ -77,8 +85,8 @@ SCENARIO(timer, restart_on_msb_write) {
         ctx.drain();
         ctx.anchor();
         run_until(ctx, EvType::TIMER, 2);
-        ctx.check_event(id + "_ev1", EvType::TIMER, 0);
-        ctx.check_event(id + "_ev2", EvType::TIMER, 1);
+        check_ev(ctx, id + "_ev1", 0, !c.tins);
+        check_ev(ctx, id + "_ev2", 1, !c.tins);
     }
 }
 
@@ -99,8 +107,8 @@ SCENARIO(timer, restart_on_lsb_write) {
         ctx.lines(c.lines_before);
         ctx.write(0xFF95, c.lsb);
         run_until(ctx, EvType::TIMER, 2);
-        ctx.check_event(id + "_ev1", EvType::TIMER, 0);
-        ctx.check_event(id + "_ev2", EvType::TIMER, 1);
+        check_ev(ctx, id + "_ev1", 0, !c.tins);
+        check_ev(ctx, id + "_ev2", 1, !c.tins);
     }
 }
 
@@ -125,7 +133,7 @@ SCENARIO(timer, init1_tr_only_keeps_running) {
         ctx.write(0xFF91, init1(true));              // TR=0
         ctx.lines(1);
     }
-    check_timer_evs(ctx, id);
+    check_timer_evs(ctx, id, false);
     // Largest shift of any of the ten fire ticks against the untouched run.
     ctx.check(id + "_max_shift", [&](GimeModel& m) {
         int64_t worst = 0;
@@ -161,7 +169,7 @@ SCENARIO(timer, tins_change_restarts) {
         ctx.drain();
         ctx.anchor();
         run_until(ctx, EvType::TIMER, 10);
-        check_timer_evs(ctx, id);
+        check_timer_evs(ctx, id, from != 0);          // 1to0 ends with TINS=0
     }
 }
 
@@ -183,6 +191,7 @@ static void tmr_flag(Ctx& ctx, bool firq) {
         ctx.write(reg, 0x20);                        // TMR
         ctx.advance(c.ticks);
         ctx.check_event(id + "_rise", rise, 0);
+        if (!c.tins) ctx.check_event_line(id + "_rise", rise, 0);
         ctx.check(id + "_line", [firq](GimeModel& m) {
             return (int64_t)(firq ? m.firq() : m.irq()); }, CAP_IRQ);
         ctx.check_read(id + "_read", reg, 0x3F);
@@ -212,6 +221,6 @@ SCENARIO(timer, long_run) {
         snprintf(id, sizeof id, "timer.tins%u_period_%u_ev%u", c.tins ? 1 : 0, c.reload, c.nth);
         arm(ctx, c.tins, c.reload);
         run_until(ctx, EvType::TIMER, c.nth, c.cap);
-        ctx.check_event(id, EvType::TIMER, c.nth - 1);
+        check_ev(ctx, id, c.nth - 1, !c.tins);
     }
 }

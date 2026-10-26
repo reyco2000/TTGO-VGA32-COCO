@@ -101,6 +101,16 @@ int64_t Ctx::event_tick(GimeModel* m, EvType t, unsigned nth) {
     return -1;                                       // no such event
 }
 
+int64_t Ctx::event_line(GimeModel* m, EvType t, unsigned nth, uint64_t from) {
+    int64_t e = event_tick(m, t, nth);
+    if (e < 0) return -1;
+    uint64_t at = (uint64_t)e + anchors_[m], start = anchors_[m] + from;
+    int64_t n = 0;
+    for (const Event& ev : events_[m])
+        if (ev.type == EvType::HS_FALL && ev.tick > start && ev.tick <= at) n++;
+    return n;
+}
+
 void Ctx::check(const std::string& id, std::function<int64_t(GimeModel&)> f,
                 Cap cap, uint32_t tol_ticks) {
     CheckRecord r;
@@ -146,4 +156,11 @@ void Ctx::check_event(const std::string& id, EvType t, unsigned nth) {
         if (m->caps() & cap) tol = std::max(tol, m->resolution(cap));
 
     check(id, [&](GimeModel& m) { return event_tick(&m, t, nth); }, cap, tol);
+}
+
+void Ctx::check_event_line(const std::string& id, EvType t, unsigned nth, uint64_t from) {
+    Cap cap = t == EvType::TIMER ? CAP_TIMER_EV : CAP_IRQ;
+    check_opt(id + "_line", [&](GimeModel& m) -> std::optional<int64_t> {
+        if (!(m.caps() & CAP_SYNC_EV)) return std::nullopt;
+        return event_line(&m, t, nth, from); }, cap, 0);
 }

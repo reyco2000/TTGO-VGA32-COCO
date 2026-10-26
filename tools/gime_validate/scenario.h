@@ -44,6 +44,12 @@ struct Ctx {
     // Tick of the nth event of type t since the last drain(), relative to
     // the model's anchor (0 until anchor() is called); -1 if there is none.
     int64_t event_tick(GimeModel* m, EvType t, unsigned nth);
+    // Line index of the nth event of type t since the last drain(), in the
+    // model's own line grid: the number of HS_FALL events after anchor + from
+    // and at or before that event's tick (an event on an HS fall belongs to
+    // the line that fall starts); -1 if there is no such event. `from` moves
+    // the start off a line boundary, where the models' HS falls straddle it.
+    int64_t event_line(GimeModel* m, EvType t, unsigned nth, uint64_t from = 0);
 
     void check(const std::string& id, std::function<int64_t(GimeModel&)> f,
                Cap cap, uint32_t tol_ticks = 0);
@@ -52,6 +58,11 @@ struct Ctx {
                    Cap cap, uint32_t tol_ticks = 0, const std::string& note = std::string());
     void check_read(const std::string& id, uint16_t addr, uint8_t mask = 0xFF); // CAP_REGS
     void check_event(const std::string& id, EvType t, unsigned nth);  // event_tick()
+    // For line-rate events (TINS=0 timer, interrupts from line-rate sources):
+    // event_line() with tolerance 0, id + "_line". Absent for a model without
+    // CAP_SYNC_EV (no HS_FALL to count). A whole-line shift that the tick
+    // check's 912-tick tolerance would pass is a mismatch here (R10/R11).
+    void check_event_line(const std::string& id, EvType t, unsigned nth, uint64_t from = 0);
 
     std::vector<CheckRecord>& records() { return records_; }
 

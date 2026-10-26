@@ -130,6 +130,29 @@ static int selftest() {
         }
         remove(path.c_str());
         CHECK_EQ("verdict_parse_rejects_unknown_model", threw && named, 1);
+        // a verdict must name a reference: "ours" would compare ours with itself
+        f = fopen(path.c_str(), "w");
+        if (f) { fputs("# header\n\n## a.x\naccurate: ours\n", f); fclose(f); }
+        threw = named = false;
+        try { parse_verdicts(path); }
+        catch (const std::runtime_error& e) {
+            threw = true;
+            named = strstr(e.what(), "verdicts.md:4:") != nullptr;
+        }
+        remove(path.c_str());
+        CHECK_EQ("verdict_parse_rejects_accurate_ours", threw && named, 1);
+    }
+    {   // a baselined split whose verdict model now matches ours is FIXED, not DISC
+        CheckRecord r = mk("a.x", 7, 7, 9);
+        CHECK_TRUE("resolve_disc_in_baseline_is_fixed",
+                 resolve(r, classify(r), vx, {{"a.x", "was bad"}}) == Status::FIXED &&
+                 resolve(r, classify(r), vx, {}) == Status::DISC);
+    }
+    {   // RESOLUTION passes but prints RES, so a within-tolerance offset is visible
+        CHECK_TRUE("console_resolution_is_res",
+                 std::string(console_label(Cls::RESOLUTION, Status::PASS)) == "RES" &&
+                 std::string(console_label(Cls::AGREE, Status::PASS)) == "PASS" &&
+                 std::string(console_label(Cls::RESOLUTION, Status::FIXED)) == "FIXED");
     }
     {   // R12: random.* gate on the baseline only for the default seed and count
         CheckRecord r = mk("random.regs.3.read_FF90", 5, 7, 7);
@@ -185,9 +208,9 @@ static int selftest() {
             return m;
         };
         bool t1, t2, t3;
-        std::map<std::string, Verdict> ok = parse_text("## a.b*\naccurate: ours\n", &t1);
-        parse_text("## a.*b\naccurate: ours\n", &t2);
-        parse_text("## a.b**\naccurate: ours\n", &t3);
+        std::map<std::string, Verdict> ok = parse_text("## a.b*\naccurate: xroar\n", &t1);
+        parse_text("## a.*b\naccurate: xroar\n", &t2);
+        parse_text("## a.b**\naccurate: xroar\n", &t3);
         CHECK_TRUE("verdict_parse_star_only_final",
                  !t1 && ok.count("a.b*") && t2 && t3);
     }
@@ -243,6 +266,21 @@ int main(int argc, char** argv) {
     if (!ri.random_gated)
         printf("note: non-default --seed/--random: random.* checks are classified and printed but do not gate\n");
     printf("mame form: %s\n", ri.mame_form.empty() ? "none (not built)" : ri.mame_form.c_str());
+    {
+        std::string built;
+        unsigned n = 0;
+#ifdef HAVE_XROAR
+        built += "xroar";
+        n++;
+#endif
+#ifdef HAVE_MAME
+        built += n ? ", mame" : "mame";
+        n++;
+#endif
+        if (n < 2)
+            printf("gating references: %u/2 (xroar, mame); built: %s\n", n,
+                   n ? built.c_str() : "none");
+    }
 
     Ctx ctx;
     std::unique_ptr<GimeModel> ours = make_ours();
@@ -283,12 +321,14 @@ int main(int argc, char** argv) {
         if (c86.models.size() == 3) {
             for (const Scenario& s : scenarios()) { c86.scenario = "v86." + s.id; s.fn(c86); }
             all.insert(all.end(), c86.records().begin(), c86.records().end());
+        } else {
+            printf("NOTICE: v86 pass skipped (needs both references)\n");
         }
     }
 
     std::vector<Cls> cls;
     std::vector<Status> sts;
-    unsigned cnt[8] = {0}, gating_fail = 0, ungated_fail = 0;
+    unsigned cnt[8] = {0}, gating_fail = 0, ungated_fail = 0, res = 0;
     std::map<std::string, unsigned> per_area;
     for (CheckRecord& r : all) {
         Cls c = classify(r);
@@ -303,8 +343,9 @@ int main(int argc, char** argv) {
         cls.push_back(c);
         sts.push_back(st);
         cnt[(int)st]++;
+        if (c == Cls::RESOLUTION && st == Status::PASS) res++;     // printed as RES
         per_area[r.id.substr(0, r.id.find('.'))]++;
-        printf("%-6s %-40s ours=%-8s xroar=%-8s mame=%-8s%s%s\n", status_console(st),
+        printf("%-6s %-40s ours=%-8s xroar=%-8s mame=%-8s%s%s\n", console_label(c, st),
                r.id.c_str(), fmt(r, "ours").c_str(), fmt(r, "xroar").c_str(),
                fmt(r, "mame").c_str(), r.note.empty() ? "" : "  ", r.note.c_str());
     }
@@ -314,8 +355,10 @@ int main(int argc, char** argv) {
     cnt[(int)Status::STALE] += (unsigned)stale.size();
 
     for (auto& kv : per_area) printf("area %-10s checks=%u\n", kv.first.c_str(), kv.second);
-    printf("TOTAL pass=%u fail=%u known=%u fixed=%u stale=%u disc=%u unresolved=%u skip=%u\n",
-           cnt[(int)Status::PASS], cnt[(int)Status::FAIL], cnt[(int)Status::KNOWN_FAIL],
+    // pass counts the exact agreements, res the passes within ours' resolution
+    // (both are passes for the exit code).
+    printf("TOTAL pass=%u res=%u fail=%u known=%u fixed=%u stale=%u disc=%u unresolved=%u skip=%u\n",
+           cnt[(int)Status::PASS] - res, res, cnt[(int)Status::FAIL], cnt[(int)Status::KNOWN_FAIL],
            cnt[(int)Status::FIXED], cnt[(int)Status::STALE], cnt[(int)Status::DISC],
            cnt[(int)Status::UNRESOLVED], cnt[(int)Status::SKIP]);
 

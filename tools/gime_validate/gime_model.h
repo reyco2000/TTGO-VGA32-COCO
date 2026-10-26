@@ -43,6 +43,9 @@ public:
   // Why last_line() returned false for a line that was rendered (e.g.
   // "undecodable px 12"); empty when there is nothing to say.
   virtual std::string last_line_note() const { return std::string(); }
+  // Border colour (6-bit) of the line last_line() last returned true for, or
+  // -1 if the model has none for it (MAME draws no border on a wide line).
+  virtual int last_line_border() const { return -1; }
 };
 
 std::unique_ptr<GimeModel> make_ours();

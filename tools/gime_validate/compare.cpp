@@ -93,8 +93,11 @@ std::map<std::string, Verdict> parse_verdicts(const std::string& path) {
         if (s.compare(0, 9, "accurate:") == 0) {
             if (have_acc) throw err(ln, "duplicate 'accurate:'");
             std::string v = trim(s.substr(9));
-            if (v != "ours" && v != "xroar" && v != "mame")
-                throw err(ln, "unknown model '" + v + "' (want ours, xroar or mame)");
+            if (v == "ours")
+                throw err(ln, "'accurate: ours' compares ours with itself; name the reference "
+                              "that has the hardware-true value (xroar or mame)");
+            if (v != "xroar" && v != "mame")
+                throw err(ln, "unknown model '" + v + "' (want xroar or mame)");
             cur.accurate = v;
             have_acc = true;
         } else if (s.compare(0, 11, "confidence:") == 0) {
@@ -160,7 +163,7 @@ Status resolve(const CheckRecord& r, Cls c, const std::map<std::string, Verdict>
         if (!v) return Status::UNRESOLVED;
         auto o = val(r, "ours"), a = val(r, v->accurate.c_str());
         if (!o || !a) return Status::UNRESOLVED;       // accurate model not observed
-        if (eq(*o, *a, r.tol)) return Status::DISC;
+        if (eq(*o, *a, r.tol)) return in_base ? Status::FIXED : Status::DISC;
         return in_base ? Status::KNOWN_FAIL : Status::FAIL;
     }
     }
@@ -211,6 +214,11 @@ const char* status_console(Status s) {
     case Status::UNRESOLVED: return "UNRES";
     default: return status_name(s);
     }
+}
+
+const char* console_label(Cls c, Status s) {
+    if (c == Cls::RESOLUTION && s == Status::PASS) return "RES";
+    return status_console(s);
 }
 
 static std::string jesc(const std::string& s) {

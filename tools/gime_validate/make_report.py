@@ -4,8 +4,8 @@
 usage: python3 -I make_report.py <results.json> <verdicts.md> <out.md>
 
 Sections: header; per-area summary; FAIL and FIXED/STALE; KNOWN-FAIL with
-baseline reasons; the discrepancy table; full verdict text; UNRESOLVED;
-shims and reference edits. random.* results are grouped by area and status
+baseline reasons; resolution-limited passes; the discrepancy table; full
+verdict text; UNRESOLVED; shims and reference edits. random.* results are grouped by area and status
 (the per-id detail stays in results.json); scripted and v86.* checks are
 listed per id. Standard library only.
 """
@@ -13,8 +13,11 @@ import datetime
 import json
 import sys
 
-STATUSES = ["PASS", "FAIL", "KNOWN_FAIL", "FIXED", "DISC", "UNRESOLVED", "SKIP"]
-COLS = ["pass", "fail", "known", "fixed", "disc", "unres", "skip"]
+# "RES" is not a status in results.json: it is a PASS whose class is
+# RESOLUTION (ours differs from the references within its resolution), split
+# out as the console does. "pass" counts the exact agreements only.
+STATUSES = ["PASS", "RES", "FAIL", "KNOWN_FAIL", "FIXED", "DISC", "UNRESOLVED", "SKIP"]
+COLS = ["pass", "res", "fail", "known", "fixed", "disc", "unres", "skip"]
 EXAMPLES = 5            # ids shown per random group
 MAX_IDS = 40            # ids shown per prefix verdict
 
@@ -65,6 +68,29 @@ def parse_verdict_text(path):
                 lines.append(line)
     flush()
     return out, order
+
+
+def is_res(c):
+    return c["status"] == "PASS" and c.get("class") == "RESOLUTION"
+
+
+def shown_status(c):
+    return "RES" if is_res(c) else c["status"]
+
+
+def offsets(c):
+    """ours - reference, per reference with a value."""
+    v = c.get("values", {})
+    o = v.get("ours")
+    out = {}
+    for r in ("xroar", "mame"):
+        if o is not None and v.get(r) is not None:
+            out[r] = o - v[r]
+    return out
+
+
+def fmt_offsets(off):
+    return ", ".join("%s %+d" % (r, d) for r, d in sorted(off.items())) or "-"
 
 
 def fmt(v):
@@ -136,7 +162,7 @@ def build(data, vtext, vorder):
     areas = {}
     for c in checks:
         row = areas.setdefault(area_of(c["id"]), dict.fromkeys(STATUSES, 0))
-        row[c["status"]] = row.get(c["status"], 0) + 1
+        row[shown_status(c)] = row.get(shown_status(c), 0) + 1
     rows, tot = [], dict.fromkeys(STATUSES, 0)
 
     def sort_key(a):
@@ -215,7 +241,45 @@ def build(data, vtext, vorder):
         out.append("None.")
     out.append("")
 
-    # 5. discrepancy table
+    # 5. resolution-limited passes
+    res = [c for c in checks if is_res(c)]
+    out.append("## Resolution-limited (%d)" % len(res))
+    out.append("")
+    out.append("Passes where ours differs from the references by no more than its resolution for that "
+               "capability (tolerance, in ticks; ours resolves events to a whole line, 912 ticks). "
+               "Offsets are ours - reference. Counted as passes; listed so that a drift inside the "
+               "tolerance stays visible.")
+    out.append("")
+    rs = [c for c in res if not is_random(c["id"])]
+    if rs:
+        out += table(["id", "ours", "xroar", "mame", "tol", "ours - ref"],
+                     [[c["id"]] + list(values_of(c)) + [str(c.get("tol", 0)), fmt_offsets(offsets(c))]
+                      for c in rs])
+        out.append("")
+    rr = [c for c in res if is_random(c["id"])]
+    if rr:
+        out.append("random (grouped by area; per-id detail in results.json):")
+        out.append("")
+        g = {}
+        for c in rr:
+            g.setdefault(area_of(c["id"]), []).append(c)
+        for a in sorted(g):
+            cs = g[a]
+            rng = {}
+            for c in cs:
+                for r, d in offsets(c).items():
+                    lo, hi = rng.get(r, (d, d))
+                    rng[r] = (min(lo, d), max(hi, d))
+            span = ", ".join("%s %+d..%+d" % (r, lo, hi) for r, (lo, hi) in sorted(rng.items())) or "-"
+            out.append("- `%s`: %d, tol %s, ours - ref %s (e.g. %s)" % (
+                a, len(cs), "/".join(sorted({str(c.get("tol", 0)) for c in cs})), span,
+                code_ids([c["id"] for c in cs], EXAMPLES)))
+        out.append("")
+    if not res:
+        out.append("None.")
+        out.append("")
+
+    # 6. discrepancy table
     disc = [c for c in checks if c.get("class") == "REF_SPLIT"]
     disc_s = [c for c in disc if not is_random(c["id"])]
     out.append("## Discrepancies (XRoar and MAME disagree, or one reference only and ours differs)")
@@ -248,7 +312,7 @@ def build(data, vtext, vorder):
         out += sink
     out.append("")
 
-    # 6. verdict text
+    # 7. verdict text
     out.append("## Verdicts")
     out.append("")
     used_exact, used_prefix = {}, {}
@@ -274,7 +338,7 @@ def build(data, vtext, vorder):
         out.append("No verdict entries.")
         out.append("")
 
-    # 7. UNRESOLVED
+    # 8. UNRESOLVED
     unres = [c for c in checks if c["status"] == "UNRESOLVED"]
     out.append("## UNRESOLVED (%d)" % len(unres))
     out.append("")
@@ -297,7 +361,7 @@ def build(data, vtext, vorder):
         out.append("None.")
     out.append("")
 
-    # 8. shims and reference edits
+    # 9. shims and reference edits
     out.append("## Shims and reference edits")
     out.append("")
     out.append("The reference GIME logic is compiled unmodified; shims replace only plumbing "

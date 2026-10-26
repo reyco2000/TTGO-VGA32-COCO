@@ -111,21 +111,29 @@ public:
         return true;
     }
     std::string last_line_note() const override { return line_note_; }
+    // border_colour as run_line computed it for that line (machine.cpp hands
+    // it to the HAL, which draws the border).
+    int last_line_border() const override { return border_; }
 
 private:
     // One scanline, in machine_run_scanline_coco3() order. Everything that
     // happens at the line's end in machine.cpp is stamped at now_ (the line
     // boundary): ours resolves sync events to a whole line (912 ticks).
     void run_line() {
-        // mirrors machine.cpp:675-682 (timer tick, HS edges to PIA0 CA1)
+        // The two MIRROR blocks below are copies of machine.cpp's
+        // machine_run_scanline_coco3(); run.sh diffs them against machine.cpp
+        // (normalisation rules in run.sh) and fails the build on any drift.
+        // mirrors machine.cpp's timer tick and HS edges to PIA0 CA1
+        // MIRROR-BEGIN timer
         tcc1014_tick_scanline(&g_);
         for (; fires_ < g_.timer_fires; fires_++)
             ev_.push_back({ EvType::TIMER, now_ });
         ev_.push_back({ EvType::HS_FALL, now_ });  // mc6821_ca1_transition(false)
+        // MIRROR-END timer
 
-        // mirrors machine.cpp:717-848 (vertical timing), except the render
-        // and HAL calls at machine.cpp:796-816; PIA0 CB1 transitions become
-        // FS_FALL / FS_RISE events. Diff this block against those lines.
+        // mirrors machine.cpp's vertical timing, except the render and HAL
+        // calls; PIA0 CB1 transitions become FS_FALL / FS_RISE events.
+        // MIRROR-BEGIN vertical
         TCC1014* g = &g_;
         unsigned scanline = scanline_;  // 0-261 absolute
         have_line_ = false;             // until this line renders an active area
@@ -193,16 +201,18 @@ private:
                     g->border_colour = g->BRDR;
                 }
 
-                // mirrors machine.cpp:796-816, the render call only (no HAL):
+                // mirrors machine.cpp's render call only (no HAL):
                 // raw_output false, so line_buffer holds byte-swapped RGB565.
                 // line_clean (OPT-G5) can only skip a line when raw_output is
                 // set and a raw LUT is registered, neither of which holds
                 // here; the signatures are cleared anyway so that line_buffer
                 // always holds this line, whatever that skip rule becomes.
+                // MIRROR-RENDER-BEGIN
                 tcc1014_invalidate_lines();
                 g->raw_output = false;
                 tcc1014_render_scanline(g, display_line);
                 capture_line();
+                // MIRROR-RENDER-END
 
                 g->row = (g->row + 1) & 15;
                 bool row_advance = false;
@@ -231,6 +241,7 @@ private:
         if (scanline_ >= SCANLINES_PER_FRAME) {
             scanline_ = 0;
         }
+        // MIRROR-END vertical
 
         sync_edges();
     }
@@ -259,6 +270,7 @@ private:
             if (i == 16) { line_note_ = "undecodable px " + std::to_string(k); return; }
             line_[k] = g->palette_reg[i] & 0x3F;
         }
+        border_ = g->border_colour & 0x3F;
         have_line_ = true;
     }
 
@@ -285,6 +297,7 @@ private:
     std::vector<Event> ev_;
     std::vector<uint8_t> line_;     // colours of the last finished line, if have_line_
     bool have_line_ = false;
+    int border_ = -1;
     std::string line_note_;
 };
 

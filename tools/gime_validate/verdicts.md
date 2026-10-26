@@ -16,13 +16,16 @@ confidence: high
 <free markdown>
 ```
 
-- `accurate:` (required) is one of `ours`, `xroar`, `mame`.
+- `accurate:` (required) is `xroar` or `mame`: a verdict must name a
+  reference. `accurate: ours` is rejected (it would compare ours with itself,
+  so every covered check would be DISC whatever ours does); when ours is
+  believed right, name the reference that agrees with it.
 - `confidence:` (optional, default `medium`) is `high`, `medium` or `low`.
 - A `## ` line always starts a new entry, so sub-headings inside an entry
   must use `###` or deeper.
 - Lines inside a fenced block (like the example above) are ignored.
-- A malformed entry (unknown model, bad confidence, missing `accurate:`, a
-  duplicate id, a bad id) is a hard error naming the line.
+- A malformed entry (unknown model, `ours`, bad confidence, missing
+  `accurate:`, a duplicate id, a bad id) is a hard error naming the line.
 
 ### Prefix verdicts
 
@@ -46,10 +49,12 @@ match runs 60-69), and check the report's prefix listing after adding one.
 
 ### Coverage of the random checks
 
-`random.regs.*`, `random.video.*` and `random.irq.*` each have a single
-verdict, because every split in them comes from causes that favour the same
-model. `random.mmu.*` has an area verdict plus one entry per run for the
-runs whose `$FE00` page splits have a different cause. `random.render.*`
+`random.regs.*`, `random.timer.*`, `random.video.*` and `random.irq.*` each
+have a single verdict, because every split in them comes from causes that
+favour the same model. `random.mmu.*` has an area verdict plus one entry per
+run for the runs whose `$FE00` page splits have a different cause; its decode
+`_Z` checks of ROM or cartridge slots, where MAME keeps no Z and only XRoar
+observes one, stay UNRESOLVED (2-way, no MAME value to resolve against). `random.render.*`
 has no verdict: replaying each run's writes shows its splits mix several
 causes that are not judged yet (the X offset in COCO mode, which XRoar
 applies and calls "needs verifying" in a403bc6a, in 47 of 81 runs; LPF in
@@ -75,7 +80,7 @@ Tim Lindner's real-hardware test tools
 https://github.com/tlindner/coco_key_test).
 
 ## reset.read_FFA*
-accurate: ours
+accurate: mame
 confidence: low
 
 ### MMU registers after reset ($FFA0-$FFAF)
@@ -90,12 +95,13 @@ pages found (cocopedia "Understanding and Using the MMU") describe only what BAS
 CoCo 3 ROM writes all 16 registers itself, so software never depends on the reset value. MAME's comment at
 `gime.cpp:305` ("Tepolt verifies that the GIME registers are all cleared") is about $FF90-$FF9F, not the MMU.
 Two of three emulators (MAME, VCC) agree with ours; XRoar's zero is a by-product of allocation, not a stated
-model. `accurate: ours` (= MAME) rather than `mame` so that the `random.mmu.*` checks where MAME reports no Z (ROM
-or cartridge slots) also resolve. Not an ours bug either way; confidence is low because the hardware value is
+model. `accurate: mame` (= ours = VCC): the verdict names the reference that agrees with ours. The `random.mmu.*`
+decode `_Z` checks where MAME reports no Z (ROM or cartridge slots) are UNRES under this verdict, as they should be:
+only XRoar observes them. Not an ours bug either way; confidence is low because the hardware value is
 unknown.
 
 ## random.regs.*
-accurate: ours
+accurate: mame
 confidence: low
 
 Every split in this area is a read of an MMU register that the run never wrote (`random.regs.<k>.read_FFAx`),
@@ -116,10 +122,10 @@ Sock: "the upper 2 bits must be masked out as they return bleedover from the bus
 one)". VCC returns `(lastBus() & 0xC0) | (data & 0x3F)` for the MMU registers (`tcc1014registers.cpp:318`). A mametesters report (https://mametesters.org/view.php?id=5135) says bit 6 reads 1 on a real CoCo 3. So
 neither 0 nor $FF is "the" hardware value; the references pass the bus through and ours does not.
 
-`undriven_bits_ff92` also includes a real difference: ours does not latch TMR when $FF92 is written with the
-timer at 0 (see the baseline reason "no TMR latch on enable"). MAME returns `m_irq` with no floating bits
-(`gime.cpp:690-693`), which is why it reads 32 against XRoar's 224. All three FAILs are baselined with the
-harness-convention reason.
+The checks read bits 7-6 only (mask $C0), so `undriven_bits_ff92` leaves out bit 5 (TMR): whether the $FF92 write
+latches TMR with the timer at 0 is covered by `regs.readback_FF92_*`. For $FF92 the references split: MAME returns
+`m_irq` with no floating bits (`gime.cpp:690-693`), so it reads 0 like ours, against XRoar's $C0. For the MMU and
+palette groups both references read $C0. All three FAILs are baselined with the harness-convention reason.
 
 ## mmu.mc3_fe00_clr_*
 accurate: xroar
@@ -155,7 +161,7 @@ undocumented. XRoar is the only model that defines S here, so it is taken as acc
 Ours: no difference.
 
 ## random.mmu.*
-accurate: ours
+accurate: mame
 confidence: low
 
 Every split in this area except the run-level `random.mmu.<k>.decode_FE*` entries below is the MMU reset value:
@@ -204,6 +210,39 @@ The check measures the first VBORD rise from reset, so it combines the power-on 
 
 The verdict follows `video.vbord_line_*` for the part that can be judged. Ours FAILs by the VBORD-line cause;
 MAME's value is mostly reset phase. Low confidence because of the phase part.
+
+## irq.enable_tmr_*
+accurate: xroar
+confidence: high
+
+### TINS=0 timer fires on an HS fall (line index of the TMR rise)
+
+The only split under this prefix is `irq.enable_tmr_{irq,firq}_en1_m1_rise_line`: the line index of the TMR rise
+(HS falls counted in each model's own line grid since reset). The tick checks agree within ours' resolution.
+
+- XRoar decrements the TINS=0 counter in its HS fall handler and expires it there (`tcc1014.c:1051-1056`), "timer
+  interrupts being coincident with HS fall verified on scope" (`tcc1014.c:126-128`). The rise is on its 6th HS fall.
+- MAME schedules a TINS=0 period as 3648 master clocks (one line) times the count from the moment the timer is
+  reloaded (`gime.cpp:472-475`), not on its HS edges, so its fire is 64 ticks after its 5th HS fall (its HS falls
+  are at 1760 + 912k after reset): 5.
+- Ours ticks the timer at the line end, with the HS fall (`machine.cpp:675-682`): 6, as XRoar.
+
+Ours: no difference. The same cause splits MAME from the others in `random.timer.<k>.ev*_line` when the count
+starts at reset.
+
+## irq.enable_hbord_*
+accurate: xroar
+confidence: low
+
+### Line of the first HBORD after reset
+
+The only split under this prefix is `irq.enable_hbord_{irq,firq}_en1_m1_rise_line`, the line index of the first
+HBORD rise after reset (the tick checks agree within ours' resolution and are baselined for ours). XRoar raises
+HBORD at its right-border point 1673 ticks after reset, after its first HS fall at 922 (`tcc1014.c:1186-1188`, the
+HBORD point measured by scope in b24f5281): line 1. MAME raises it from its HS callback 912 ticks after reset
+(`gime.cpp:1258-1261`), before its first HS fall at 1760: line 0. This is cause 2 of `random.irq.*`, with its confidence: XRoar's HBORD
+position within the line is the measured one, but the first line after reset is not measured. Ours (44) raises HBORD only on active-area lines, the
+`HBORD on every line` bug (baselined).
 
 ## video.lines_per_field_*
 accurate: xroar
@@ -405,6 +444,16 @@ copy of ours (never committed): ours patched to XRoar's d9bba8a3 interrupt logic
 enable, no TMR re-latch on a status read, enable write keeping still-enabled pending bits) clears 247 of the 343
 `random.irq` FAILs, ours patched to raise HBORD on every line clears 70, 12 clear with either patch and 38 need
 both.
+
+## random.timer.*
+accurate: xroar
+confidence: high
+
+Every split in this area is a `random.timer.<k>.ev*_line` check (TINS=0 at the end of the run's writes): the line
+index of the fire, counted in each model's own HS grid. Ours and XRoar agree in all of them; MAME is one lower, in
+the runs whose random advance is 0 lines, so that the count starts at reset: MAME schedules TINS=0 periods from the
+reload instead of on its HS falls (`gime.cpp:472-475`), and its first HS fall after reset comes at 1760 ticks, not
+848, so one fewer HS fall precedes the same fire tick. Same cause and evidence as `irq.enable_tmr_*`.
 
 ## random.mmu.6.decode_FE*
 accurate: xroar

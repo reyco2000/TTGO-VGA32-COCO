@@ -56,6 +56,7 @@ public:
         first_active_px = -1;
         return g_->last_line(colours);
     }
+    int last_line_border() const override { return g_->last_line_border(); }
 
 private:
     std::unique_ptr<MameGime> g_;

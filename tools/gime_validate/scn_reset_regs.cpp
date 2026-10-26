@@ -45,6 +45,9 @@ SCENARIO(regs, readback) {
 }
 
 // Bits 7-6 of the masked groups (information: floating bus on hardware).
+// Only bits 7-6 are read (mask $C0): in $FF92 bit 5 is the TMR status, and
+// whether the $FF92 write latches TMR (timer at 0) is a different question,
+// covered by regs.readback_FF92_*.
 SCENARIO(regs, undriven_bits) {
     const struct { const char* id; uint16_t addr; } g[] = {
         { "regs.undriven_bits_ff92", 0xFF92 },
@@ -54,6 +57,6 @@ SCENARIO(regs, undriven_bits) {
     for (auto& e : g) {
         ctx.reset();
         ctx.write(e.addr, 0xFF);
-        ctx.check_read(e.id, e.addr);
+        ctx.check_read(e.id, e.addr, 0xC0);
     }
 }

@@ -8,7 +8,7 @@ regs.readback_FF92_AA  # ours: no TMR latch when $FF92/$FF93 enables TMR at time
 regs.readback_FF92_FF  # ours: no TMR latch when $FF92/$FF93 enables TMR at timer 0 (pre-d9bba8a3 XRoar interrupt logic)
 regs.readback_FF93_AA  # ours: no TMR latch when $FF92/$FF93 enables TMR at timer 0 (pre-d9bba8a3 XRoar interrupt logic)
 regs.readback_FF93_FF  # ours: no TMR latch when $FF92/$FF93 enables TMR at timer 0 (pre-d9bba8a3 XRoar interrupt logic)
-regs.undriven_bits_ff92  # harness convention: ours drives undriven bits 7-6 as 0, adapters float $FF (not a GIME accuracy claim); also no TMR latch when $FF92/$FF93 enables TMR at timer 0 (pre-d9bba8a3 XRoar interrupt logic)
+regs.undriven_bits_ff92  # harness convention: ours drives undriven bits 7-6 as 0, adapters float $FF (not a GIME accuracy claim)
 regs.undriven_bits_mmu  # harness convention: ours drives undriven bits 7-6 as 0, adapters float $FF (not a GIME accuracy claim)
 regs.undriven_bits_palette  # harness convention: ours drives undriven bits 7-6 as 0, adapters float $FF (not a GIME accuracy claim)
 timer.tins1_period_1_ev2  # ours: TINS=1 timer fires at most once per scanline
@@ -22,9 +22,13 @@ timer.restart_on_lsb_write_tins1_ev2  # ours: TINS=1 re-arm reuses the old count
 timer.tins1_period_4095_ev100  # ours: TINS=1 counts 227.5 per line instead of 228
 timer.tins1_period_596_ev1000  # ours: TINS=1 counts 227.5 per line instead of 228
 irq.enable_hbord_irq_en1_m1_rise  # ours: HBORD raised only on active-area lines
+irq.enable_hbord_irq_en1_m1_rise_line  # ours: HBORD raised only on active-area lines
 irq.enable_hbord_firq_en1_m1_rise  # ours: HBORD raised only on active-area lines
+irq.enable_hbord_firq_en1_m1_rise_line  # ours: HBORD raised only on active-area lines
 irq.enable_vbord_irq_en1_m1_rise  # ours: VBORD one line early (end of last active line) (first VBORD after reset; MAME also differs by reset phase)
+irq.enable_vbord_irq_en1_m1_rise_line  # ours: VBORD one line early (end of last active line)
 irq.enable_vbord_firq_en1_m1_rise  # ours: VBORD one line early (end of last active line) (first VBORD after reset; MAME also differs by reset phase)
+irq.enable_vbord_firq_en1_m1_rise_line  # ours: VBORD one line early (end of last active line)
 irq.enable_ei2_irq_en1_m1_line_after_read  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
 irq.enable_ei2_firq_en1_m1_line_after_read  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)
 irq.enable_ei1_irq_en1_m1_line_after_read  # ours: EI inputs sampled as levels, re-latched after acknowledge (pre-d9bba8a3 XRoar interrupt logic)

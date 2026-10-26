@@ -78,6 +78,10 @@ SCENARIO(irq, enable_matrix) {
                     fire(ctx, s.bit);
                     ctx.check_event(std::string(id) + "_rise",
                                     firq ? EvType::FIRQ_RISE : EvType::IRQ_RISE, 0);
+                    // TMR (a TINS=0 timer), HBORD and VBORD are line-rate.
+                    if (!is_ei(s.bit))
+                        ctx.check_event_line(std::string(id) + "_rise",
+                                             firq ? EvType::FIRQ_RISE : EvType::IRQ_RISE, 0);
                     line_checks(ctx, id, firq);
                     ctx.check_read(std::string(id) + "_read", reg, 0x3F);
                     ctx.check(std::string(id) + "_line_after_read", [firq](GimeModel& m) {

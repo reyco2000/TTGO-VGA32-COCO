@@ -28,6 +28,9 @@ public:
     virtual std::vector<Event> drain_events() = 0;
     // 6-bit colours of the active area of the most recent finished line.
     virtual bool last_line(std::vector<uint8_t>& colours) = 0;
+    // Its border colour: the bitmap pixel left of the active area; -1 on a
+    // wide line, which has no border pixels.
+    virtual int last_line_border() const = 0;
 };
 
 namespace mame86 { std::unique_ptr<MameGime> create(uint8_t* ram, uint32_t ram_size); }

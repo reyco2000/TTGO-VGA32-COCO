@@ -90,6 +90,7 @@ public:
         first_active_px = (int)line_first_;
         return true;
     }
+    int last_line_border() const override { return border_; }
 
 private:
     static void push(EvType t) { g_live->ev_.push_back({ t, xg_now() }); }
@@ -109,6 +110,7 @@ private:
         }
         m->line_.assign(data + a, data + b);
         m->line_first_ = a;
+        m->border_ = a > 0 ? (int)(data[a - 1] & 0x3F) : -1;   // the pixel left of the active area
         m->have_line_ = true;
     }
 
@@ -117,6 +119,7 @@ private:
     std::vector<Event> ev_;
     std::vector<uint8_t> line_;
     unsigned line_first_ = 0;
+    int border_ = -1;
     bool have_line_ = false;
 };
 

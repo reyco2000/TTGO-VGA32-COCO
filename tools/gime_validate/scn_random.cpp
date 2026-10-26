@@ -97,16 +97,23 @@ void area_mmu(Ctx& ctx, Rng& r, unsigned k) {
 }
 
 // timer: INIT0, INIT1, the two timer registers. Probe: the first two fire
-// ticks from the point after the random advance, over a fixed window. The
+// ticks from the point after the random advance, over a fixed window, and
+// with TINS=0 at the end also their line indices (_line). The
 // reload's MSB is mostly 0 so that most timers fire inside the window.
 void area_timer(Ctx& ctx, Rng& r, unsigned k) {
     ctx.reset();
     ctx.write(0xFF90, 0x40);
+    bool tins = false;                                    // INIT1 TINS after the writes
     unsigned n = 1 + r.below(20);
     for (unsigned i = 0; i < n; i++) {
         unsigned kind = r.below(4);
         switch (kind) {
-        case 0: { uint8_t b = r.byte(); ctx.write(0xFF91, (uint8_t)(b & 0x21)); break; }   // TINS, TR
+        case 0: {                                         // TINS, TR
+            uint8_t b = r.byte();
+            ctx.write(0xFF91, (uint8_t)(b & 0x21));
+            tins = (b & 0x20) != 0;
+            break;
+        }
         case 1: { uint8_t b = r.byte(); ctx.write(0xFF95, b); break; }
         case 2: {
             unsigned nonzero = r.below(4);                // 3 in 4: MSB 0
@@ -123,6 +130,14 @@ void area_timer(Ctx& ctx, Rng& r, unsigned k) {
     ctx.lines(300);
     ctx.check_event(rid("timer", k, "ev1"), EvType::TIMER, 0);
     ctx.check_event(rid("timer", k, "ev2"), EvType::TIMER, 1);
+    if (!tins) {                                          // a line-rate timer
+        // The anchor is on a line boundary: on ours' HS fall (drained, not
+        // counted) and 10 ticks before XRoar's (counted), which would put the
+        // line indices one apart for no timer difference. Count HS falls from
+        // half a line on instead (the phase rule of scn_timer.cpp).
+        ctx.check_event_line(rid("timer", k, "ev1"), EvType::TIMER, 0, 456);
+        ctx.check_event_line(rid("timer", k, "ev2"), EvType::TIMER, 1, 456);
+    }
 }
 
 // irq: INIT0 (IEN, FEN), the two enable registers and the IL lines.

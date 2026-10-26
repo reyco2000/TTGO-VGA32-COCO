@@ -87,6 +87,7 @@ public:
     bool legacy_video() const { return m_legacy_video; }
     bool line_ready = false;            // a body line was recorded on this HS rise
     std::vector<uint8_t> line;          // its colours
+    int border = -1;                    // its border colour (-1: wide line, none)
 
     // Pointer the read/write bank gives for CPU address addr (< $FF00).
     uint8_t* bank_ptr(uint16_t addr, bool write) {
@@ -118,6 +119,7 @@ private:
         int a = wide ? 0 : 64, n = wide ? 640 : 512;
         line.resize(n);
         for (int i = 0; i < n; i++) line[i] = (uint8_t)(bm_.pix(y, a + i) & 0x3F);
+        border = a > 0 ? (int)(bm_.pix(y, a - 1) & 0x3F) : -1;
         line_ready = true;
     }
 
@@ -139,7 +141,7 @@ public:
             // HS rise ends a line: the record_*_scanline call for it came first
             // (mc6847.cpp:328-383); retrace and blanking lines record nothing.
             have_line_ = gime_.line_ready;
-            if (have_line_) line_.swap(gime_.line);
+            if (have_line_) { line_.swap(gime_.line); border_ = gime_.border; }
             gime_.line_ready = false;
         });
         gime_.fsync_wr_callback().set([this](int s) { push(s ? EvType::FS_RISE : EvType::FS_FALL); });
@@ -206,6 +208,7 @@ public:
         colours = line_;
         return true;
     }
+    int last_line_border() const override { return border_; }
 
 private:
     void push(EvType t) { ev_.push_back({ t, now() }); }
@@ -220,6 +223,7 @@ private:
     bool irq_ = false, firq_ = false;
     std::vector<Event> ev_;
     std::vector<uint8_t> line_;
+    int border_ = -1;
     bool have_line_ = false;
 };
 

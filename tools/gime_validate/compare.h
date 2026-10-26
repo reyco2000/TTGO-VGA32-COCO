@@ -42,7 +42,7 @@ struct RunInfo {
 
 Cls classify(CheckRecord& r);
 
-struct Verdict { std::string id, accurate; std::string confidence; };  // id may end in "*" (prefix); accurate in {ours,xroar,mame}
+struct Verdict { std::string id, accurate; std::string confidence; };  // id may end in "*" (prefix); accurate in {xroar,mame}
 std::map<std::string, Verdict> parse_verdicts(const std::string& path);   // throws std::runtime_error("verdicts.md:<line>: ...")
 std::map<std::string, std::string> parse_baseline(const std::string& path); // id -> reason; absent file = empty
 
@@ -66,6 +66,9 @@ bool fails_run(const CheckRecord& r, Status s, bool random_gated = true);
 const char* cls_name(Cls c);
 const char* status_name(Status s);        // JSON/long name
 const char* status_console(Status s);     // PASS FAIL KNOWN FIXED STALE DISC UNRES SKIP
+// The console label of a resolved check: status_console(s), except RES for a
+// PASS that is RESOLUTION-limited (ours differs within its resolution).
+const char* console_label(Cls c, Status s);
 
 // Both writers return false (after printing why) if the file can't be written.
 bool write_results_json(const std::string& path, const std::vector<CheckRecord>&,

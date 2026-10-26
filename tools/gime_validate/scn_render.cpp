@@ -27,6 +27,8 @@ const unsigned YS[] = { 0, 1, 7, 8, 100 };
 const unsigned LAST_Y = 191;        // every mode here has 192 active lines (LPF 0 / COCO)
 
 uint8_t ram_pattern(uint32_t a) { return (uint8_t)((a * 37) ^ (a >> 8)); }
+const uint8_t BRDR = 0x2A;          // GIME-mode border ($FF9A): not one of the palette's i*4+1
+const unsigned BORDER_Y = 100;      // display line whose border colour is compared
 
 struct Mode {
     std::string name;
@@ -56,6 +58,7 @@ void setup(Ctx& ctx, const Mode& m) {
         ctx.write(0xFF9D, 0x20);                     // Y = $10000
         ctx.write(0xFF9E, 0x00);
         ctx.write(0xFF9F, m.ff9f);
+        ctx.write(0xFF9A, BRDR);
     }
     ctx.drain();
 }
@@ -92,7 +95,7 @@ std::vector<Mode> modes() {
     return v;
 }
 
-struct Line { bool ok; std::vector<uint8_t> c; int first_px; std::string note; };
+struct Line { bool ok; std::vector<uint8_t> c; int first_px; int border; std::string note; };
 using Field = std::map<GimeModel*, std::vector<Line>>;
 
 // The active-area lines of one field, in order, per model with CAP_RENDER.
@@ -109,6 +112,7 @@ Field trace_field(Ctx& ctx) {
             if (!(m->caps() & CAP_RENDER)) continue;
             Line l;
             l.ok = m->last_line(l.c, l.first_px);
+            l.border = l.ok ? m->last_line_border() : -1;
             if (!l.ok) {
                 l.note = m->last_line_note();
                 if (l.note.empty()) continue;        // not an active line
@@ -171,7 +175,12 @@ std::string diff_note(Ctx& ctx, Field& f, unsigned y) {
 //                               from HS fall); absent for a model with no
 //                               valid line 0 or no horizontal position (ours
 //                               keeps none)
-void render_observe(Ctx& ctx, const std::string& pre) {
+//   <pre>.border_colour  (with_border) the border colour of display line
+//                               BORDER_Y: ours' border_colour as run_line
+//                               computes it, the pixel left of the active
+//                               area in XRoar and MAME; absent for a model
+//                               with no border pixel (MAME on a wide line)
+void render_observe(Ctx& ctx, const std::string& pre, bool with_border) {
     Field f = trace_field(ctx);
     std::vector<unsigned> ys(std::begin(YS), std::end(YS));
     ys.push_back(LAST_Y);
@@ -194,32 +203,37 @@ void render_observe(Ctx& ctx, const std::string& pre) {
         const Line* l = line_at(f, &m, 0);
         if (!l || !l->ok || l->first_px < 0) return std::nullopt;
         return l->first_px; }, CAP_RENDER);
+    if (with_border)
+        ctx.check_opt(pre + ".border_colour", [&](GimeModel& m) -> std::optional<int64_t> {
+            const Line* l = line_at(f, &m, BORDER_Y);
+            if (!l || !l->ok || l->border < 0) return std::nullopt;
+            return l->border; }, CAP_RENDER);
 }
 
 } // namespace
 
 // For scn_random.cpp: the same observations, ids prefixed with `pre`.
-void render_observe_after_setup(Ctx& ctx, const std::string& pre) { render_observe(ctx, pre); }
+void render_observe_after_setup(Ctx& ctx, const std::string& pre) { render_observe(ctx, pre, false); }
 
 SCENARIO(render, modes) {
     for (const Mode& md : modes()) {
         setup(ctx, md);
-        render_observe(ctx, "render." + md.name);
+        render_observe(ctx, "render." + md.name, true);
     }
 }
 
 // Review focus 5: a top-border line (FS fall + 7 blanking + 20 of the 36
-// border lines) has no active area. Ours renders nothing for it, so its value
-// is absent (SKIP), not an empty line compared against border colour.
+// border lines) has no active area. The check is 1 if the model reports an
+// active line there, 0 if not: every model must say 0 (ours renders nothing
+// for a border line, and it is never compared as an empty line against
+// border colour).
 SCENARIO(render, border_line) {
     setup(ctx, { "border", false, 0x80, 0x1E, 0x00, 0, 0 });   // 160 bytes, 16 colours
     ctx.sync_after(EvType::FS_FALL, LINE);
     ctx.drain();
     ctx.sync_after(EvType::FS_FALL, 27 * LINE);
-    ctx.check_opt("render.border_line_is_skipped_for_ours",
-                  [](GimeModel& m) -> std::optional<int64_t> {
+    ctx.check("render.border_line_has_active_line", [](GimeModel& m) {
         std::vector<uint8_t> c;
         int px;
-        if (!m.last_line(c, px)) return std::nullopt;
-        return line_hash(c); }, CAP_RENDER);
+        return (int64_t)m.last_line(c, px); }, CAP_RENDER);
 }
