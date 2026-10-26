@@ -510,7 +510,8 @@ static const unsigned SAM_V_rowmask[8] = { 11, 0, 2, 0, 1, 0, 0, 0 };
 with two reference implementations compiled unmodified: XRoar's `src/tcc1014/tcc1014.c` and MAME's
 `src/mame/trs/gime.cpp`, the latter built as a 1987 and a 1986 GIME. Each scenario applies the same
 register writes, IL changes and line advances to every model and records one check per observation
-(register reads, MMU decode, timer and interrupt event ticks, sync timing, rendered line hashes).
+(register reads, MMU decode, timer and interrupt event ticks and line indices, sync timing, rendered line
+hashes and border colours).
 The common time base is the 14.31818 MHz pixel clock, 912 ticks per scanline. Only accuracy is
 compared, never speed.
 
@@ -526,21 +527,29 @@ tools/gime_validate/run.sh --update-baseline
 `XROAR_SRC` and `MAME_SRC` default to `~/proyectos/coco-emu-other-projects-source/{xroar,mame}`.
 A missing tree or a failed oracle build prints a NOTICE and that model's checks are SKIPPED. The run
 writes `${TMPDIR:-/tmp}/gime_validate/results.json` and `gime_validation_report.md` (summary by area,
-failures, baseline, discrepancy table, every verdict with the checks it covered, UNRESOLVED list, and the
-reference edits).
+failures, baseline, resolution-limited passes with ours' offset from each reference, discrepancy table,
+every verdict with the checks it covered, UNRESOLVED list, and the reference edits). When a reference is
+missing the console header says `gating references: N/2 (xroar, mame)`, and the 1986 (`v86.`) pass,
+which needs both, is skipped with a NOTICE.
+
+Before building, `run.sh` checks that the copy of `machine.cpp`'s scanline loop in `model_ours.cpp`
+(the `MIRROR-BEGIN`/`MIRROR-END` blocks) still matches `src/core/machine.cpp`: it finds the ranges by
+anchor text, normalises the intended differences (rules in the comment above the check in `run.sh`)
+and stops the build with `MIRROR DRIFT` and a diff if anything else differs.
 
 ### Statuses
 
 | Status | Meaning |
 |---|---|
-| PASS | All models agree, or differ by less than ours' resolution for that capability (ours resolves events to a whole line, 912 ticks). |
+| PASS | All models agree exactly. |
+| RES | Ours differs from the references by no more than its resolution for that capability (ours resolves events to a whole line, 912 ticks). A pass; the report lists each one with ours' offset from each reference. |
 | FAIL | Ours differs from the hardware-true value: both references agree against ours, or the verdict's model disagrees with ours. Fails the run. |
 | KNOWN | A FAIL listed in `known_failures.txt` (the baseline), with a reason. Does not fail the run. |
-| FIXED | A baselined check that now passes. Fails the run until it is removed from the baseline. |
+| FIXED | A baselined check that now passes, or now matches the verdict's model (would be DISC). Fails the run until it is removed from the baseline. |
 | STALE | A baseline id that no longer exists (renamed or deleted check). Fails the run until removed. |
 | DISC | XRoar and MAME disagree, a verdict names the accurate one, and ours matches it. Also every `v86.` (1986 GIME, references only) split, which is information only. |
 | UNRES | XRoar and MAME disagree and no verdict covers the check. Does not fail the run. |
-| SKIP | A model lacks the capability (for example ours has no horizontal position, so `first_active_px` is skipped). |
+| SKIP | A model lacks the capability or has no value for the check (for example `first_active_px`, see Known limits). |
 
 Random checks (`random.<area>.<run>.<observation>`) gate the run only with the default seed (0x6809)
 and run count (200), because their ids depend on both.
@@ -557,7 +566,8 @@ again and check `exit=0`.
 ### Adding a verdict
 
 When the references split (UNRES), find out which is hardware-true and add an entry to
-`tools/gime_validate/verdicts.md`: a `## <check id>` heading, an `accurate: ours|xroar|mame` line, an
+`tools/gime_validate/verdicts.md`: a `## <check id>` heading, an `accurate: xroar|mame` line (a verdict
+must name a reference; `accurate: ours` is rejected, since it would compare ours with itself), an
 optional `confidence: high|medium|low` line, and free markdown with what each model does (file:line),
 the evidence, and whether ours is a bug or a simplification. An id ending in `*` covers every check
 whose id starts with the text before it; matching is a plain string prefix (`a.b*` also matches
@@ -578,20 +588,45 @@ names as hardware-true; full evidence is in `verdicts.md`.
 | HBORD on every line, borders included | XRoar = MAME = VCC | high | bug: only on active-area lines |
 | TINS=1 timer: one fire per 4·(n+1) pixel ticks, 228 counts per 912-tick line, reload re-read at each expiry | XRoar = MAME | high | bug: at most one fire per line; 227.5 per line; re-arm keeps the old count |
 | X offset ($FF9F) | XRoar = MAME | high | bug: ignored |
-| Field length: 263 lines at 60 Hz | XRoar | medium | bug: 262 lines (as MAME and VCC) |
-| VBORD 7 + lTB + lAA lines after FS fall | XRoar | medium | one line early |
+| Field length: 263 lines at 60 Hz (also the 2-line split of `video.vsc_latch` and `video.voffset_latch_*`, the latch line counted across a field) | XRoar | medium | bug: 262 lines (as MAME and VCC) |
+| VBORD 7 + lTB + lAA lines after FS fall | XRoar | medium; low for the first VBORD after reset (`irq.enable_vbord_*`, mixed with the power-on frame phase) | one line early |
+| TINS=0 timer fires on an HS fall (its line index in the model's own HS grid; `irq.enable_tmr_*`, `random.timer.*`) | XRoar (scope-verified) | high | same as XRoar; MAME schedules line periods from the reload, not on HS |
+| First HBORD after reset: line 1 (XRoar, right-border point) or line 0 (MAME, HS callback); `random.irq.*` cause 2, `irq.enable_hbord_*` | XRoar | low | bug: HBORD only on active-area lines (the HBORD row above) |
 | Mid-line register and palette writes take effect at the beam | XRoar | high | simplification: whole line rendered at line end (MAME too) |
 | Font character $15 row 4 = $54 | MAME = VCC | medium | bug: $5C copied from XRoar |
 | 16-colour 16-byte-per-row modes drop the second byte of each 16-bit fetch | XRoar | medium | same as XRoar |
 | CRES 0 at 128/160 bytes per row | XRoar | low | same as XRoar |
 | EI source enabled while its input is already high latches | XRoar | low | same as XRoar (by level sampling) |
-| MMU registers $38+i after reset | ours = MAME = VCC | low | — |
+| MMU registers $38+i after reset | MAME (= ours = VCC) | low | — |
 | $FE00 page with MC3 clear after a slot 7 write | XRoar (MAME's bank 8 is stale) | high | same as XRoar |
 | $FE00 page with MC3 set in ROM mode: S code | XRoar (MAME has no S) | low | same as XRoar |
-| Undriven bits 7-6 of $FF92, MMU and palette reads | harness convention (bus is floating) | low | drives 0; not a GIME accuracy claim |
+| Undriven bits 7-6 of $FF92, MMU and palette reads (bits 7-6 only; TMR is in `regs.readback_FF92_*`) | XRoar (harness convention: the adapters float the bus as $FF; MAME reads 0 for $FF92) | low | drives 0; not a GIME accuracy claim |
 
 `random.render.*` splits (364 checks) have no verdict yet: they mix causes found but not judged (the X
 offset in COCO mode, which XRoar applies and MAME does not, LPF in COCO mode, LPF 1 as 199 or 200 lines,
 the attribute underline row at LPR < 3 and LPR 5, the X offset in native text modes, LPR 7), and stay
-UNRESOLVED. 1986-GIME (`v86.`) splits are
-information only; the timer offset (+2 for 1986, +1 for 1987) is the same in both references.
+UNRESOLVED. The border colour of the VDG-compatible graphics modes (`render.vdg_cg1/cg6/rg6/rg6_css.border_colour`)
+has no verdict either: ours and XRoar take it from palette slot RGCSS0_1/RGCSS1_1 (`tcc1014.c:1160-1162`), MAME
+uses the fixed colours $12/$3F (`gime.cpp:1287-1291`), and no hardware source was found; they stay UNRESOLVED.
+1986-GIME (`v86.`) splits are information only; the timer offset (+2 for 1986, +1 for 1987) is the same in both
+references.
+
+### Known limits
+
+- **Line-quantised events.** Ours resolves timer, sync and interrupt events to a whole line (912 ticks), so tick
+  checks of those events pass (RES) within 912 ticks and a whole-line shift could hide inside that tolerance. Every
+  line-rate event (TINS=0 timer fires, and IRQ/FIRQ rises from TMR at TINS=0, HBORD and VBORD) also has a `_line`
+  check: the event's line index counted in each model's own HS grid, compared exactly. Where the anchor sits on a
+  line boundary (`random.timer`), the count starts half a line on so that the models' HS falls (ours at the
+  boundary, XRoar 10 ticks after it) don't straddle it.
+- **machine.cpp mirror.** `model_ours.cpp` runs a copy of the GIME part of `machine_run_scanline_coco3()`, not
+  `machine.cpp` itself. `run.sh` diffs the copy against `machine.cpp` before every build and fails on drift, but
+  the render and HAL calls are excluded from the diff by design (next item).
+- **Firmware render path not exercised.** The suite forces `raw_output = false` and clears the line signatures, so
+  the firmware's raw VGA output (OPT-G6) and the OPT-G5 `line_clean` line skipping are never tested; ours is
+  compared through `line_buffer` (RGB565) only.
+- **512 KB only.** The 2 MB memory expansion is excluded.
+- **NTSC only.** No 50 Hz fields; random `$FF98` writes keep H50 = 0.
+- **`first_active_px` is not comparable.** Ours renders only the active area and keeps no horizontal position, and
+  MAME's bitmap columns have no fixed relation to HS fall, so the check is SKIP for both and only XRoar reports a
+  value. A horizontal-position bug such as the $FF9F X offset being ignored is caught by the line hashes instead.
