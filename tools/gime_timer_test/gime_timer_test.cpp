@@ -1,9 +1,10 @@
 /*
- * Host test: GIME timer rate. TINS=1 counts the 3.58 MHz clock (227.5
+ * Host test: GIME timer rate. TINS=1 counts the 3.58 MHz clock (228
  * ticks per scanline, as XRoar), TINS=0 counts scanlines. Checks the
- * expiry count over many scanlines, that INIT1 writes which only change
- * the MMU task (Rick Dangerous's sample FIRQ) leave the timer running,
- * and that a change of timer source restarts it.
+ * expiry count over many scanlines, several expiries per scanline for a
+ * short reload, that each expiry re-reads the reload, that INIT1 writes
+ * which only change the MMU task (Rick Dangerous's sample FIRQ) leave the
+ * timer running, and that a change of timer source restarts it.
  *
  * Build and run with tools/gime_timer_test/run.sh.
  */
@@ -54,15 +55,34 @@ int main() {
 
     // ---- TINS=1, reload 596 (Rick Dangerous): 3 579 545 / 597 = 5 995.9 Hz ----
     setup("TINS=1 596", 0x20, 596);
-    CHECK_EQ(run(LINES), LINES * 455 / (2 * 597));
+    CHECK_EQ(run(LINES), LINES * 456 / (2 * 597));
 
     // ---- same, with the task switched twice per scanline ----
     setup("TINS=1 596 + task toggles", 0x20, 596);
-    CHECK_EQ(run(LINES, 1), LINES * 455 / (2 * 597));
+    CHECK_EQ(run(LINES, 1), LINES * 456 / (2 * 597));
 
     // ---- TINS=1, reload $FFF: 3 579 545 / 4096 = 874 Hz ----
     setup("TINS=1 4095", 0x20, 0xFFF);
-    CHECK_EQ(run(LINES), LINES * 455 / (2 * 4096));
+    CHECK_EQ(run(LINES), LINES * 456 / (2 * 4096));
+
+    // ---- TINS=1, reload 10: 11 ticks, several expiries per scanline ----
+    setup("TINS=1 10", 0x20, 10);
+    CHECK_EQ(run(1100), 1100 * 456 / (2 * 11));
+
+    // ---- a reload written while the timer runs takes effect on expiry ----
+    setup("TINS=1 reload change", 0x20, 0xFFF);
+    tcc1014_write_register(&g, 5, 10);                 // LSB only: no re-arm
+    CHECK_EQ(run(17), 0);                              // 17 * 228 < 4096 ticks
+    CHECK_EQ(run(1), 1);                               // next period: $F0A + 1 ticks
+    CHECK_EQ(g.timer_left_x2, 2 * 0xF0B - (18 * 456 - 2 * 4096));
+    tcc1014_write_register(&g, 4, 0);                  // MSB: re-arm, 11 ticks
+    g.timer_fires = 0;
+    CHECK_EQ(run(100), 100 * 456 / (2 * 11));
+
+    // ---- a reload of 0 written while running stops it at the next expiry ----
+    setup("TINS=1 reload to 0", 0x20, 80);             // 81 ticks, < 1 scanline
+    tcc1014_write_register(&g, 5, 0);                  // LSB only: no re-arm
+    CHECK_EQ(run(1000), 1);
 
     // ---- TINS=0, reload 10: one expiry every 11 scanlines ----
     setup("TINS=0 10", 0x00, 10);
@@ -77,7 +97,7 @@ int main() {
     run(5);                                            // 5 of 11 scanlines gone
     tcc1014_write_register(&g, 1, 0x20);               // to TINS=1: 11 ticks, < 1 scanline
     CHECK_EQ(g.timer_left_x2, 22);
-    CHECK_EQ(run(1), 1);
+    CHECK_EQ(run(1), 456 / 22);
 
     // ---- task switch still remaps the CPU pages ----
     setup("TR remaps", 0x20, 596);

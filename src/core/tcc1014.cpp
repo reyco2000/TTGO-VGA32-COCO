@@ -62,9 +62,9 @@ static const unsigned VSC_rowmask[16] = { 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 4, 
 static const int TIMER_OFFSET = 1;
 
 // Timer clock in TINS=1 mode, in half-ticks per scanline: 3.58 MHz is a
-// quarter of the 14.318 MHz master clock and a scanline is 910 master
-// clocks, so 227.5 ticks (XRoar: expiry at counter << 2 master ticks).
-static const int32_t TIMER_FAST_X2_PER_LINE = 455;
+// quarter of the 14.318 MHz master clock and a scanline is 912 master
+// clocks, so 228 ticks (XRoar: expiry at counter << 2 master ticks).
+static const int32_t TIMER_FAST_X2_PER_LINE = 456;
 
 // (Re)start the timer from its registers — port of schedule_timer(),
 // tcc1014.c:1535-1544.
@@ -632,7 +632,7 @@ void tcc1014_snoop_pia1b(TCC1014* gime, uint16_t addr, uint8_t val) {
 //
 // Two modes:
 //   TINS=0: decrement at scanline rate (~15.7 kHz)
-//   TINS=1: 3.58 MHz, 227.5 ticks per scanline. (Until 2026-10 this was
+//   TINS=1: 3.58 MHz, 228 ticks per scanline. (Until 2026-10 this was
 //           28 per scanline, from reading XRoar's "1/8 the GIME clock" as
 //           3.58 MHz/8; the GIME clock is 28.6 MHz. Timer-driven sound,
 //           e.g. Rick Dangerous's 6 kHz sample FIRQ, ran 8x slow.)
@@ -659,13 +659,17 @@ void tcc1014_tick_scanline(TCC1014* gime) {
         }
     } else {
         gime->timer_left_x2 -= TIMER_FAST_X2_PER_LINE;
-        if (gime->timer_left_x2 <= 0) {
+        // A reload shorter than a scanline expires several times per line.
+        // Each expiry re-reads $FF94/$FF95 (update_timer → schedule_timer,
+        // tcc1014.c:1552-1567), so a reload written while the timer runs
+        // takes effect on the next period, and a reload of 0 stops it. The
+        // next period counts from the exact expiry point.
+        while (gime->timer_left_x2 <= 0) {
+            const int32_t over_x2 = gime->timer_left_x2;
             timer_expired(gime);
-            // Next period counts from the exact expiry point; a reload
-            // shorter than a scanline expires once per scanline here.
-            const int32_t period_x2 = gime->timer_counter * 2;
-            gime->timer_left_x2 += period_x2;
-            if (gime->timer_left_x2 <= 0) gime->timer_left_x2 = period_x2;
+            arm_timer(gime);
+            if (gime->timer_counter == 0) break;
+            gime->timer_left_x2 += over_x2;
         }
     }
 }
