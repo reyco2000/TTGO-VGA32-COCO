@@ -144,8 +144,9 @@ const Verdict* find_verdict(const std::map<std::string, Verdict>& verdicts, cons
     return best;
 }
 
-bool fails_run(const CheckRecord& r, Status s, bool random_gated) {
+bool fails_run(const CheckRecord& r, Status s, bool random_gated, bool refs_complete) {
     if (s != Status::FAIL && s != Status::FIXED) return false;
+    if (s == Status::FIXED && !refs_complete) return false;
     return random_gated || !is_random_id(r.id);
 }
 

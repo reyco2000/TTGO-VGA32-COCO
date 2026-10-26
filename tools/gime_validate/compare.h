@@ -61,7 +61,11 @@ std::vector<std::string> stale_baseline(const std::vector<CheckRecord>&,
                                         const std::map<std::string, std::string>&,
                                         bool random_gated = true);
 // Does this status make the run exit 1? (FAIL or FIXED; STALE is handled apart.)
-bool fails_run(const CheckRecord& r, Status s, bool random_gated = true);
+// refs_complete = false (XRoar or MAME not built): a baselined check can look
+// FIXED only because the one reference left happens to match ours, so FIXED
+// is reported but does not gate.
+bool fails_run(const CheckRecord& r, Status s, bool random_gated = true,
+               bool refs_complete = true);
 
 const char* cls_name(Cls c);
 const char* status_name(Status s);        // JSON/long name

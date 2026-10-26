@@ -177,6 +177,12 @@ static int selftest() {
                  baseline_ids(rr, rs, {{"random.regs.1.x", "r"}}, false) ==
                      std::vector<std::string>({"random.regs.1.x", "a.fail"}));
     }
+    {   // with a reference missing, FIXED is reported but does not fail the run
+        CheckRecord r = mk("a.x", 5, 5, 5);
+        CHECK_TRUE("missing_reference_fixed_does_not_gate",
+                 fails_run(r, Status::FIXED, true, true) && !fails_run(r, Status::FIXED, true, false) &&
+                 fails_run(r, Status::FAIL, true, false));
+    }
     {   // R13: prefix verdicts
         std::map<std::string, Verdict> vp = {{"a.*", {"a.*", "xroar", "high"}}};
         CheckRecord r = mk("a.x", 7, 7, 9);
@@ -266,6 +272,7 @@ int main(int argc, char** argv) {
     if (!ri.random_gated)
         printf("note: non-default --seed/--random: random.* checks are classified and printed but do not gate\n");
     printf("mame form: %s\n", ri.mame_form.empty() ? "none (not built)" : ri.mame_form.c_str());
+    bool refs_complete = true;
     {
         std::string built;
         unsigned n = 0;
@@ -277,9 +284,18 @@ int main(int argc, char** argv) {
         built += n ? ", mame" : "mame";
         n++;
 #endif
-        if (n < 2)
+        refs_complete = n == 2;
+        if (!refs_complete) {
             printf("gating references: %u/2 (xroar, mame); built: %s\n", n,
                    n ? built.c_str() : "none");
+            printf("note: a reference is missing: FIXED is reported but does not gate\n");
+            // FIXED here can mean "matches the one reference left", so a
+            // rewrite would drop entries that still fail against both.
+            if (update_baseline) {
+                fprintf(stderr, "--update-baseline needs both references built\n");
+                return 2;
+            }
+        }
     }
 
     Ctx ctx;
@@ -338,7 +354,7 @@ int main(int argc, char** argv) {
         auto bit = baseline.find(r.id);
         if (bit != baseline.end() && (ri.random_gated || !is_random_id(r.id)))
             r.baseline_reason = bit->second;
-        if (fails_run(r, st, ri.random_gated)) gating_fail++;
+        if (fails_run(r, st, ri.random_gated, refs_complete)) gating_fail++;
         else if (st == Status::FAIL || st == Status::FIXED) ungated_fail++;
         cls.push_back(c);
         sts.push_back(st);
@@ -362,7 +378,7 @@ int main(int argc, char** argv) {
            cnt[(int)Status::FIXED], cnt[(int)Status::STALE], cnt[(int)Status::DISC],
            cnt[(int)Status::UNRESOLVED], cnt[(int)Status::SKIP]);
 
-    if (ungated_fail) printf("non-gating random failures: %u\n", ungated_fail);
+    if (ungated_fail) printf("non-gating FAIL/FIXED: %u\n", ungated_fail);
     if (!json_path.empty() && !write_results_json(json_path, all, cls, sts, ri))
         return 2;
 
