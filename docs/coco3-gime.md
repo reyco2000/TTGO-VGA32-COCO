@@ -584,16 +584,16 @@ names as hardware-true; full evidence is in `verdicts.md`.
 
 | Root cause | Favours | Confidence | Ours |
 |---|---|---|---|
-| Interrupt latching: XRoar's post-2025 logic (d9bba8a3): TMR re-latched when $FF92/$FF93 enables it with the timer at 0 (shown by Tim Lindner's GIME-MMU-TESTER), EI inputs edge-detected (shown for the keyboard by coco_key_test), no TMR re-latch on a status read; the re-latch on enable was assumed by XRoar for IL0-2 | XRoar = MAME | high (TMR, keyboard edge), low (re-latch on enable for IL0-2, assumed) | bug: ours still has the pre-2025 logic (level IL, re-latch on read, no latch on enable) |
-| HBORD on every line, borders included | XRoar = MAME = VCC | high | bug: only on active-area lines |
-| TINS=1 timer: one fire per 4·(n+1) pixel ticks, 228 counts per 912-tick line, reload re-read at each expiry | XRoar = MAME | high | bug: at most one fire per line; 227.5 per line; re-arm keeps the old count |
-| X offset ($FF9F) | XRoar = MAME | high | bug: ignored |
-| Field length: 263 lines at 60 Hz (also the 2-line split of `video.vsc_latch` and `video.voffset_latch_*`, the latch line counted across a field) | XRoar | medium | bug: 262 lines (as MAME and VCC) |
-| VBORD 7 + lTB + lAA lines after FS fall | XRoar | medium; low for the first VBORD after reset (`irq.enable_vbord_*`, mixed with the power-on frame phase) | one line early |
+| Interrupt latching: XRoar's post-2025 logic (d9bba8a3): TMR re-latched when $FF92/$FF93 enables it with the timer at 0 (shown by Tim Lindner's GIME-MMU-TESTER), EI inputs edge-detected (shown for the keyboard by coco_key_test), no TMR re-latch on a status read; the re-latch on enable was assumed by XRoar for IL0-2 | XRoar = MAME | high (TMR, keyboard edge), low (re-latch on enable for IL0-2, assumed) | fixed in v0.21.0 (`a681ed4`), pending the suite re-run |
+| HBORD on every line, borders included | XRoar = MAME = VCC | high | fixed in v0.21.0 (`2c06516`), pending the suite re-run |
+| TINS=1 timer: one fire per 4·(n+1) pixel ticks, 228 counts per 912-tick line, reload re-read at each expiry | XRoar = MAME | high | fixed in v0.21.0 (`c7295a3`), pending the suite re-run |
+| X offset ($FF9F) | XRoar = MAME | high | fixed in v0.21.0 for native modes (`b83f873`), pending the suite re-run; COCO mode unchanged (no verdict) |
+| Field length: 263 lines at 60 Hz (also the 2-line split of `video.vsc_latch` and `video.voffset_latch_*`, the latch line counted across a field) | XRoar | medium | 262 lines (as MAME and VCC); not changed (decision 2026-10-26) |
+| VBORD 7 + lTB + lAA lines after FS fall | XRoar | medium; low for the first VBORD after reset (`irq.enable_vbord_*`, mixed with the power-on frame phase) | fixed in v0.21.0 (`2c06516`), pending the suite re-run |
 | TINS=0 timer fires on an HS fall (its line index in the model's own HS grid; `irq.enable_tmr_*`, `random.timer.*`) | XRoar (scope-verified) | high | same as XRoar; MAME schedules line periods from the reload, not on HS |
-| First HBORD after reset: line 1 (XRoar, right-border point) or line 0 (MAME, HS callback); `random.irq.*` cause 2, `irq.enable_hbord_*` | XRoar | low | bug: HBORD only on active-area lines (the HBORD row above) |
+| First HBORD after reset: line 1 (XRoar, right-border point) or line 0 (MAME, HS callback); `random.irq.*` cause 2, `irq.enable_hbord_*` | XRoar | low | HBORD now on every line (v0.21.0, `2c06516`), pending the suite re-run |
 | Mid-line register and palette writes take effect at the beam | XRoar | high | simplification: whole line rendered at line end (MAME too) |
-| Font character $15 row 4 = $54 | MAME = VCC | medium | bug: $5C copied from XRoar |
+| Font character $15 row 4 = $54 | MAME = VCC | medium | fixed in v0.21.0 (`f84ddd6`), pending the suite re-run |
 | 16-colour 16-byte-per-row modes drop the second byte of each 16-bit fetch | XRoar | medium | same as XRoar |
 | CRES 0 at 128/160 bytes per row | XRoar | low | same as XRoar |
 | EI source enabled while its input is already high latches | XRoar | low | same as XRoar (by level sampling) |

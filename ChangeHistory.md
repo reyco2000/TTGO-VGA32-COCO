@@ -3,6 +3,23 @@
 Releases before the three most recent ones. The latest changes are in the
 [Changelog section of the README](README.md#changelog).
 
+### v0.18.2 — October 19, 2026
+
+**Arrow keys as a joystick, and a working RAM dump.**
+
+- **Setup → Joy-Keyboard Emulation** (OFF / RIGHT / LEFT): the arrow keys
+  move the chosen CoCo joystick and Space fires. Holding an arrow glides the
+  stick (about 1 s from centre to edge) and it stays put on release, like the
+  mouse. On RIGHT the arrows and the PS/2 mouse move the same stick. While
+  it's on, the arrows and Space don't reach the CoCo keyboard. Applied at
+  once and saved.
+- **Debug → Dump RAM to SD:**
+  - The name can be changed. It suggests the next free `DUMPnnn`; typing
+    replaces it.
+  - The Saving screen shows the real RAM size (up to 2048K) and a progress
+    bar.
+  - The result screen shows the file sizes (it showed 0 KB).
+
 ### v0.18.1 — October 19, 2026
 
 **NitrOS-9 shows its whole screen, and a tidier Setup menu.**

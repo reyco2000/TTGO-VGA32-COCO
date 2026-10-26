@@ -4,7 +4,7 @@
 
 A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the ESP32  **[LilyGo TTGO VGA32 v1.4](https://lilygo.cc/en-us/products/fabgl-vga32?_pos=1&_sid=4c095f59b&_ss=r)** board (ESP32-WROVER). Inspired on  [XRoar](http://www.6809.org.uk/xroar/) emulator.
 
-**v0.20.0 — October 24, 2026** (LilyGo TTGO VGA32 port)
+**v0.21.0 — October 26, 2026** (LilyGo TTGO VGA32 port)
 
 ## Features
 
@@ -468,6 +468,37 @@ mode, with diagrams.
 
 ## Changelog
 
+### v0.21.0 — October 26, 2026
+
+**GIME accuracy fixes from the new validation suite, and full-height 225-line
+games.**
+
+- **GIME validation suite** (`tools/gime_validate`): a host-side test harness
+  that runs our GIME, XRoar's and MAME's on the same register writes and
+  compares them, with a verdict for every difference (`verdicts.md`).
+- **GIME fixes it found:**
+  - **TINS=1 timer:** 228 counts per line (was 227.5), several expiries per
+    line for short reloads (was one at most), and the reload is re-read at
+    each expiry.
+  - **X offset (`$FF9F`)** now applies in native video modes (was ignored).
+  - **HBORD** interrupt on every line, borders included (was active lines
+    only); **VBORD** on the line after the last active line (was one line
+    early).
+  - **Interrupt latching** as XRoar's current logic, which is based on tests
+    on real GIMEs: keyboard and other external interrupts latch on a rising
+    edge, reading `$FF92/$FF93` no longer re-latches TMR, and enabling a
+    source that is already active latches it.
+  - **Font:** character `$15` row 4 is `$54`.
+- **225-line games in full.** Screens 225 lines tall and up to 512 pixels wide
+  (Rick Dangerous, Donkey Kong: 256×225) switch the VGA output to 512×240, so
+  all 225 lines show with border rows above and below; they lost one line in
+  nine before. The monitor resyncs at each switch (see Known Limitations).
+- **Border colour effects:** 192-line screens show the border colour of the
+  lines just above and below the picture (4 rows each), so loader stripes
+  appear.
+- **Diagnostics:** `gime` (registers `$FF90-$FF9F`, line counts) and `video`
+  (output layout, switches) sections in `/api/status`.
+
 ### v0.20.0 — October 24, 2026
 
 **PMODE 4 artifact colours on the CoCo 3, and timer-driven sound at the right
@@ -515,23 +546,6 @@ pitch.**
 - **Bootloader `version.txt` is the bare version** (`0.19.0`), as ESP32_Bootloader
   requires; it used to be `CoCo.<version>-<git describe>`. Bump
   `FIRMWARE_VERSION` for every build that must reflash.
-
-### v0.18.2 — October 19, 2026
-
-**Arrow keys as a joystick, and a working RAM dump.**
-
-- **Setup → Joy-Keyboard Emulation** (OFF / RIGHT / LEFT): the arrow keys
-  move the chosen CoCo joystick and Space fires. Holding an arrow glides the
-  stick (about 1 s from centre to edge) and it stays put on release, like the
-  mouse. On RIGHT the arrows and the PS/2 mouse move the same stick. While
-  it's on, the arrows and Space don't reach the CoCo keyboard. Applied at
-  once and saved.
-- **Debug → Dump RAM to SD:**
-  - The name can be changed. It suggests the next free `DUMPnnn`; typing
-    replaces it.
-  - The Saving screen shows the real RAM size (up to 2048K) and a progress
-    bar.
-  - The result screen shows the file sizes (it showed 0 KB).
 
 ## ⚠️ Vibe Coding Alert
 
