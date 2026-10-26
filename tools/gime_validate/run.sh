@@ -18,6 +18,134 @@ mkdir -p "$OUT"
 XROAR_SRC=${XROAR_SRC:-$HOME/proyectos/coco-emu-other-projects-source/xroar}
 MAME_SRC=${MAME_SRC:-$HOME/proyectos/coco-emu-other-projects-source/mame}
 
+# Mirror drift check (ruling R5). model_ours.cpp runs the GIME part of
+# machine_run_scanline_coco3() from a copy of src/core/machine.cpp, in two
+# blocks marked "// MIRROR-BEGIN <name>" / "// MIRROR-END <name>". Each is
+# compared with the machine.cpp range found by anchor text (not line numbers):
+#   timer:    "tcc1014_tick_scanline(&m->gime);" through
+#             "mc6821_ca1_transition(&m->pia0, true);"
+#   vertical: "TCC1014* g = &m->gime;" through the "}" after
+#             "m->scanline = 0;"
+# Normalisation, both sides: "//" comments, indentation, trailing blanks and
+# empty lines are dropped. machine.cpp side: "m->scanline" -> "scanline_",
+# "&m->gime" -> "&g_", "mc6821_ca1_transition(&m->pia0, false);" -> @HS_FALL,
+# "mc6821_ca1_transition(&m->pia0, true);" dropped (no HS rise event),
+# "mc6821_cb1_transition(&m->pia0, false|true);" -> @FS_FALL|@FS_RISE, and
+# the render + HAL blocks (the "{" before
+# "PERF_PROBE_SCOPE(PROBE_RENDER_SCANLINE);" through the "}" closing the
+# PROBE_HAL_SCANLINE block) -> @RENDER. model_ours.cpp side: the
+# "ev_.push_back({ EvType::X, now_ });" lines -> @X, except TIMER, which is
+# dropped with its "for (; fires_ < g_.timer_fires; fires_++)" line (event
+# bookkeeping), "have_line_ = false;" and "line_note_.clear();" dropped, and
+# the lines from "// MIRROR-RENDER-BEGIN" to "// MIRROR-RENDER-END" ->
+# @RENDER (raw_output forced false, line capture). Any other difference fails
+# the build. MACHINE_CPP overrides the machine.cpp path (to test the check).
+MACHINE_CPP=${MACHINE_CPP:-$D/../../src/core/machine.cpp}
+if ! python3 -I - "$D/model_ours.cpp" "$MACHINE_CPP" <<'PY'
+import difflib, re, sys
+
+def norm(lines):
+    out = []
+    for l in lines:
+        l = re.sub(r"//.*", "", l).strip()
+        if l:
+            out.append(l)
+    return out
+
+def find(lines, text, start=0):
+    for i in range(start, len(lines)):
+        if text in lines[i]:
+            return i
+    sys.exit("mirror check: anchor not found in machine.cpp: %r" % text)
+
+def ours_block(lines, name):
+    b = [i for i, l in enumerate(lines) if l.strip() == "// MIRROR-BEGIN " + name]
+    e = [i for i, l in enumerate(lines) if l.strip() == "// MIRROR-END " + name]
+    if len(b) != 1 or len(e) != 1 or e[0] < b[0]:
+        sys.exit("mirror check: model_ours.cpp needs one MIRROR-BEGIN/END %s pair" % name)
+    blk, out, skip = lines[b[0] + 1:e[0]], [], False
+    for l in blk:
+        t = l.strip()
+        if t == "// MIRROR-RENDER-BEGIN":
+            out.append("@RENDER"); skip = True; continue
+        if t == "// MIRROR-RENDER-END":
+            skip = False; continue
+        if not skip:
+            out.append(l)
+    res = []
+    for l in norm(out):
+        m = re.fullmatch(r"ev_\.push_back\(\{ EvType::(\w+), now_ \}\);", l)
+        if m:
+            if m.group(1) != "TIMER":
+                res.append("@" + m.group(1))
+            continue
+        if l in ("for (; fires_ < g_.timer_fires; fires_++)", "have_line_ = false;",
+                 "line_note_.clear();"):
+            continue
+        res.append(l)
+    return res
+
+def machine_norm(blk, render):
+    n = norm(blk)
+    if render:
+        n = replace_render(n)
+    res = []
+    for l in n:
+        l = l.replace("m->scanline", "scanline_").replace("&m->gime", "&g_")
+        if l == "mc6821_ca1_transition(&m->pia0, true);":
+            continue
+        l = {"mc6821_ca1_transition(&m->pia0, false);": "@HS_FALL",
+             "mc6821_cb1_transition(&m->pia0, false);": "@FS_FALL",
+             "mc6821_cb1_transition(&m->pia0, true);": "@FS_RISE"}.get(l, l)
+        res.append(l)
+    return res
+
+def replace_render(n):
+    # render + HAL: two brace blocks starting at the "{" before PROBE_RENDER
+    try:
+        i = n.index("PERF_PROBE_SCOPE(PROBE_RENDER_SCANLINE);") - 1
+    except ValueError:
+        sys.exit("mirror check: PERF_PROBE_SCOPE(PROBE_RENDER_SCANLINE) not found in machine.cpp")
+    if n[i] != "{":
+        sys.exit("mirror check: no '{' before PROBE_RENDER_SCANLINE in machine.cpp")
+    j, depth, blocks = i, 0, 0
+    while j < len(n):
+        depth += n[j].count("{") - n[j].count("}")
+        if depth == 0:
+            blocks += 1
+            if blocks == 2:
+                break
+        j += 1
+    if blocks != 2 or "PERF_PROBE_SCOPE(PROBE_HAL_SCANLINE);" not in n[i:j + 1]:
+        sys.exit("mirror check: render/HAL blocks not found as expected in machine.cpp")
+    return n[:i] + ["@RENDER"] + n[j + 1:]
+
+ours = open(sys.argv[1]).read().split("\n")
+mach = open(sys.argv[2]).read().split("\n")
+a = find(mach, "tcc1014_tick_scanline(&m->gime);")
+b = find(mach, "mc6821_ca1_transition(&m->pia0, true);", a)
+c = find(mach, "TCC1014* g = &m->gime;", b)
+d = find(mach, "m->scanline = 0;", c)
+if d + 1 >= len(mach) or mach[d + 1].strip() != "}":
+    sys.exit("mirror check: no '}' after 'm->scanline = 0;' in machine.cpp")
+bad = False
+for name, rng in (("timer", (a, b)), ("vertical", (c, d + 1))):
+    want = machine_norm(mach[rng[0]:rng[1] + 1], name == "vertical")
+    got = ours_block(ours, name)
+    if got != want:
+        bad = True
+        print("MIRROR DRIFT: model_ours.cpp block '%s' no longer matches machine.cpp:%d-%d"
+              % (name, rng[0] + 1, rng[1] + 1))
+        for l in difflib.unified_diff(want, got, "machine.cpp (normalised)",
+                                      "model_ours.cpp (normalised)", lineterm="", n=2):
+            print("  " + l)
+sys.exit(1 if bad else 0)
+PY
+then
+    echo "build failed: model_ours.cpp's machine.cpp mirror has drifted; update it to match machine.cpp"
+    exit 2
+fi
+
 DEFS=()
 OBJS=()
 ARGS=()
