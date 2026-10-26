@@ -1056,8 +1056,8 @@ bool CoCo3IntegrationTest::test_gime_register_rw() {
 
     uint8_t status = tcc1014_read_register(g, 2);
     if (!(status & TCC1014_INT_TMR)) return false;
-    // After read-acknowledge, IRQ should be cleared
-    // (unless timer is still at 0, which re-asserts)
+    // After read-acknowledge, IRQ is cleared (no TMR re-latch on read)
+    if (g->IRQ) return false;
 
     return true;
 }

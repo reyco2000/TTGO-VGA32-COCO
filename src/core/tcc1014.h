@@ -134,9 +134,13 @@ typedef struct TCC1014 {
         bool CSS;            // Color set select (PB3)
     } VDG;
 
-    // --- Interrupt state (from tcc1014.c:249-250) ---
+    // --- Interrupt state (from tcc1014.c:248-252) ---
     unsigned irq_state;
     unsigned firq_state;
+    // Last sampled IL0-2, as their INT_EI* bit or 0 (edge detection)
+    uint8_t  IL0_state;
+    uint8_t  IL1_state;
+    uint8_t  IL2_state;
 
     // --- Timer (from tcc1014.c:136-140) ---
     int      timer_counter;
