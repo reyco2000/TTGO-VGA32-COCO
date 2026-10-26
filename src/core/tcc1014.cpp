@@ -824,8 +824,10 @@ void tcc1014_render_scanline_legacy(TCC1014* gime) {
     uint16_t* pixel = gime->line_buffer;   // OPT-C4: RGB565 (byte-swapped)
     unsigned npixels = 0;
 
-    // Reset horizontal offset for this scanline
-    gime->Xoff = 0;
+    // Horizontal offset for this scanline (tcc1014.c:1144: Xoff = X), native
+    // modes only: XRoar also applies it in COCO mode, MAME doesn't, and the
+    // suite has no verdict for that yet.
+    gime->Xoff = gime->COCO ? 0 : gime->X;
     gime->have_vdata_cache = false;
 
     // Number of bytes to process = BPR (bytes per row)
@@ -1047,10 +1049,12 @@ done:
 // compiler can keep the palette and state in registers across pixel stores.
 //
 // The legacy fetch_byte_vram() pair-cache consumes a strictly sequential
-// byte stream: byte k of the line is ram[vram_base + ((B + k) & vram_mask)] (Xoff
-// starts at 0 and never reaches the & 0xFF wrap — max 160 bytes/line). So
-// the renderers read a plain byte array: a direct pointer into RAM when the
-// line doesn't wrap, otherwise a staged copy.
+// byte stream: byte k of the line is
+// ram[vram_base + ((B + ((Xoff0 + k) & 0xFF)) & vram_mask)], where Xoff0 is
+// the X offset ($FF9F bits 6-0, doubled; even) in native modes and 0 in COCO
+// mode. So the renderers read a plain byte array: a direct pointer into RAM
+// when the line wraps neither the 256-byte X window nor the bank, otherwise
+// a staged copy.
 // ============================================================
 
 // Max bytes consumed per line: 80-col attribute text = 2 x 80.
@@ -1058,10 +1062,11 @@ static uint8_t s_line_bytes[160];
 
 static inline const uint8_t* fetch_line_bytes(const TCC1014* g, unsigned n) {
     const uint32_t mask = g->vram_mask;
-    const uint32_t a = g->B & mask;
+    const unsigned x = g->COCO ? 0 : g->X;
+    const uint32_t a = (g->B + x) & mask;
     const uint8_t* bank = g->ram + g->vram_base;
-    if (a + n <= mask + 1) return bank + a;
-    for (unsigned k = 0; k < n; k++) s_line_bytes[k] = bank[(a + k) & mask];
+    if (x + n <= 256 && a + n <= mask + 1) return bank + a;
+    for (unsigned k = 0; k < n; k++) s_line_bytes[k] = bank[(g->B + ((x + k) & 0xFF)) & mask];
     return s_line_bytes;
 }
 
