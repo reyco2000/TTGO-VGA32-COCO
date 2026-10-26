@@ -416,6 +416,11 @@ All technical documentation is in the `docs/` directory:
   the monitor blanks or flickers briefly. 640-wide 225-line screens (NitrOS-9's 80×25
   text) can't use 512×240: they stay at 640×200, which drops one line in nine (the
   blank gap under each text row)
+- **The first 512×240 switch fragments internal RAM.** FabGL re-allocates its scan
+  descriptors on each switch (11,088 bytes at 640×200, 12,048 at 512×240), and the larger
+  table doesn't fit where the smaller one was. Total free RAM is unchanged (about 960 bytes
+  less while at 512×240), but the largest free block drops from about 21.5 KB to about
+  11–13 KB, and stays there until the next reboot. More switches don't make it worse.
 - Only 192-line screens show part of the top and bottom border (4 lines each) at
   640×200; there is no room for side borders in 320- and 640-wide modes
 

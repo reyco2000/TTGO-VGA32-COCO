@@ -40,6 +40,8 @@ class CocoVGAController : public fabgl::VGAController {
     static constexpr int UNIT = 2560;
     static constexpr int UNITS = 128000 / UNIT;
     static constexpr int MAX_CHUNKS = 32;
+    static constexpr int MAX_ROWS = 240;
+    volatile uint8_t** m_rows = nullptr;   // row-pointer table, kept like the pool
     uint8_t* m_chunk[MAX_CHUNKS] = {};
     int      m_chunkUnits[MAX_CHUNKS] = {};
     int      m_chunks = 0;
@@ -64,9 +66,11 @@ class CocoVGAController : public fabgl::VGAController {
         if (m_chunks == 0) allocatePool();
         const int rowlen = m_viewPortWidth;
         int rows = 0;
-        const int want = m_viewPortHeight;
-        m_viewPort = m_viewPorts[0] = (volatile uint8_t**)heap_caps_malloc(
-            sizeof(uint8_t*) * want, MALLOC_CAP_32BIT | MALLOC_CAP_INTERNAL);
+        const int want = fabgl::tmin((int)m_viewPortHeight, MAX_ROWS);
+        if (!m_rows)
+            m_rows = (volatile uint8_t**)heap_caps_malloc(sizeof(uint8_t*) * MAX_ROWS,
+                                                          MALLOC_CAP_32BIT | MALLOC_CAP_INTERNAL);
+        m_viewPort = m_viewPorts[0] = m_rows;
         for (int c = 0; c < m_chunks && rows < want; c++) {
             uint8_t* p = m_chunk[c];
             for (int r = 0; r < m_chunkUnits[c] * UNIT / rowlen && rows < want; r++, p += rowlen)
@@ -77,12 +81,9 @@ class CocoVGAController : public fabgl::VGAController {
     }
 
     void freeViewPort() override {
-        // Keep the pool; free only the row-pointer tables.
-        for (int i = 0; i < 2; ++i)
-            if (m_viewPorts[i]) {
-                heap_caps_free(m_viewPorts[i]);
-                m_viewPorts[i] = nullptr;
-            }
+        // Keep the pool and the row-pointer table (not double-buffered, so
+        // m_viewPorts[1] is never set).
+        m_viewPorts[0] = m_viewPorts[1] = nullptr;
         m_viewPort = m_viewPortVisible = nullptr;
     }
 };
