@@ -769,6 +769,13 @@ void machine_run_scanline_coco3(Machine* m) {
             }
         }
 
+        // End of active area — VBORD on the line after the last active line
+        // (lcount >= lAA), tcc1014.c:1246-1255
+        if (g->vertical.active_area && vline - top_border_end >= g->vertical.lAA) {
+            g->vertical.active_area = false;
+            tcc1014_set_interrupt(g, TCC1014_INT_VBORD);
+        }
+
         if (g->vertical.active_area) {
             unsigned display_line = vline - top_border_end;
 
@@ -830,17 +837,14 @@ void machine_run_scanline_coco3(Machine* m) {
             if (row_advance) {
                 g->B += g->row_stride;
             }
-            tcc1014_set_interrupt(g, TCC1014_INT_HBORD);
-
-            // End of active area — VBORD interrupt — tcc1014.c:1220-1222
-            if (display_line + 1 >= g->vertical.lAA) {
-                g->vertical.active_area = false;
-                tcc1014_set_interrupt(g, TCC1014_INT_VBORD);
-            }
         }
 
         g->vertical.lcount++;
     }
+
+    // Horizontal border interrupt on every line, borders and sync included
+    // (do_hb_irq, tcc1014.c:1086-1110)
+    tcc1014_set_interrupt(g, TCC1014_INT_HBORD);
 
     m->scanline++;
     if (m->scanline >= SCANLINES_PER_FRAME) {
