@@ -93,6 +93,12 @@ void hal_video_render_scanline_gime_raw(int line, int total_lines,
                                         uint8_t border_colour,
                                         const uint8_t* raw, int width);
 
+// GIME border line: line is the display line relative to the first active
+// line (negative above it, >= total_lines below). Fills that framebuffer row
+// with the border colour when a short active area leaves rows to spare;
+// otherwise does nothing.
+void hal_video_render_border_gime(int line, unsigned total_lines, uint8_t border_colour);
+
 // Present the completed CoCo3 frame to the display
 // Phase 5: dirty flag — if non-null, skip SPI push when *dirty==false, clear after push
 void hal_video_present_gime(bool* dirty = nullptr);

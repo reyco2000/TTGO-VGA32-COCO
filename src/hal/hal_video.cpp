@@ -34,6 +34,7 @@ static bool                 display_available = false;
 
 // 64-entry GIME palette → FabGL raw-pixel byte (with HSYNC/VSYNC bits set).
 static uint8_t              s_gime_raw_lut[64];
+static void border_rows_invalidate();
 
 // Phase 1 active-pixel LUT: byte-swapped RGB565 (as emitted by the GIME core,
 // OPT-C4) → FabGL raw VGA byte. Collapses the per-pixel
@@ -126,6 +127,7 @@ void hal_video_init(void) {
                 (gpio_num_t)PIN_VGA_B1, (gpio_num_t)PIN_VGA_B0,
                 (gpio_num_t)PIN_VGA_HSYNC, (gpio_num_t)PIN_VGA_VSYNC);
     s_vga.setResolution(VGA_640x200_60HzD);
+    border_rows_invalidate();
     s_canvas.setBrushColor(fabgl::Color::Black);
     s_canvas.clear();
     init_gime_lut();
@@ -341,6 +343,26 @@ static inline int gime_display_y(int line, int total_lines, int vp_h) {
     return (y < vp_h) ? y : -1;
 }
 
+// Raw byte last painted by hal_video_render_border_gime() per framebuffer
+// row, or -1 when the row holds something else (an active line, the OSD).
+static int16_t s_border_row[256];
+static void border_rows_invalidate() {
+    for (int i = 0; i < 256; i++) s_border_row[i] = -1;
+}
+
+void hal_video_render_border_gime(int line, unsigned total_lines, uint8_t border_colour) {
+    if (!display_available) return;
+    const int vp_w = s_vga.getViewPortWidth();
+    const int vp_h = s_vga.getViewPortHeight();
+    if ((int)total_lines >= vp_h || vp_h > 256) return;     // no spare rows
+    const int y = line + (vp_h - (int)total_lines) / 2;      // as gime_display_y()
+    if (y < 0 || y >= vp_h) return;
+    const uint8_t b = s_gime_raw_lut[border_colour & 0x3F];
+    if (s_border_row[y] == b) return;
+    s_border_row[y] = b;
+    memset((void*)s_vga.getScanline(y), b, vp_w);           // same byte: no swizzle
+}
+
 // GIME (CoCo 3) scanline: pre-converted RGB565 from tcc1014 — convert each
 // pixel to a raw VGA byte. Width is 320 or 640 (post-OPT-C4).
 void hal_video_render_scanline_gime(int line, int total_lines,
@@ -354,6 +376,7 @@ void hal_video_render_scanline_gime(int line, int total_lines,
     const int vp_h = s_vga.getViewPortHeight();
     const int y = gime_display_y(line, total_lines, vp_h);
     if (y < 0) return;
+    s_border_row[y] = -1;
 
     volatile uint8_t* row = s_vga.getScanline(y);
     uint8_t border_byte = s_gime_raw_lut[border_colour & 0x3F];
@@ -425,6 +448,7 @@ void hal_video_render_scanline_gime_raw(int line, int total_lines,
     const int vp_h = s_vga.getViewPortHeight();
     const int y = gime_display_y(line, total_lines, vp_h);
     if (y < 0) return;
+    s_border_row[y] = -1;
 
     uint8_t* row = (uint8_t*)s_vga.getScanline(y);
     const uint8_t border_byte = s_gime_raw_lut[border_colour & 0x3F];
@@ -493,6 +517,7 @@ void hal_video_present_gime(bool* dirty) {
 void hal_video_force_repaint(void) {
     if (display_available) s_canvas.waitCompletion(false);
     tcc1014_invalidate_lines();
+    border_rows_invalidate();
 }
 
 float hal_video_get_fps(void) { return fps_value; }

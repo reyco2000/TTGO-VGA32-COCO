@@ -180,6 +180,18 @@ static void h_status() {
         j += ",\"tins\":" + String(tins ? "true" : "false");
         j += ",\"reload\":" + String(reload) + "}";
     }
+    // GIME video registers ($FF90-$FF9F as last written) and line counts
+    {
+        uint8_t r[16];
+        unsigned lAA, lTB;
+        if (machine_gime_video_info(r, &lAA, &lTB)) {
+            char hex[33];
+            for (int i = 0; i < 16; i++) snprintf(hex + 2 * i, 3, "%02X", r[i]);
+            j += ",\"gime\":{\"regs\":\"" + String(hex) + "\"";
+            j += ",\"lAA\":" + String(lAA);
+            j += ",\"lTB\":" + String(lTB) + "}";
+        }
+    }
     // Audio queue diagnostics; ?audio_reset=1 clears them after this read.
     {
         HalAudioStats a;

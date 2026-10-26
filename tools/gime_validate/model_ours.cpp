@@ -9,6 +9,9 @@
 #include "../../config.h"            // SCANLINES_PER_FRAME (host stub Arduino.h in stub/)
 
 #include "gime_model.h"
+
+// machine.cpp paints border lines through the HAL; the model has no display.
+static void hal_video_render_border_gime(int, unsigned, uint8_t) {}
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -178,6 +181,21 @@ private:
                 }
             }
 
+            // Border colour on every line, borders included — tcc1014.c:1114-1136
+            if (g->COCO) {
+                if (!g->VDG.GnA) {
+                    bool GM2 = g->PIA1B_shadow.pdr & 0x40;
+                    bool text_border = !g->VDG.GM1 && GM2;
+                    unsigned text_border_colour = g->VDG.CSS ? 0x26 : 0x12;
+                    g->border_colour = text_border ? text_border_colour : 0;
+                } else {
+                    unsigned c = g->VDG.CSS ? TCC1014_RGCSS1_1 : TCC1014_RGCSS0_1;
+                    g->border_colour = g->palette_reg[c];
+                }
+            } else {
+                g->border_colour = g->BRDR;
+            }
+
             // End of active area — VBORD on the line after the last active line
             // (lcount >= lAA), tcc1014.c:1246-1255
             if (g->vertical.active_area && vline - top_border_end >= g->vertical.lAA) {
@@ -193,19 +211,6 @@ private:
                     g->row_stride = g->HVEN ? 256 : g->BPR;
                 } else {
                     g->row_stride = g->HVEN ? 256 : (g->BPR << (g->CRES & 1));
-                }
-                if (g->COCO) {
-                    if (!g->VDG.GnA) {
-                        bool GM2 = g->PIA1B_shadow.pdr & 0x40;
-                        bool text_border = !g->VDG.GM1 && GM2;
-                        unsigned text_border_colour = g->VDG.CSS ? 0x26 : 0x12;
-                        g->border_colour = text_border ? text_border_colour : 0;
-                    } else {
-                        unsigned c = g->VDG.CSS ? TCC1014_RGCSS1_1 : TCC1014_RGCSS0_1;
-                        g->border_colour = g->palette_reg[c];
-                    }
-                } else {
-                    g->border_colour = g->BRDR;
                 }
 
                 // mirrors machine.cpp's render call only (no HAL):
@@ -233,6 +238,11 @@ private:
                 if (row_advance) {
                     g->B += g->row_stride;
                 }
+            } else {
+                // Border line: shown where the display has rows to spare around a
+                // short active area (192 lines in the 200-row viewport)
+                hal_video_render_border_gime((int)vline - (int)top_border_end, g->vertical.lAA,
+                                             g->border_colour);
             }
 
             g->vertical.lcount++;

@@ -469,6 +469,18 @@ void machine_gime_timer_info(uint32_t* fires, bool* tins, unsigned* reload) {
     *reload = coco3 ? (((m->gime.registers[4] & 0x0F) << 8) | m->gime.registers[5]) : 0;
 }
 
+// GIME video state for the debug API: the last values written to
+// $FF90-$FF9F (write-only on the CoCo), active-area lines and top border.
+// Returns false on a CoCo 2.
+bool machine_gime_video_info(uint8_t regs[16], unsigned* lAA, unsigned* lTB) {
+    const Machine* m = g_machine;
+    if (!m || g_machine_type != 4) return false;
+    memcpy(regs, m->gime.registers, 16);
+    *lAA = m->gime.vertical.lAA;
+    *lTB = m->gime.vertical.lTB;
+    return true;
+}
+
 // ============================================================
 // Init — CoCo 3
 // ============================================================
@@ -769,6 +781,21 @@ void machine_run_scanline_coco3(Machine* m) {
             }
         }
 
+        // Border colour on every line, borders included — tcc1014.c:1114-1136
+        if (g->COCO) {
+            if (!g->VDG.GnA) {
+                bool GM2 = g->PIA1B_shadow.pdr & 0x40;
+                bool text_border = !g->VDG.GM1 && GM2;
+                unsigned text_border_colour = g->VDG.CSS ? 0x26 : 0x12;
+                g->border_colour = text_border ? text_border_colour : 0;
+            } else {
+                unsigned c = g->VDG.CSS ? TCC1014_RGCSS1_1 : TCC1014_RGCSS0_1;
+                g->border_colour = g->palette_reg[c];
+            }
+        } else {
+            g->border_colour = g->BRDR;
+        }
+
         // End of active area — VBORD on the line after the last active line
         // (lcount >= lAA), tcc1014.c:1246-1255
         if (g->vertical.active_area && vline - top_border_end >= g->vertical.lAA) {
@@ -785,19 +812,6 @@ void machine_run_scanline_coco3(Machine* m) {
                 g->row_stride = g->HVEN ? 256 : g->BPR;
             } else {
                 g->row_stride = g->HVEN ? 256 : (g->BPR << (g->CRES & 1));
-            }
-            if (g->COCO) {
-                if (!g->VDG.GnA) {
-                    bool GM2 = g->PIA1B_shadow.pdr & 0x40;
-                    bool text_border = !g->VDG.GM1 && GM2;
-                    unsigned text_border_colour = g->VDG.CSS ? 0x26 : 0x12;
-                    g->border_colour = text_border ? text_border_colour : 0;
-                } else {
-                    unsigned c = g->VDG.CSS ? TCC1014_RGCSS1_1 : TCC1014_RGCSS0_1;
-                    g->border_colour = g->palette_reg[c];
-                }
-            } else {
-                g->border_colour = g->BRDR;
             }
 
             // Render this scanline
@@ -837,6 +851,11 @@ void machine_run_scanline_coco3(Machine* m) {
             if (row_advance) {
                 g->B += g->row_stride;
             }
+        } else {
+            // Border line: shown where the display has rows to spare around a
+            // short active area (192 lines in the 200-row viewport)
+            hal_video_render_border_gime((int)vline - (int)top_border_end, g->vertical.lAA,
+                                         g->border_colour);
         }
 
         g->vertical.lcount++;
