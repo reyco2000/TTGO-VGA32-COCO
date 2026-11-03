@@ -58,6 +58,10 @@ static const unsigned SAM_V_rowmask[8] = { 3, 3, 3, 2, 2, 1, 1, 1 };
 // VSC row mask — from tcc1014.c:423
 static const unsigned VSC_rowmask[16] = { 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 4, 3, 2, 1, 12 };
 
+// Attribute underline row by LPR. LPR 3-6 measured on a real CoCo 3; XRoar's rowmask
+// test gives 9 and 10 at LPR 5 and 6. LPR 0-2 and 7 (no underline) follow MAME, unmeasured.
+static const int8_t LPR_underline_row[8] = { -1, -1, -1, 7, 8, 8, 9, -1 };
+
 // Timer offset: '87 GIME = 1, '86 GIME = 2. We use '87.
 static const int TIMER_OFFSET = 1;
 
@@ -747,8 +751,8 @@ static void update_from_gime_registers(TCC1014* gime) {
             unsigned text_border_colour = gime->VDG.CSS ? 0x26 : 0x12;
             gime->border_colour = text_border ? text_border_colour : 0;
         } else {
-            unsigned c = gime->VDG.CSS ? TCC1014_RGCSS1_1 : TCC1014_RGCSS0_1;
-            gime->border_colour = gime->palette_reg[c];
+            // Fixed: a real CoCo 3 ignores the palette and $FF9A here.
+            gime->border_colour = gime->VDG.CSS ? 0x3F : 0x12;
         }
     } else {
         gime->border_colour = gime->BRDR;
@@ -934,7 +938,7 @@ void tcc1014_render_scanline_legacy(TCC1014* gime) {
                     bg_colour = attr & 7;
                     if ((attr & 0x80) && gime->blink)
                         fg_colour = bg_colour;
-                    if ((attr & 0x40) && ((font_row & gime->rowmask) == gime->rowmask))
+                    if ((attr & 0x40) && (int)gime->row == LPR_underline_row[gime->LPR])
                         gdata = 0xFF;  // Underline
                 } else {
                     fg_colour = 1;
@@ -1150,7 +1154,7 @@ static void render_native_text(const TCC1014* g, const uint8_t* __restrict src, 
     if (font_row > 11) font_row = 0;
     const uint8_t* __restrict font = font_gime_dram + font_row;
     const bool blink = g->blink;
-    const bool underline = (font_row & g->rowmask) == g->rowmask;
+    const bool underline = (int)g->row == LPR_underline_row[g->LPR];
     for (unsigned k = 0; k < n; k++) {
         uint8_t gdata = font[(src[0] & 0x7F) * 12];
         if (ATTR) {

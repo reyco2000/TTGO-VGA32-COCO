@@ -131,6 +131,10 @@ Fully compatible with CoCo 2 video. Reads VDG mode bits from PIA1B:
 | 110 | CG2 | 128×64 | 4 |
 | 111 | RG2/RG3/RG6/PMODE 0-4 | up to 256×192 | 2 or 4 |
 
+The graphics-mode border is fixed: white with CSS=1 and green with CSS=0 (`$3F` and `$12`,
+values from MAME). Measured on a real CoCo 3 (2026-11-02) in PMODE 4: palette changes and
+`$FF9A` writes don't affect it. XRoar takes it from the palette, so don't port that back.
+
 #### INIT0 COCO=0 (GIME Native Mode)
 
 Selected by VMODE (BP bit) and VRES (HRES/CRES/LPF):
@@ -147,6 +151,15 @@ Selected by VMODE (BP bit) and VRES (HRES/CRES/LPF):
 | 1 | 6 | 2 | Graphics 640px, 16 colors | 640 |
 
 Lines per field (LPF): 192 (default), 199, 225.
+
+The attribute underline row depends on LPR, as measured on a real CoCo 3 (2026-11-02):
+
+| Lines per row (LPR) | 8 (3) | 9 (4) | 10 (5) | 11 (6) |
+|---|---|---|---|---|
+| Underline row, from 0 | 7 | 8 | 8 | 9 |
+
+This matches MAME; XRoar gives 9 and 10 at LPR 5 and 6. LPR 0-2 and 7 show no underline here,
+which follows MAME and hasn't been measured.
 
 ### Palette Registers ($FFB0–$FFBF)
 
