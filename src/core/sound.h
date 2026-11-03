@@ -27,6 +27,20 @@ enum {
     NUM_SOURCES
 };
 
+// How the mux and single-bit sound reach the output (Settings > Machine >
+// Sound Mixer, saved in NVS). Both keep the same DAC, cartridge and SSC paths.
+//   SOUND_MIXER_XROAR  XRoar's measured gain/offset tables: SNDEN off routes
+//                      the single-bit sound alone, so the output drops to 0 V;
+//                      a non-DAC mux channel goes to its own offset.
+//   SOUND_MIXER_MAME   As MAME and the mame-coco3-ttgovga port: SNDEN off holds
+//                      the mux output where it was; silent channels sit at the
+//                      mid level; the single-bit sound adds on top and clips.
+//                      Switching makes no click. The default: it sounded
+//                      better on the board (A/B by ear, 2026-11-02).
+enum { SOUND_MIXER_XROAR = 0, SOUND_MIXER_MAME = 1, SOUND_MIXER_COUNT };
+void    sound_set_mixer(uint8_t mixer);
+uint8_t sound_get_mixer(void);
+
 // Reset all sound state to power-on defaults and push the idle level.
 void sound_reset(void);
 
