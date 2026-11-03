@@ -4,7 +4,7 @@
 
 A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the ESP32  **[LilyGo TTGO VGA32 v1.4](https://lilygo.cc/en-us/products/fabgl-vga32?_pos=1&_sid=4c095f59b&_ss=r)** board (ESP32-WROVER). Inspired on  [XRoar](http://www.6809.org.uk/xroar/) emulator.
 
-**v0.21.0 — October 26, 2026** (LilyGo TTGO VGA32 port)
+**v0.22.0 — November 2, 2026** (LilyGo TTGO VGA32 port)
 
 ## Features
 
@@ -405,8 +405,9 @@ All technical documentation is in the `docs/` directory:
 - Bank-switched cartridges (over 16 KB) are CoCo 3 only; an unbanked 32 KB ROM that sits at `$8000-$FEFF` does not work
 - Max 128 file entries in the SD card browser
 - Joystick 2 (left port) is a stub — returns centered, button released; only Joystick 1 is active via PS/2 mouse
-- NTSC composite simulation covers RG6 (PMODE 4) artifact colour only — there is no
-  chroma/luma bleed modelling for the other modes
+- NTSC composite simulation covers RG6 (PMODE 4) artifact colour and the composite
+  palette (Settings → Machine → Monitor) — there is no chroma/luma bleed modelling for
+  the other modes. Composite colours reduce to the 64 the VGA output has (37 distinct)
 - **The monitor flickers when the video output changes resolution.** The normal output is
   640×200. CoCo 3 screens taller than 200 lines and at most 512 pixels wide (the 225-line
   mode used by games such as Rick Dangerous and Donkey Kong) switch the VGA output to
@@ -468,6 +469,43 @@ mode, with diagrams.
 
 ## Changelog
 
+### v0.22.0 — November 2, 2026
+
+**Cleaner sound, composite colours, and MAME's PMODE 4 artifacts**, taken from
+the [mame-coco3-ttgovga](https://github.com/reyco2000/mame-coco3-ttgovga) port on
+the same board.
+
+- **Cleaner sound:**
+  - **Averaged samples.** Each scanline's sample is the level averaged over the
+    line, placed by the CPU's cycle count, instead of the last level written.
+    Tone edges keep their timing, and the tics from up to 64 µs of jitter go.
+  - **DMA output.** I2S0 plays the samples by DMA at 15,720.6 Hz, one per
+    scanline, refilled by a task on core 0. The 22 kHz timer interrupt and its
+    resampling are gone. At 60 FPS each sample plays exactly once; below 60 FPS
+    the sound still slows down with the emulator, without gaps.
+  - **Setup → Machine → Sound Mixer** (default MAME, saved). MAME's model holds
+    the mixer output when sound is switched off and keeps silent sources at mid
+    level, so starting and stopping sound doesn't click. XRoar's model is still
+    there.
+  - Sound now runs about 50 ms behind the picture (was 20–25 ms).
+- **Setup → Machine → Monitor** (CoCo 3: RGB or COMPOSITE, saved). Composite
+  uses MAME's colour table. The VGA output has 64 colours, so composite shows
+  37 distinct ones.
+- **PMODE 4 Artifacts** now cycles OFF / STANDARD / REVERSE and uses MAME's
+  model: 14 colours mixed from the screen's two, with colour fringes on edges,
+  for both `SCREEN 1,1` and `SCREEN 1,0`. Standard keeps blue and orange where
+  they were; Reverse swaps them. A saved ON loads as Standard.
+- **GIME fixes from a real CoCo 3** (tested by the user with `gime.dsk` and
+  `border.dsk`):
+  - In PMODE graphics the border is fixed white (CSS=1) or green (CSS=0), not
+    the palette colour.
+  - Attribute-text underline on rows 7, 8, 8, 9 at 8, 9, 10, 11 lines per row
+    (was 7, 8, 9, 10).
+- **Diagnostics:** `/api/status` audio section has DMA fields (`refills`,
+  `late_refills`, `poll_gap_us_max`, `stack_free`, `hold_samples`) instead of
+  the timer ISR fields. New host tests in `tools/audio_test`,
+  `tools/gime_monitor_test` and `tools/gime_artifact_test`.
+
 ### v0.21.0 — October 26, 2026
 
 **GIME accuracy fixes, and full-height 225-line games.**
@@ -519,29 +557,6 @@ pitch.**
   v0.19.0. The MC6809 build is unchanged.
 - **Diagnostics:** CPU profiler (`-DPERF_PROBE_ENABLED=1`), boot-time
   interpreter benchmark (`-DPERF_BENCH=1`), and `gime_timer` in `/api/status`.
-
-### v0.19.0 — October 20, 2026
-
-**The CoCo 3 runs at full speed, and fast typing no longer drops keys.**
-
-- **1.79 MHz in fast mode.** The GIME stored SAM R1 (`$FFD9`) but nothing read
-  it, so NitrOS-9 and every fast-mode program ran at 0.895 MHz. The CoCo 3 now
-  runs two 14,916-cycle slices per frame while R1 is set; the RS-232 Pak ACIA
-  gets half the cycles so its baud rate holds. The CoCo 2 is unchanged.
-  Measured on the board: BASIC fast mode 1.790 MHz (ratio 1.000, about 13 ms of
-  work per 16.7 ms frame), NitrOS-9 1.0.1 1.79 MHz at the shell; some
-  animations still show about 44 FPS.
-- **Emulated CPU speed meter.** `/api/status` has a `speed` block (`mhz`,
-  `target_mhz`, `ratio`, `rate`, frame work average/max).
-  `tools/perf/speedcheck.py` cross-checks it against the guest's 60 Hz counter.
-- **Fast typing keeps every key.** Color BASIC's KEYIN decodes one newly
-  pressed bit per column and drops a key whose column changes while it
-  debounces, so quick re-taps and two keys of one column in the same frame were
-  lost. Matrix changes now go through a FIFO, one per frame, with a 4-frame
-  minimum hold and a 2-frame gap before a re-press.
-- **Bootloader `version.txt` is the bare version** (`0.19.0`), as ESP32_Bootloader
-  requires; it used to be `CoCo.<version>-<git describe>`. Bump
-  `FIRMWARE_VERSION` for every build that must reflash.
 
 ## ⚠️ Vibe Coding Alert
 

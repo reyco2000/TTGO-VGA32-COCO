@@ -636,6 +636,7 @@ void machine_reset_coco3(Machine* m) {
     // Reset PIAs
     mc6821_reset(&m->pia0);
     mc6821_reset(&m->pia1);
+    hal_audio_set_cycle_source(&m->cpu.cycles);
     sound_reset();
     m->pia0.irq_a_callback = pia0_irq_a_coco3;
     m->pia0.irq_b_callback = pia0_irq_b_coco3;
@@ -789,8 +790,8 @@ void machine_run_scanline_coco3(Machine* m) {
                 unsigned text_border_colour = g->VDG.CSS ? 0x26 : 0x12;
                 g->border_colour = text_border ? text_border_colour : 0;
             } else {
-                unsigned c = g->VDG.CSS ? TCC1014_RGCSS1_1 : TCC1014_RGCSS0_1;
-                g->border_colour = g->palette_reg[c];
+                // Fixed: a real CoCo 3 ignores the palette and $FF9A here.
+                g->border_colour = g->VDG.CSS ? 0x3F : 0x12;
             }
         } else {
             g->border_colour = g->BRDR;
@@ -1415,6 +1416,7 @@ void machine_reset_coco2(Machine* m) {
     // Reset all components
     mc6821_reset(&m->pia0);
     mc6821_reset(&m->pia1);
+    hal_audio_set_cycle_source(&m->cpu.cycles);
     sound_reset();
     mc6847_reset(&m->vdg);
     sam6883_reset(&m->sam);

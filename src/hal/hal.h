@@ -147,7 +147,11 @@ void hal_audio_set_level(uint8_t level);
 // Call once per frame from main loop — detects end-of-sound and prints frequency debug
 void hal_audio_debug_tick(void);
 
-// Queue the current audio level for playback (call once per scanline)
+// Where a level change falls in the scanline: the CPU's cycle counter, which
+// the CPU restarts at each run and the machine runs once per scanline.
+void hal_audio_set_cycle_source(const unsigned long* cycles);
+
+// Queue the level averaged over this scanline for playback (call once per scanline)
 void hal_audio_capture_scanline(void);
 
 // Frame end: judge the queue fill level and steer the playback rate
@@ -158,18 +162,21 @@ void hal_audio_commit_frame(void);
 struct HalAudioStats {
     uint32_t commits;          // frames queued
     uint32_t underruns;        // times the queue ran dry and playback paused
-    uint32_t hold_ticks;       // ISR ticks spent paused on an empty queue
-    uint32_t catchup_ticks;    // ISR periods made up after the ISR was held off
+    uint32_t hold_samples;     // samples output on the last level while paused
     uint32_t overruns;         // samples dropped because the queue was full
     uint32_t fill;             // queued samples at the last frame end
     uint32_t fill_min;         // lowest / highest fill seen at a frame end
     uint32_t fill_max;
-    int32_t  stride_adj;       // current rate correction, Q16 stride units
+    int32_t  stride_adj;       // current rate correction, Q16; 0 = one sample out per sample in
     uint32_t commit_us_min;    // shortest / longest time between two frame ends
     uint32_t commit_us_max;
-    uint32_t isr_cyc_max;      // longest ISR run, in CPU clock cycles
-    uint32_t isr_gap_cyc_min;  // shortest / longest time between ISR entries
-    uint32_t isr_gap_cyc_max;
+    uint32_t refills;          // DMA buffers refilled
+    uint32_t late_refills;     // polls late enough for the DMA to have replayed a buffer
+    uint32_t poll_gap_us_max;  // longest time between two polls of the DMA
+    uint32_t stack_free;       // audio task stack never used, bytes
+    uint32_t underruns_base;   // the feed's counters when the stats were last reset (internal)
+    uint32_t hold_samples_base;
+    uint32_t overruns_base;
 };
 void hal_audio_get_stats(HalAudioStats* out);
 void hal_audio_reset_stats(void);
@@ -288,6 +295,10 @@ void hal_keyboard_set_machine(Machine* m);
 
 // Force full display repaint (invalidates VRAM shadow compare)
 void hal_video_force_repaint(void);
+
+// The GIME monitor changed (tcc1014_set_monitor): rebuild the colour table and
+// redraw every line and the border.
+void hal_video_gime_colours_changed(void);
 
 // Toggle FPS overlay
 void hal_video_toggle_fps_overlay(void);

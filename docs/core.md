@@ -655,7 +655,7 @@ The Hardware Abstraction Layer (`src/hal/`) bridges the emulation core to the TT
 | `hal_audio_write_dac(dac6)` | `machine_write()` PIA1 PA (MUX-gated) | 6-bit DAC value → 8-bit scaled level into `audio_current_level`. |
 | `hal_audio_write_bit(value)` | `machine_write()` PIA1 PB | Single-bit audio → 0 or 255 in `audio_current_level`. |
 | `hal_audio_capture_scanline()` | `machine_run_scanline()` | Snapshot current level into the active scanline buffer. |
-| `hal_audio_commit_frame()` | `machine_run_frame()` | Hand the captured buffer to the ISR. |
+| `hal_audio_commit_frame()` | `machine_run_frame()` | Judge the queue fill and set the playback rate for the DMA task. |
 
 **VGA32 backend**: ESP32 internal DAC1 on GPIO25 driven by a 22 050 Hz timer ISR calling `dac_output_voltage()`. 262-sample pitch-corrected double-buffered scanline replay.
 

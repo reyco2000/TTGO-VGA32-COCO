@@ -15,6 +15,7 @@
 #include "esp_timer.h"
 #include "src/core/machine.h"
 #include "src/core/speed_meter.h"
+#include "src/core/sound.h"
 #include "src/hal/hal.h"
 #include "src/hal/osd_canvas.h"
 #include "src/supervisor/supervisor.h"
@@ -192,6 +193,8 @@ void setup() {
     g_cpu_variant  = supervisor_load_cpu_variant();
     g_coco3_ram_kb = supervisor_load_coco3_ram();
     tcc1014_set_artifacts(supervisor_load_artifacts());
+    tcc1014_set_monitor(supervisor_load_monitor());
+    sound_set_mixer(supervisor_load_sound_mixer());
 
     // DriveWire bus mode (Becker port). Read before ROM loading so later
     // phases can pick the HDB-DOS Becker ROM instead of disk11.rom.

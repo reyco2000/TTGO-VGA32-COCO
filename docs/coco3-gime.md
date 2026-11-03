@@ -131,6 +131,10 @@ Fully compatible with CoCo 2 video. Reads VDG mode bits from PIA1B:
 | 110 | CG2 | 128×64 | 4 |
 | 111 | RG2/RG3/RG6/PMODE 0-4 | up to 256×192 | 2 or 4 |
 
+The graphics-mode border is fixed: white with CSS=1 and green with CSS=0 (`$3F` and `$12`,
+values from MAME). Measured on a real CoCo 3 (2026-11-02) in PMODE 4: palette changes and
+`$FF9A` writes don't affect it. XRoar takes it from the palette, so don't port that back.
+
 #### INIT0 COCO=0 (GIME Native Mode)
 
 Selected by VMODE (BP bit) and VRES (HRES/CRES/LPF):
@@ -148,6 +152,15 @@ Selected by VMODE (BP bit) and VRES (HRES/CRES/LPF):
 
 Lines per field (LPF): 192 (default), 199, 225.
 
+The attribute underline row depends on LPR, as measured on a real CoCo 3 (2026-11-02):
+
+| Lines per row (LPR) | 8 (3) | 9 (4) | 10 (5) | 11 (6) |
+|---|---|---|---|---|
+| Underline row, from 0 | 7 | 8 | 8 | 9 |
+
+This matches MAME; XRoar gives 9 and 10 at LPR 5 and 6. LPR 0-2 and 7 show no underline here,
+which follows MAME and hasn't been measured.
+
 ### Palette Registers ($FFB0–$FFBF)
 
 16 palette entries, each 6-bit GIME color: `--RRGGBB` (interleaved bit format).
@@ -162,26 +175,57 @@ Example: value $12 = GREEN (R=0, G=3, B=0), NOT purple.
 
 64-entry RGB565 lookup table built at init time for fast rendering.
 
+### Monitor: RGB or composite
+
+**Settings → Machine → Monitor** (CoCo 3, RGB by default, NVS key `"monitor"`)
+shows the 64 GIME colours as a CM-8 RGB monitor or as a composite TV would.
+
+- Colours: MAME's composite table (`gime_colour_composite()` in
+  `src/core/gime_monitor.h`, BSD-3-Clause, Nathan Woods). The VGA output has 2
+  bits per channel, so each is shown as the nearest of its 64 colours, itself a
+  GIME colour on an RGB monitor: 37 distinct colours, as in the
+  mame-coco3-ttgovga port. Composite 16 and 32 (dark and light grey) both come
+  out as RGB level 1.
+- Cost: none per pixel. The display stays in GIME colour numbers;
+  `tcc1014_set_monitor()` rebuilds the core's RGB565 table, and
+  `hal_video_gime_colours_changed()` the raw VGA table, then every line and the
+  border redraw.
+- Test: `tools/gime_monitor_test/run.sh`.
+
 ### PMODE 4 Artifacts (optional)
 
 CoCo 2 software drawn in PMODE 4 (VDG RG6) expects NTSC artifact colour: on a
-composite TV, pairs of pixels show up as blue or orange. The GIME shows them as
-black and white. **Settings → Machine → PMODE 4 Artifacts** (off by default,
-NVS key `"artifacts"`) makes PMODE 4 look the same as it does on our CoCo 2 machine:
+composite TV, pixel patterns show up in colour. The GIME shows them as the two
+plain colours. **Settings → Machine → PMODE 4 Artifacts** (NVS key
+`"artifacts"`) cycles OFF / STANDARD / REVERSE:
 
+- Model: MAME's artifacter (`src/core/gime_artifact.h`, BSD-3-Clause, Nathan
+  Woods, via the mame-coco3-ttgovga port). Each output pixel pair is one of 16
+  colours: the line's two colours c0 and c1 (palette slots 8/9 with CSS=0,
+  10/11 with CSS=1) or one of 14 mixes of them, picked by MAME's 128-entry
+  correction table from a window of 6 pixels. The window reaches into the
+  border on both sides, where a pixel counts as set if the border is c1.
+  STANDARD is MAME's phase A (`01` pixels blue, `10` orange, as before and as
+  the CoCo 2); REVERSE is phase B, with the two swapped.
 - Scope: VDG-compatible RG6 (`(PIA1B & 0x70) == 0x70`, 256-pixel geometry
-  `resolution == 1`) with CSS=1, the same condition as the CoCo 2 renderer
-  (`mc6847.cpp`). MAME's GIME has the same scope (`m_legacy_video`); XRoar
-  applies artifacts to every mode, which would need a second pass over every line.
-- Colours: each bit pair 00/01/10/11 → black / blue / orange / white, the
-  fixed GIME codes `0x00 0x08 0x26 0x3F` (not palette registers: the colour
-  comes from the TV).
-- Cost: `render_line()` picks `render_coco_rg_artifact` instead of
-  `render_coco_rg` once per line; every other mode runs unchanged code. The
-  setting is part of the dirty-line signature, so toggling redraws at once.
-- Test: `tools/gime_render_test/run.sh` checks PMODE 4 lines against the
-  table, checks that other lines still match the legacy renderer with the setting
-  on, and checks that toggling defeats the line skip.
+  `resolution == 1`), either CSS. MAME's GIME has the same scope
+  (`m_legacy_video`); XRoar applies artifacts to every mode.
+- Monitor: the mixes start from the colours on the selected monitor, so
+  composite artifacts mix composite colours. They are then shown as the
+  nearest VGA colour, through a second, unmapped raw table
+  (`tcc1014_set_raw_lut(lut64, direct64)`).
+- Cost: the 14 mixes are recomputed only when c0, c1, mode or monitor change;
+  per line, 16 table loads and the window loop. The mode is part of the
+  dirty-line signature, so changing it redraws at once. 60 FPS on the board
+  with STANDARD on (user, 2026-11-02).
+- NVS: the key was a bool before the modes. Preferences stores a bool as a
+  byte, so an old ON loads as STANDARD and OFF as OFF.
+- Tests: `tools/gime_artifact_test/run.sh` checks the header against
+  `golden.py`, an independent Python model of MAME's artifacter.
+  `tools/gime_render_test/run.sh` checks PMODE 4 lines (both CSS, both
+  phases, border set or not) against the header, checks that other lines
+  still match the legacy renderer with artifacts on, and checks that changing
+  the mode defeats the line skip.
 
 ### Interrupt Controller
 
