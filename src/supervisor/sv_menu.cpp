@@ -30,6 +30,8 @@
 #include "../core/vhd.h"
 #include "../core/tcc1014.h"
 #include "../core/sound.h"
+#include "../core/gime_monitor.h"
+#include "../core/gime_artifact.h"
 #include "../net/dw_bus.h"
 #include "../net/wifi_mgr.h"
 #include "../hal/hal.h"
@@ -714,9 +716,12 @@ void sv_menu_draw_row_icon(int icon, int x, int y, uint16_t bg, uint16_t fg) {
 //   CPU                   6809 / 6309 picker
 //   CoCo 3 Memory         128K / 512K / 1024K / 2048K popup; on a CoCo 2 the
 //                         row reads "CoCo 2 Memory", fixed at 64K (no popup)
-//   PMODE 4 Artifacts     CoCo 3: toggles NTSC artifact colours for PMODE 4
-//                         (black/blue/orange/white, as on the CoCo 2); applied
-//                         live, persisted in NVS. CoCo 2: always on, no toggle
+//   PMODE 4 Artifacts     CoCo 3: NTSC artifact colours for PMODE 4, cycling
+//                         OFF / STANDARD / REVERSE (MAME's artifacter, phase A
+//                         or B); applied live, persisted in NVS. CoCo 2:
+//                         always on, no toggle
+//   Monitor               CoCo 3: RGB / COMPOSITE colours (gime_monitor.h);
+//                         applied live, persisted in NVS. CoCo 2: N/A
 //   Sound Mixer           XRoar / MAME mux and single-bit model (sound.h);
 //                         applied live, persisted in NVS, both machines
 //
@@ -752,6 +757,7 @@ static const SV_ListRow MACHINE_ROWS[SV_MACH_COUNT] = {
     { "CPU",                 ROW_ICON_CHIP    },
     { "CoCo 3 Memory",       ROW_ICON_PAGE    },   // "CoCo 2 Memory" on a CoCo 2
     { "PMODE 4 Artifacts",   ROW_ICON_CHECK   },
+    { "Monitor",             ROW_ICON_MACHINE },
     { "Sound Mixer",         ROW_ICON_NOTE    },
 };
 
@@ -1222,9 +1228,18 @@ static void machine_menu_activate(Supervisor_t* sv, int row) {
             break;
         case SV_MACH_ARTIFACTS:
             if (g_machine_type == 4) {                       // CoCo 2: always on
-                const bool on = !tcc1014_get_artifacts();
-                tcc1014_set_artifacts(on);
-                supervisor_save_artifacts(on);
+                const uint8_t mode = (uint8_t)((tcc1014_get_artifacts() + 1) % GIME_ARTIFACT_COUNT);
+                tcc1014_set_artifacts(mode);
+                supervisor_save_artifacts(mode);
+                sv->needs_redraw = true;
+            }
+            break;
+        case SV_MACH_MONITOR:
+            if (g_machine_type == 4) {
+                const uint8_t m = (uint8_t)((tcc1014_get_monitor() + 1) % GIME_MONITOR_COUNT);
+                tcc1014_set_monitor(m);
+                hal_video_gime_colours_changed();
+                supervisor_save_monitor(m);
                 sv->needs_redraw = true;
             }
             break;
@@ -1398,7 +1413,14 @@ static const char* machine_value(int row, char* buf, size_t size) {
             return buf;
         case SV_MACH_ARTIFACTS:
             if (g_machine_type != 4) return "ALWAYS";
-            return tcc1014_get_artifacts() ? "ON" : "OFF";
+            switch (tcc1014_get_artifacts()) {
+                case GIME_ARTIFACT_STANDARD: return "STANDARD";
+                case GIME_ARTIFACT_REVERSE:  return "REVERSE";
+                default:                     return "OFF";
+            }
+        case SV_MACH_MONITOR:
+            if (g_machine_type != 4) return "N/A";
+            return (tcc1014_get_monitor() == GIME_MONITOR_COMPOSITE) ? "COMPOSITE" : "RGB";
         case SV_MACH_SOUND_MIX:
             return (sound_get_mixer() == SOUND_MIXER_MAME) ? "MAME" : "XROAR";
         default:           return NULL;

@@ -261,20 +261,23 @@ void tcc1014_set_interrupt(TCC1014* gime, uint8_t flag);
 // Rendering — stub for Phase 1, implemented in Phase 3
 void tcc1014_render_scanline(TCC1014* gime, unsigned scanline);
 
-// OPT-G6: register the display's 64-entry GIME colour → raw pixel byte table.
-// Once set, lines rendered with raw_output emit raw bytes via this table.
-void tcc1014_set_raw_lut(const uint8_t* lut64);
+// OPT-G6: register the display's 64-entry GIME colour → raw pixel byte tables.
+// lut64 shows each colour as the monitor would (tcc1014_display_colour);
+// direct64 takes a display colour as it is (RGB-monitor meaning), for colours
+// already mapped, such as the artifact mixes. Once set, lines rendered with
+// raw_output emit raw bytes via these tables.
+void tcc1014_set_raw_lut(const uint8_t* lut64, const uint8_t* direct64);
 
 // OPT-G5: forget all per-line signatures so every line is rendered again.
 // Call whenever something other than the GIME renderer has drawn on the
 // display (OSD, overlays, another machine's video).
 void tcc1014_invalidate_lines(void);
 
-// PMODE 4 NTSC artifact colours (VDG-compatible RG6 with CSS=1): pixel pairs
-// render as black/blue/orange/white, as on the CoCo 2. Off by default; a
-// global display setting, so it survives GIME resets.
-void tcc1014_set_artifacts(bool on);
-bool tcc1014_get_artifacts(void);
+// PMODE 4 NTSC artifact colours: GIME_ARTIFACT_OFF / _STANDARD / _REVERSE
+// (gime_artifact.h, MAME's artifacter: 14 mixes of the line's two colours).
+// Off by default; a global display setting, so it survives GIME resets.
+void    tcc1014_set_artifacts(uint8_t mode);
+uint8_t tcc1014_get_artifacts(void);
 
 // PIA1B snooping — port of tcc1014.c:726-730
 void tcc1014_snoop_pia1b(TCC1014* gime, uint16_t addr, uint8_t val);
@@ -287,6 +290,14 @@ void tcc1014_set_inverted_text(TCC1014* gime, bool value);
 
 // Initialize palette LUT (64-color GIME → RGB565)
 void tcc1014_init_palette_lut(void);
+
+// Monitor the colours are shown as: GIME_MONITOR_RGB / _COMPOSITE (gime_monitor.h).
+// Rebuilds the core's colour table and forces every line to redraw; the display
+// rebuilds its own with hal_video_gime_colours_changed().
+void    tcc1014_set_monitor(uint8_t monitor);
+uint8_t tcc1014_get_monitor(void);
+// The GIME colour (as on an RGB monitor) the display shows for this colour.
+uint8_t tcc1014_display_colour(uint8_t colour);
 
 // Phase 5: Recompute active_banks[8] from current MMU state
 void tcc1014_update_active_banks(TCC1014* gime);

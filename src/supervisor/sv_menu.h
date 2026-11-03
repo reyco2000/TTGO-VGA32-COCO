@@ -85,7 +85,8 @@ enum SV_MachineRow : uint8_t {
     SV_MACH_TYPE,       // CoCo 2 / CoCo 3 (machine-select popup)
     SV_MACH_CPU,        // MC6809 / HD6309
     SV_MACH_RAM,        // CoCo 3 memory: 128K / 512K / 1024K / 2048K (CoCo 2: fixed 64K)
-    SV_MACH_ARTIFACTS,  // CoCo 3 PMODE 4 artifact colours ON / OFF (CoCo 2: always on)
+    SV_MACH_ARTIFACTS,  // CoCo 3 PMODE 4 artifacts OFF / STANDARD / REVERSE (CoCo 2: always on)
+    SV_MACH_MONITOR,    // CoCo 3 monitor: RGB / COMPOSITE (CoCo 2: N/A)
     SV_MACH_SOUND_MIX,  // Sound mixer model: XRoar / MAME (both machines)
     SV_MACH_COUNT
 };

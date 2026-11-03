@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
     long trials = (argc > 1) ? atol(argv[1]) : 200000;
     static TCC1014 g;
     build_raw_lut();
-    tcc1014_set_raw_lut(raw_lut);
+    tcc1014_set_raw_lut(raw_lut, raw_lut);      // RGB monitor: the same table
     static uint16_t ref[640];
     unsigned ref_width;
     long seen[2][2][4][4] = {};  // [COCO][BP][CRES][resolution]
@@ -190,16 +190,21 @@ int main(int argc, char** argv) {
             if (seen[c][b][cr][r])
                 printf("  %d %d %d %d = %ld\n", c, b, cr, r, seen[c][b][cr][r]);
 
-    // PMODE 4 artifacts: with the setting on, RG6+CSS lines must render each
-    // bit pair as the fixed black/blue/orange/white colour, every other line
-    // must still match the legacy renderer, and toggling must defeat the skip.
-    tcc1014_set_artifacts(true);
+    // PMODE 4 artifacts: with the setting on, RG6 lines (either CSS) must be
+    // what gime_artifact.h makes of the line's bytes, palette pair and border
+    // (that header is checked against MAME by tools/gime_artifact_test), every
+    // other line must still match the legacy renderer, and changing the mode
+    // must defeat the skip.
     long art_lines = 0, other_lines = 0;
     for (long t = 0; t < trials; t++) {
+        const uint8_t mode = (t & 2) ? GIME_ARTIFACT_REVERSE : GIME_ARTIFACT_STANDARD;
+        tcc1014_set_artifacts(mode);
         randomize(&g);
-        if (t & 1) {   // steer half the trials towards PMODE 4 with CSS=1
+        if (t & 1) {   // steer half the trials towards PMODE 4, CSS either way
             tcc1014_write_register(&g, 0, 0x80);
-            tcc1014_snoop_pia1b(&g, 0xFF22, 0xF8);
+            tcc1014_snoop_pia1b(&g, 0xFF22, (rnd() & 8) | 0xF0);
+            if (rnd() & 1)   // now and then a border that counts as set
+                g.border_colour = g.palette_reg[g.VDG.CSS ? TCC1014_RGCSS1_1 : TCC1014_RGCSS0_1];
         }
         const TCC1014 snapshot = g;
         if (!artifact_line(&g)) {
@@ -223,6 +228,11 @@ int main(int argc, char** argv) {
         const unsigned n = g.BPR;
         uint8_t bytes[160];
         memcpy(bytes, fetch_line_bytes(&g, n), n);
+        const uint8_t c0 = g.palette_reg[g.VDG.CSS ? TCC1014_RGCSS1_0 : TCC1014_RGCSS0_0] & 0x3F;
+        const uint8_t c1 = g.palette_reg[g.VDG.CSS ? TCC1014_RGCSS1_1 : TCC1014_RGCSS0_1] & 0x3F;
+        uint8_t cols[16], want[160 * 16];
+        gime_artifact_mix(mode, GIME_MONITOR_RGB, c0, c1, cols);
+        gime_artifact_line<uint8_t>(bytes, n, cols, (g.border_colour & 0x3F) == c1, want);
         for (int pass = 0; pass < 2; pass++) {
             g = snapshot;
             g.raw_output = pass;
@@ -231,10 +241,9 @@ int main(int argc, char** argv) {
             bool bad = g.line_width != n * 16;
             unsigned x = 0;
             for (; !bad && x < g.line_width; x++) {
-                const unsigned bits = (bytes[x >> 4] >> (6 - 2 * ((x >> 2) & 3))) & 3;
-                const uint8_t code = k_artifact_gime[bits];
+                const uint8_t code = want[x];
                 bad = pass ? g.line_raw[x] != raw_lut[code]
-                           : g.line_buffer[x] != __builtin_bswap16(gime_rgb565_lut[code]);
+                           : g.line_buffer[x] != display_rgb565_swapped(code);
             }
             if (bad) {
                 printf("ARTIFACT MISMATCH trial %ld (%s path) at x=%u, width=%u\n",
@@ -244,21 +253,26 @@ int main(int argc, char** argv) {
         }
         art_lines++;
     }
-    // Toggling the setting must re-render a line the skip would otherwise keep.
+    // Changing the mode must re-render a line the skip would otherwise keep:
+    // Standard to Reverse, then to Off.
+    tcc1014_set_artifacts(GIME_ARTIFACT_STANDARD);
     do { randomize(&g); tcc1014_write_register(&g, 0, 0x80);
          tcc1014_snoop_pia1b(&g, 0xFF22, 0xF8); } while (!artifact_line(&g));
     {
         const TCC1014 snapshot = g;
         tcc1014_invalidate_lines();
         g.raw_output = true; tcc1014_render_scanline(&g, 3);
-        tcc1014_set_artifacts(false);
-        g = snapshot; g.raw_output = true; tcc1014_render_scanline(&g, 3);
-        if (g.line_clean) {
-            printf("ARTIFACT TOGGLE skipped a line that changed\n");
-            return 1;
+        const uint8_t next[2] = { GIME_ARTIFACT_REVERSE, GIME_ARTIFACT_OFF };
+        for (int i = 0; i < 2; i++) {
+            tcc1014_set_artifacts(next[i]);
+            g = snapshot; g.raw_output = true; tcc1014_render_scanline(&g, 3);
+            if (g.line_clean) {
+                printf("ARTIFACT MODE CHANGE skipped a line that changed\n");
+                return 1;
+            }
         }
     }
     printf("OK: artifacts on: %ld PMODE 4 lines as expected, %ld other lines "
-           "identical to legacy; toggling re-renders\n", art_lines, other_lines);
+           "identical to legacy; changing the mode re-renders\n", art_lines, other_lines);
     return 0;
 }
