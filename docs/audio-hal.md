@@ -222,8 +222,22 @@ With the timer ISR: the PI-only control (+2 % / −40 %, 0.2 Hz) learned the emu
 
 ## Sound MUX Gating
 
-Implemented in `src/core/sound.cpp` — board-independent. The mux state (enable
-+ source select) determines which source's gain/offset row is applied.
+Implemented in `src/core/sound.cpp` — board-independent. Two models, chosen in
+Settings → Machine → **Sound Mixer** (NVS key `snd_mixer`, applied live):
+
+| | MAME (default) | XRoar |
+|---|---|---|
+| Source | MAME `coco_sound()`, the mame-coco3-ttgovga port's `soundLevel()` | XRoar `sound.c` voltage tables |
+| SNDEN off | Mux output holds its last value | Single-bit path alone: drops to 0 V |
+| Mux on cassette / cartridge / none | Mid level (`0x7E`) | That source's offset |
+| DAC | `dac × 4` (0–252) | Gain/offset row for the PB1 state |
+| Single-bit sound (PB1 output high) | Adds `0xFC`, clips at 255 | Changes the gain and offset of the selected source |
+| Silence at power-on | Mid level | 0 V |
+
+MAME is the default: in an A/B on the board on 2026-11-02 (`SOUND` start/stop and
+`SOUND` + `JOYSTK` loops), it sounded better by ear, with no click when sound
+switches on or off. The rest of this section describes the XRoar model; in the
+MAME model the gating comes from the held mux output instead.
 
 ### The Problem
 

@@ -19,6 +19,7 @@
  */
 
 #include "supervisor.h"
+#include "../core/sound.h"
 #include "sv_menu.h"
 #include "sv_filebrowser.h"
 #include "sv_disk.h"
@@ -659,6 +660,21 @@ bool supervisor_load_artifacts(void) {
     bool on = prefs.getBool("artifacts", false);
     prefs.end();
     return on;
+}
+
+uint8_t supervisor_load_sound_mixer(void) {
+    Preferences prefs;
+    prefs.begin("sv", true);
+    uint8_t m = prefs.getUChar("snd_mixer", SOUND_MIXER_MAME);
+    prefs.end();
+    return m;      // sound_set_mixer() ignores an out-of-range value
+}
+
+void supervisor_save_sound_mixer(uint8_t mixer) {
+    Preferences prefs;
+    prefs.begin("sv", false);
+    prefs.putUChar("snd_mixer", mixer);
+    prefs.end();
 }
 
 void supervisor_save_artifacts(bool on) {

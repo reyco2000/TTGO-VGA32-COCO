@@ -45,13 +45,36 @@ static uint8_t ssc_out      = 0;      // SSC_BIAS + level/2 once the SSC is on
 // Mid-point of the half-scale SSC signal (-63..63 around it).
 #define SSC_BIAS 64
 
-static void sound_update(void) {
+// SOUND_MIXER_MAME (MAME coco12.cpp coco_sound(), mc14529.cpp; the
+// mame-coco3-ttgovga port's Coco3::soundLevel()): the DAC reaches the speaker
+// through mux channel 0, and channels 1-3 are silent here, which is the idle
+// level and not 0, or each change of channel would be a step of half the range.
+// SNDEN low inhibits the selector, which then holds its last value. The single
+// bit is wired to the speaker directly and clips.
+#define MAME_IDLE       0x7E
+#define MAME_SINGLE_BIT 0xFC
+
+static uint8_t mixer    = SOUND_MIXER_MAME;   // the default, chosen by ear (2026-11-02)
+static uint8_t mame_mux = MAME_IDLE;      // the selector's output, held while SNDEN is low
+
+static unsigned xroar_level(void) {
     unsigned sindex = sbs_enabled ? (sbs_level ? 2u : 1u) : 0u;
     unsigned source = mux_enabled ? mux_source : (unsigned)SOURCE_SINGLE_BIT;
     // TAPE and CART levels are not emulated — treated as 0.
     unsigned level  = (source == SOURCE_DAC) ? dac_level : 0u;
-    unsigned out = (level * source_gain[source][sindex]) / 63u
-                 + source_offset[source][sindex];
+    return (level * source_gain[source][sindex]) / 63u
+         + source_offset[source][sindex];
+}
+
+static unsigned mame_level(void) {
+    if (mux_enabled)
+        mame_mux = (mux_source == SOURCE_DAC) ? (uint8_t)(dac_level << 2) : (uint8_t)MAME_IDLE;
+    unsigned out = mame_mux + ((sbs_enabled && sbs_level) ? MAME_SINGLE_BIT : 0u);
+    return out > 255u ? 255u : out;
+}
+
+static void sound_update(void) {
+    unsigned out = (mixer == SOUND_MIXER_MAME) ? mame_level() : xroar_level();
     // The cartridge level sums into the output; one DAC, so saturate.
     out += ext_level;
     out += ssc_out;
@@ -65,7 +88,18 @@ void sound_reset(void) {
     sbs_level   = false;
     mux_enabled = false;
     mux_source  = SOURCE_DAC;
+    mame_mux    = MAME_IDLE;
     sound_update();
+}
+
+void sound_set_mixer(uint8_t m) {
+    if (m >= SOUND_MIXER_COUNT || m == mixer) return;
+    mixer = m;
+    sound_update();
+}
+
+uint8_t sound_get_mixer(void) {
+    return mixer;
 }
 
 void sound_set_dac_level(uint8_t dac6) {

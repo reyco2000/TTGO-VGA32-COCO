@@ -165,6 +165,10 @@ void     supervisor_save_coco3_ram(uint16_t kb);
 // default off. load is applied in setup(); the Machine menu toggles it live
 // with tcc1014_set_artifacts() and saves.
 bool supervisor_load_artifacts(void);
+// Sound mixer model (NVS "sv" namespace, key "snd_mixer"): SOUND_MIXER_* from
+// core/sound.h; MAME when unset, and an out-of-range value is ignored.
+uint8_t supervisor_load_sound_mixer(void);
+void    supervisor_save_sound_mixer(uint8_t mixer);
 void supervisor_save_artifacts(bool on);
 
 // Cartridge settings (NVS "sv" namespace): key "orch90" turns the
