@@ -307,11 +307,10 @@ FabGL `VGAController` at **640×200 @ 60 Hz**, 64-color direct mode (RGB222, 2 b
 
 #### Audio — `hal_audio.cpp`
 
-ESP32 internal **DAC1 on GPIO25** driven from a hardware timer ISR.
+ESP32 internal **DAC1 on GPIO25** driven by I2S0 DMA, with no audio interrupt.
 
-- `hal_audio_init()` calls `dac_output_enable(DAC_CHANNEL_1)`, allocates `timerBegin(0, 80, true)` for a 1 µs timer base, and arms `timerAlarmWrite(timer, 45, true)` for a 45 µs (22 222 Hz) ISR.
-- The ISR takes samples from a ring buffer with a fractional stride and calls `dac_output_voltage(DAC_CHANNEL_1, sample)`.
-- The emulation loop pushes one sample per scanline (262 per frame) into the ring; at frame end the playback rate is steered to keep the ring about 390 samples full. See `audio-hal.md`.
+- `hal_audio_init()` starts I2S0 in built-in-DAC mode on DAC1 at 15 720.6 Hz, looping by DMA over 4 buffers of 64 samples, and a core-0 task that refills them every 2 ms (see `docs/audio-hal.md`).
+- The emulation loop pushes one sample per scanline (262 per frame), the level averaged over the line, into a ring. At full speed the task plays each sample exactly once; below 60 FPS it slows playback with the emulator, interpolating. See `audio-hal.md`.
 
 #### Keyboard — `hal_keyboard.cpp`
 
@@ -398,7 +397,7 @@ The supervisor's coordinate system is the framebuffer (`DISPLAY_WIDTH` × `DISPL
 | SCANLINES_PER_FRAME | 262 | NTSC |
 | ACTIVE_SCANLINES | 192 | Visible display lines |
 | DISPLAY_WIDTH × HEIGHT | 640 × 200 | VGA framebuffer surface |
-| AUDIO_ISR_PERIOD_US | 45 | DAC ISR period (`hal_audio.cpp`) |
+| AUDIO_DMA_BUFS × AUDIO_DMA_WORDS | 4 × 64 | I2S0 DMA buffers, 4.1 ms each (`hal_audio.cpp`) |
 | USE_PSRAM | 1 | RAM/ROM in PSRAM |
 
 ---
@@ -460,7 +459,7 @@ All files below are **required**. Missing any will trigger the boot validation h
 
 - CPU emulation: ~20-25 fps on CoCo 3 GIME hi-res content (sustained by emulation core, not display)
 - Display: FabGL DMA scans 640×200 @ 60 Hz continuously — no SPI push step on the critical path
-- Audio: Real-time via DAC1 timer ISR every 45 µs; rate-controlled scanline sample queue
+- Audio: DAC1 by I2S0 DMA, one sample per scanline (averaged over the line), refilled by a core-0 task
 - Memory: ~160 KB SRAM free, ~3.5 MB PSRAM free after init
 
 ---
@@ -545,7 +544,7 @@ TTGO-VGA32-COCO/
     hal.h                     HAL interface
     hal.cpp                   hal_init, hal_process_input
     hal_video.cpp             FabGL VGAController @ 640×200 @ 60 Hz
-    hal_audio.cpp             Internal DAC1 (GPIO25), timer ISR
+    hal_audio.cpp             Internal DAC1 (GPIO25), I2S0 DMA
     hal_keyboard.cpp          FabGL PS/2 → CoCo matrix + deferred release
     hal_joystick.cpp          Neutral stub (hardware not wired)
     hal_storage.cpp           SD card on HSPI

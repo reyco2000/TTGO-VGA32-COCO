@@ -204,11 +204,9 @@ static void h_status() {
     {
         HalAudioStats a;
         hal_audio_get_stats(&a);
-        float mhz = (float)getCpuFrequencyMhz();
         j += ",\"audio\":{\"commits\":" + String(a.commits);
         j += ",\"underruns\":" + String(a.underruns);
-        j += ",\"hold_ticks\":" + String(a.hold_ticks);
-        j += ",\"catchup_ticks\":" + String(a.catchup_ticks);
+        j += ",\"hold_samples\":" + String(a.hold_samples);
         j += ",\"overruns\":" + String(a.overruns);
         j += ",\"fill\":" + String(a.fill);
         j += ",\"fill_min\":" + String(a.fill_min);
@@ -216,9 +214,10 @@ static void h_status() {
         j += ",\"stride_adj\":" + String(a.stride_adj);
         j += ",\"commit_us_min\":" + String(a.commit_us_min);
         j += ",\"commit_us_max\":" + String(a.commit_us_max);
-        j += ",\"isr_us_max\":" + String(a.isr_cyc_max / mhz, 2);
-        j += ",\"isr_gap_us_min\":" + String(a.isr_gap_cyc_min / mhz, 2);
-        j += ",\"isr_gap_us_max\":" + String(a.isr_gap_cyc_max / mhz, 2) + "}";
+        j += ",\"refills\":" + String(a.refills);
+        j += ",\"late_refills\":" + String(a.late_refills);
+        j += ",\"poll_gap_us_max\":" + String(a.poll_gap_us_max);
+        j += ",\"stack_free\":" + String(a.stack_free) + "}";
         if (s_server.arg("audio_reset") == "1") hal_audio_reset_stats();
     }
     // Speech/Sound Cartridge: off, or its counters (see docs/ssc.md).
