@@ -789,8 +789,8 @@ void machine_run_scanline_coco3(Machine* m) {
                 unsigned text_border_colour = g->VDG.CSS ? 0x26 : 0x12;
                 g->border_colour = text_border ? text_border_colour : 0;
             } else {
-                unsigned c = g->VDG.CSS ? TCC1014_RGCSS1_1 : TCC1014_RGCSS0_1;
-                g->border_colour = g->palette_reg[c];
+                // Fixed: a real CoCo 3 ignores the palette and $FF9A here.
+                g->border_colour = g->VDG.CSS ? 0x3F : 0x12;
             }
         } else {
             g->border_colour = g->BRDR;
