@@ -3,6 +3,29 @@
 Releases before the three most recent ones. The latest changes are in the
 [Changelog section of the README](README.md#changelog).
 
+### v0.19.0 — October 20, 2026
+
+**The CoCo 3 runs at full speed, and fast typing no longer drops keys.**
+
+- **1.79 MHz in fast mode.** The GIME stored SAM R1 (`$FFD9`) but nothing read
+  it, so NitrOS-9 and every fast-mode program ran at 0.895 MHz. The CoCo 3 now
+  runs two 14,916-cycle slices per frame while R1 is set; the RS-232 Pak ACIA
+  gets half the cycles so its baud rate holds. The CoCo 2 is unchanged.
+  Measured on the board: BASIC fast mode 1.790 MHz (ratio 1.000, about 13 ms of
+  work per 16.7 ms frame), NitrOS-9 1.0.1 1.79 MHz at the shell; some
+  animations still show about 44 FPS.
+- **Emulated CPU speed meter.** `/api/status` has a `speed` block (`mhz`,
+  `target_mhz`, `ratio`, `rate`, frame work average/max).
+  `tools/perf/speedcheck.py` cross-checks it against the guest's 60 Hz counter.
+- **Fast typing keeps every key.** Color BASIC's KEYIN decodes one newly
+  pressed bit per column and drops a key whose column changes while it
+  debounces, so quick re-taps and two keys of one column in the same frame were
+  lost. Matrix changes now go through a FIFO, one per frame, with a 4-frame
+  minimum hold and a 2-frame gap before a re-press.
+- **Bootloader `version.txt` is the bare version** (`0.19.0`), as ESP32_Bootloader
+  requires; it used to be `CoCo.<version>-<git describe>`. Bump
+  `FIRMWARE_VERSION` for every build that must reflash.
+
 ### v0.18.2 — October 19, 2026
 
 **Arrow keys as a joystick, and a working RAM dump.**
