@@ -102,6 +102,8 @@ static bool                 display_available = false;
 
 // 64-entry GIME palette → FabGL raw-pixel byte (with HSYNC/VSYNC bits set).
 static uint8_t              s_gime_raw_lut[64];
+// The same for a display colour taken as it is (RGB-monitor meaning).
+static uint8_t              s_gime_direct_raw_lut[64];
 static void border_rows_invalidate();
 
 // Phase 1 active-pixel LUT: byte-swapped RGB565 (as emitted by the GIME core,
@@ -171,7 +173,8 @@ static inline fabgl::RGB222 rgb565_to_rgb222(uint16_t c) {
 // included so writes to the scanline are a single byte store.
 static void init_gime_lut(void) {
     for (int i = 0; i < 64; i++) {
-        s_gime_raw_lut[i] = s_vga.createRawPixel(gime_idx_to_rgb222(i));
+        s_gime_raw_lut[i] = s_vga.createRawPixel(gime_idx_to_rgb222(tcc1014_display_colour(i)));
+        s_gime_direct_raw_lut[i] = s_vga.createRawPixel(gime_idx_to_rgb222(i));
     }
     // Active-pixel LUT: index is the raw byte-swapped RGB565 value the core
     // emits, so render-time lookup is s_gime_pixel_raw_lut[pixels[x]].
@@ -188,6 +191,13 @@ static void init_gime_lut(void) {
     }
 }
 
+void hal_video_gime_colours_changed(void) {
+    for (int i = 0; i < 64; i++)
+        s_gime_raw_lut[i] = s_vga.createRawPixel(gime_idx_to_rgb222(tcc1014_display_colour(i)));
+    border_rows_invalidate();
+    tcc1014_invalidate_lines();
+}
+
 void hal_video_init(void) {
     DEBUG_PRINT("  Video: FabGL VGA init...");
     s_vga.begin((gpio_num_t)PIN_VGA_R1, (gpio_num_t)PIN_VGA_R0,
@@ -202,7 +212,7 @@ void hal_video_init(void) {
 #if !GIME_VGA_DOWNSCALE
     // OPT-G6: the GIME renderer emits raw VGA bytes through this table
     // (hal_video_render_scanline_gime_raw), bypassing the 64 KB LUT.
-    tcc1014_set_raw_lut(s_gime_raw_lut);
+    tcc1014_set_raw_lut(s_gime_raw_lut, s_gime_direct_raw_lut);
 #endif
     OSDCanvas::bind_canvas(&s_canvas);
     display_available = true;
@@ -313,7 +323,7 @@ bool hal_video_capture_framebuffer(void) {
     if (!rev) return false;
     for (int i = 0; i < 256; i++) rev[i] = 0;
     for (int i = 0; i < 64; i++) {
-        fabgl::RGB222 c = gime_idx_to_rgb222(i);
+        fabgl::RGB222 c = gime_idx_to_rgb222(tcc1014_display_colour(i));
         uint16_t v = (uint16_t)(((c.R * 31 / 3) << 11) | ((c.G * 63 / 3) << 5) | (c.B * 31 / 3));
         rev[s_gime_raw_lut[i]] = (uint16_t)((v << 8) | (v >> 8));
     }

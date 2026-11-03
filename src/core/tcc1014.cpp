@@ -16,6 +16,8 @@
 #include "../utils/no_psram_memw.h"
 #include "tcc1014.h"
 #include "font_gime.h"
+#include "gime_monitor.h"
+#include "gime_artifact.h"
 #include "../utils/perf_probe.h"
 #include <string.h>
 
@@ -74,8 +76,9 @@ static void arm_timer(TCC1014* gime) {
     gime->timer_left_x2 = gime->timer_counter * 2;
 }
 
-// 64-color GIME palette → RGB565 lookup
+// 64-color GIME palette → RGB565 lookup, as the monitor shows each colour
 static uint16_t gime_rgb565_lut[64];
+static uint8_t  gime_monitor = GIME_MONITOR_RGB;
 
 // ============================================================
 // Internal forward declarations
@@ -135,12 +138,29 @@ void tcc1014_init_palette_lut(void) {
     // GIME palette entries are 6-bit INTERLEAVED: R1 G1 B1 R0 G0 B0
     // (NOT packed RRGGBB — confirmed from XRoar coco3.c:595-598)
     // R = (bit5<<1) | bit2, G = (bit4<<1) | bit1, B = (bit3<<1) | bit0
+    // On a composite monitor each colour is shown as the nearest the VGA
+    // output has (gime_monitor.h), so the table stays the one for an RGB
+    // monitor, indexed through the monitor's map.
     for (int i = 0; i < 64; i++) {
-        uint8_t r = (((i >> 4) & 2) | ((i >> 2) & 1)) * 85;
-        uint8_t g = (((i >> 3) & 2) | ((i >> 1) & 1)) * 85;
-        uint8_t b = (((i >> 2) & 2) | ((i >> 0) & 1)) * 85;
+        const uint32_t rgb = gime_colour_rgb(gime_monitor_colour(gime_monitor, i));
+        const uint8_t r = (uint8_t)(rgb >> 16), g = (uint8_t)(rgb >> 8), b = (uint8_t)rgb;
         gime_rgb565_lut[i] = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
     }
+}
+
+void tcc1014_set_monitor(uint8_t monitor) {
+    if (monitor >= GIME_MONITOR_COUNT) return;
+    gime_monitor = monitor;
+    tcc1014_init_palette_lut();
+    tcc1014_invalidate_lines();
+}
+
+uint8_t tcc1014_get_monitor(void) {
+    return gime_monitor;
+}
+
+uint8_t tcc1014_display_colour(uint8_t colour) {
+    return gime_monitor_colour(gime_monitor, colour);
 }
 
 // ============================================================
@@ -1191,22 +1211,6 @@ static void render_coco_rg(const TCC1014* g, const uint8_t* __restrict src, unsi
     for (unsigned k = 0; k < n; k++) d = emit_bits8<RES, P>(d, src[k], fg, bg);
 }
 
-// PMODE 4 artifact colours: each pixel pair is one NTSC colour (bits 00/01/
-// 10/11 -> black/blue/orange/white), the same table as the CoCo 2 renderer
-// (mc6847.cpp). pal4 holds those four colours, not palette-register colours:
-// they come from the TV, not the GIME palette.
-template<unsigned RES, typename P>
-static void render_coco_rg_artifact(const uint8_t* __restrict src, unsigned n,
-                                    const P* __restrict pal4, P* __restrict d) {
-    for (unsigned k = 0; k < n; k++) {
-        const uint8_t v = src[k];
-        const P a = pal4[v >> 6], b = pal4[(v >> 4) & 3];
-        const P c = pal4[(v >> 2) & 3], e = pal4[v & 3];
-        d = emit4<RES, P>(d, a, a, b, b);
-        d = emit4<RES, P>(d, c, c, e, e);
-    }
-}
-
 template<unsigned RES, typename P>
 static void render_coco_rg2(const TCC1014* g, const uint8_t* __restrict src, unsigned n,
                             const P* __restrict pal, P* __restrict d) {
@@ -1268,28 +1272,56 @@ static void render_coco_text(const TCC1014* g, const uint8_t* __restrict src, un
     case 2:  { constexpr unsigned R = 2; __VA_ARGS__; } break; \
     default: { constexpr unsigned R = 3; __VA_ARGS__; } break; }
 
-static bool s_artifacts = false;
+static uint8_t s_artifacts = GIME_ARTIFACT_OFF;
 
 // True when this line is PMODE 4 (RG6: GM2..0 = 111 at the 256-pixel
-// geometry) with CSS=1 and artifacts are enabled.
+// geometry) and artifacts are on. Both CSS values: as MAME, the two colours
+// are palette slots 8/9 (CSS=0) or 10/11 (CSS=1).
 static inline bool artifact_line(const TCC1014* g) {
-    return s_artifacts && g->COCO && g->VDG.GnA && g->VDG.CSS &&
+    return s_artifacts && g->COCO && g->VDG.GnA && g->VDG.GM0 &&
            (g->resolution & 3) == 1 && (g->PIA1B_shadow.pdr & 0x70) == 0x70;
 }
 
-// GIME colours closest to the CoCo 2 artifact colours (RGB222 0,0,2 and 3,1,0).
-static const uint8_t k_artifact_gime[4] = { 0x00, 0x08, 0x26, 0x3F };
+// The 16 artifact colours (gime_artifact.h) as display colours, for the pair
+// last used. Mixing only happens when the pair, mode or monitor changes.
+static uint8_t  s_art_colours[16];
+static uint32_t s_art_key = 0;          // never matches: its mode is non-zero when in use
 
-template<typename P>
+static const uint8_t* artifact_colours(const TCC1014* g, uint8_t* c1_out) {
+    const uint8_t c0 = g->palette_reg[g->VDG.CSS ? TCC1014_RGCSS1_0 : TCC1014_RGCSS0_0] & 0x3F;
+    const uint8_t c1 = g->palette_reg[g->VDG.CSS ? TCC1014_RGCSS1_1 : TCC1014_RGCSS0_1] & 0x3F;
+    const uint32_t key = (uint32_t)s_artifacts << 24 | (uint32_t)gime_monitor << 16 |
+                         (uint32_t)c0 << 8 | c1;
+    if (key != s_art_key) {
+        gime_artifact_mix(s_artifacts, gime_monitor, c0, c1, s_art_colours);
+        s_art_key = key;
+    }
+    *c1_out = c1;
+    return s_art_colours;
+}
+
+// A display colour (RGB-monitor meaning) as byte-swapped RGB565.
+static inline uint16_t display_rgb565_swapped(uint8_t c) {
+    const uint32_t rgb = gime_colour_rgb(c);
+    const uint16_t v = (uint16_t)((((rgb >> 16) & 0xF8) << 8) | (((rgb >> 8) & 0xFC) << 3) |
+                                  ((rgb & 0xFF) >> 3));
+    return __builtin_bswap16(v);
+}
+
+template<typename P, typename ToPixel>
 static void render_line(TCC1014* gime, const uint8_t* src, const P* __restrict pal,
-                        P* __restrict d, unsigned n, const P* __restrict pal4) {
+                        P* __restrict d, unsigned n, ToPixel to_pixel) {
     const unsigned res = gime->resolution & 3;
     if (gime->COCO) {
         if (gime->VDG.GnA) {
             if (!gime->VDG.GM0) {
                 GIME_DISPATCH_RES(res, render_coco_cg<R, P>(gime, src, n, pal, d));
             } else if (artifact_line(gime)) {
-                render_coco_rg_artifact<1, P>(src, n, pal4, d);
+                uint8_t c1;
+                const uint8_t* cols = artifact_colours(gime, &c1);
+                P art[16];
+                for (int i = 0; i < 16; i++) art[i] = to_pixel(cols[i]);
+                gime_artifact_line<P>(src, n, art, (gime->border_colour & 0x3F) == c1, d);
             } else if (gime->resolution || (gime->PIA1B_shadow.pdr & 0x70) == 0x70) {
                 GIME_DISPATCH_RES(res, render_coco_rg<R, P>(gime, src, n, pal, d));
             } else {
@@ -1341,13 +1373,13 @@ void tcc1014_invalidate_lines(void) {
     memset(s_line_sig, 0, sizeof(s_line_sig));
 }
 
-void tcc1014_set_artifacts(bool on) {
-    if (s_artifacts == on) return;
-    s_artifacts = on;
+void tcc1014_set_artifacts(uint8_t mode) {
+    if (mode >= GIME_ARTIFACT_COUNT || s_artifacts == mode) return;
+    s_artifacts = mode;
     tcc1014_invalidate_lines();
 }
 
-bool tcc1014_get_artifacts(void) {
+uint8_t tcc1014_get_artifacts(void) {
     return s_artifacts;
 }
 
@@ -1373,8 +1405,8 @@ static uint64_t line_signature(const TCC1014* g, const uint8_t* src, unsigned nb
             (uint32_t)((g->PIA1B_shadow.pdr & 0x70) == 0x70) << 15 |
             (g->row & 15) << 16 | (g->rowmask & 31) << 20 |
             (uint32_t)(g->border_colour & 0x3F) << 25 |
-            (uint32_t)s_artifacts << 31);
-    SIG_MIX(n | g->vertical.lAA << 8);
+            (uint32_t)(s_artifacts != 0) << 31);
+    SIG_MIX(n | g->vertical.lAA << 8 | (uint32_t)s_artifacts << 24);
     uint32_t pal[4];
     memcpy(pal, g->palette_reg, sizeof(pal));
     SIG_MIX(pal[0]); SIG_MIX(pal[1]); SIG_MIX(pal[2]); SIG_MIX(pal[3]);
@@ -1398,9 +1430,11 @@ static uint64_t line_signature(const TCC1014* g, const uint8_t* src, unsigned nb
 
 // OPT-G6: display-provided GIME colour (6-bit) → raw pixel byte table.
 static const uint8_t* s_raw_lut = nullptr;
+static const uint8_t* s_direct_raw_lut = nullptr;
 
-void tcc1014_set_raw_lut(const uint8_t* lut64) {
+void tcc1014_set_raw_lut(const uint8_t* lut64, const uint8_t* direct64) {
     s_raw_lut = lut64;
+    s_direct_raw_lut = direct64;
 }
 
 void tcc1014_render_scanline(TCC1014* gime, unsigned scanline) {
@@ -1448,14 +1482,15 @@ void tcc1014_render_scanline(TCC1014* gime, unsigned scanline) {
         // palette writes still take effect on the next scanline.
         uint8_t pal8[16];
         for (int i = 0; i < 16; i++) pal8[i] = s_raw_lut[gime->palette_reg[i] & 0x3F];
-        uint8_t art8[4];
-        for (int i = 0; i < 4; i++) art8[i] = s_raw_lut[k_artifact_gime[i]];
-        render_line<uint8_t>(gime, src, pal8, gime->line_raw, n, art8);
+        const uint8_t* direct = s_direct_raw_lut;
+        render_line<uint8_t>(gime, src, pal8, gime->line_raw, n,
+                             [direct](uint8_t c) { return direct[c]; });
     } else {
         gime->raw_output = false;
-        uint16_t art565[4];   // byte-swapped, like palette_rgb565
-        for (int i = 0; i < 4; i++)
-            art565[i] = __builtin_bswap16(gime_rgb565_lut[k_artifact_gime[i]]);
-        render_line<uint16_t>(gime, src, gime->palette_rgb565, gime->line_buffer, n, art565);
+        // Rare (screenshots): refresh the slots, which a monitor change leaves stale.
+        for (int i = 0; i < 16; i++)
+            gime->palette_rgb565[i] = __builtin_bswap16(gime_rgb565_lut[gime->palette_reg[i] & 0x3F]);
+        render_line<uint16_t>(gime, src, gime->palette_rgb565, gime->line_buffer, n,
+                              [](uint8_t c) { return display_rgb565_swapped(c); });
     }
 }

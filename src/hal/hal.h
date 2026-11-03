@@ -289,6 +289,10 @@ void hal_keyboard_set_machine(Machine* m);
 // Force full display repaint (invalidates VRAM shadow compare)
 void hal_video_force_repaint(void);
 
+// The GIME monitor changed (tcc1014_set_monitor): rebuild the colour table and
+// redraw every line and the border.
+void hal_video_gime_colours_changed(void);
+
 // Toggle FPS overlay
 void hal_video_toggle_fps_overlay(void);
 float hal_video_get_fps(void);   // emulated frames/s over the last second

@@ -405,8 +405,9 @@ All technical documentation is in the `docs/` directory:
 - Bank-switched cartridges (over 16 KB) are CoCo 3 only; an unbanked 32 KB ROM that sits at `$8000-$FEFF` does not work
 - Max 128 file entries in the SD card browser
 - Joystick 2 (left port) is a stub — returns centered, button released; only Joystick 1 is active via PS/2 mouse
-- NTSC composite simulation covers RG6 (PMODE 4) artifact colour only — there is no
-  chroma/luma bleed modelling for the other modes
+- NTSC composite simulation covers RG6 (PMODE 4) artifact colour and the composite
+  palette (Settings → Machine → Monitor) — there is no chroma/luma bleed modelling for
+  the other modes. Composite colours reduce to the 64 the VGA output has (37 distinct)
 - **The monitor flickers when the video output changes resolution.** The normal output is
   640×200. CoCo 3 screens taller than 200 lines and at most 512 pixels wide (the 225-line
   mode used by games such as Rick Dangerous and Donkey Kong) switch the VGA output to

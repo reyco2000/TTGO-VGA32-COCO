@@ -161,11 +161,15 @@ void    supervisor_save_cpu_variant(uint8_t variant);
 uint16_t supervisor_load_coco3_ram(void);
 void     supervisor_save_coco3_ram(uint16_t kb);
 
-// CoCo 3 PMODE 4 artifact colours (NVS "sv" namespace, key "artifacts"),
-// default off. load is applied in setup(); the Machine menu toggles it live
-// with tcc1014_set_artifacts() and saves.
-bool supervisor_load_artifacts(void);
-void supervisor_save_artifacts(bool on);
+// CoCo 3 PMODE 4 artifact mode (NVS "sv" namespace, key "artifacts"):
+// GIME_ARTIFACT_* from core/gime_artifact.h, default off. load is applied in
+// setup(); the Machine menu cycles it live with tcc1014_set_artifacts() and saves.
+uint8_t supervisor_load_artifacts(void);
+// CoCo 3 monitor (NVS "sv" namespace, key "monitor"): GIME_MONITOR_* from
+// core/gime_monitor.h; RGB when unset, and an out-of-range value is ignored.
+uint8_t supervisor_load_monitor(void);
+void    supervisor_save_monitor(uint8_t monitor);
+void supervisor_save_artifacts(uint8_t mode);
 
 // Cartridge settings (NVS "sv" namespace): key "orch90" turns the
 // Orchestra-90 DAC ports on, key "ssc" the Speech/Sound Cartridge, key

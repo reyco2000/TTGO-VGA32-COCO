@@ -653,18 +653,35 @@ void supervisor_save_cpu_variant(uint8_t variant) {
     prefs.end();
 }
 
-bool supervisor_load_artifacts(void) {
+// Stored as a byte. Before the modes it was a bool, which Preferences also
+// stores as a byte: an old true reads as 1, Standard, and false as Off.
+uint8_t supervisor_load_artifacts(void) {
     Preferences prefs;
     prefs.begin("sv", true);
-    bool on = prefs.getBool("artifacts", false);
+    uint8_t mode = prefs.getUChar("artifacts", 0);
     prefs.end();
-    return on;
+    return mode;      // tcc1014_set_artifacts() ignores an out-of-range value
 }
 
-void supervisor_save_artifacts(bool on) {
+uint8_t supervisor_load_monitor(void) {
+    Preferences prefs;
+    prefs.begin("sv", true);
+    uint8_t m = prefs.getUChar("monitor", 0);
+    prefs.end();
+    return m;
+}
+
+void supervisor_save_monitor(uint8_t monitor) {
     Preferences prefs;
     prefs.begin("sv", false);
-    prefs.putBool("artifacts", on);
+    prefs.putUChar("monitor", monitor);
+    prefs.end();
+}
+
+void supervisor_save_artifacts(uint8_t mode) {
+    Preferences prefs;
+    prefs.begin("sv", false);
+    prefs.putUChar("artifacts", mode);
     prefs.end();
 }
 
