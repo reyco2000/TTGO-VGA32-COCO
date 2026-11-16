@@ -4,7 +4,7 @@
 
 A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the ESP32  **[LilyGo TTGO VGA32 v1.4](https://lilygo.cc/en-us/products/fabgl-vga32?_pos=1&_sid=4c095f59b&_ss=r)** board (ESP32-WROVER). Inspired on  [XRoar](http://www.6809.org.uk/xroar/) emulator.
 
-**v0.22.0 — November 2, 2026** (LilyGo TTGO VGA32 port)
+**v0.23.0 — November 16, 2026** (LilyGo TTGO VGA32 port)
 
 ## Features
 
@@ -469,6 +469,32 @@ mode, with diagrams.
 
 ## Changelog
 
+### v0.23.0 — November 16, 2026
+
+**GIME interrupts are delivered once, on time.** Interrupt handling now follows
+the [mame-coco3-ttgovga](https://github.com/reyco2000/mame-coco3-ttgovga) port on
+the same board.
+
+- **No repeat interrupt entries.** The CPU's IRQ/FIRQ lines were updated once
+  per scanline, so after a handler read `$FF92`/`$FF93` the line stayed high
+  until the next line and the handler ran again with nothing pending: 2× at
+  0.89 MHz, 3× at 1.79 MHz. The lines now follow every access that can change
+  them (`$FF92`/`$FF93` reads, GIME register writes, PIA interrupt changes,
+  RS-232 Pak). Rick Dangerous goes from about 290 to about 100 timer FIRQ
+  entries per frame, one per expiry.
+- **HBORD and VBORD on the right line.** They were latched after the routing,
+  so they reached the CPU a line late and one HBORD in three was lost. A
+  test program now counts exactly 262 HBORD interrupts per frame.
+- **Faster frames.** Every BASIC test screen holds 60 FPS on both CPUs.
+  `HSCREEN 2` work per frame drops 28 % (6809, 17.4 → 12.5 ms at 1.79 MHz);
+  `WIDTH 80` on the 6309 at 1.79 MHz goes from 56 to 60 FPS.
+- **Diagnostics:** `/api/status` has `gime_acks` (`irq`, `irq_zero`, `firq`,
+  `firq_zero`: acknowledges and the ones that found nothing pending). Profiler
+  probes for line signatures, border, Becker port and the main loop. Guest
+  tests in `tools/gime_irq_test` (`firqtest.py`, `sample.py`).
+- Checked on the board: Rick Dangerous, NitrOS-9, CoCoMax 3, disk loading,
+  Orchestra-90 and the Speech/Sound Cartridge. The CoCo 2 code is unchanged.
+
 ### v0.22.0 — November 2, 2026
 
 **Cleaner sound, composite colours, and MAME's PMODE 4 artifacts**, taken from
@@ -532,31 +558,6 @@ the same board.
   appear.
 - **Diagnostics:** `gime` (registers `$FF90-$FF9F`, line counts) and `video`
   (output layout, switches) sections in `/api/status`.
-
-### v0.20.0 — October 24, 2026
-
-**PMODE 4 artifact colours on the CoCo 3, and timer-driven sound at the right
-pitch.**
-
-- **Setup → Machine → PMODE 4 Artifacts** (CoCo 3, off by default). Turns on
-  NTSC artifact colours for CoCo 2 software drawn in PMODE 4 (Zaxxon,
-  Pitfall II, …): pixel pairs show as black, blue, orange and white, the same
-  as our CoCo 2 machine. It takes effect at once and is saved. Only PMODE 4
-  lines take a different render path, so other modes run at the same speed.
-  On a CoCo 2 the row reads ALWAYS.
-- **GIME timer fix.** In TINS=1 mode the timer counted 28 ticks per scanline
-  instead of 227.5, so timer-driven sound played 8× slow, three octaves low
-  (Rick Dangerous's 6 kHz sample FIRQ fired at about 740 Hz). Reload 596 now
-  gives 5,995 Hz.
-- **Audio rate control.** The playback rate now follows the measured frame
-  interval, with a 2,048-sample ring. Over 30 s of Rick Dangerous: 48 → 0
-  underruns, 11,023 → 0 dropped samples.
-- **Faster HD6309 build.** Short polling loops are skipped to the end of the
-  scanline, interpreter helpers are always inlined, and the run loop does one
-  combined interrupt check: 15–25 % fewer host cycles per instruction than
-  v0.19.0. The MC6809 build is unchanged.
-- **Diagnostics:** CPU profiler (`-DPERF_PROBE_ENABLED=1`), boot-time
-  interpreter benchmark (`-DPERF_BENCH=1`), and `gime_timer` in `/api/status`.
 
 ## ⚠️ Vibe Coding Alert
 

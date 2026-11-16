@@ -3,6 +3,31 @@
 Releases before the three most recent ones. The latest changes are in the
 [Changelog section of the README](README.md#changelog).
 
+### v0.20.0 — October 24, 2026
+
+**PMODE 4 artifact colours on the CoCo 3, and timer-driven sound at the right
+pitch.**
+
+- **Setup → Machine → PMODE 4 Artifacts** (CoCo 3, off by default). Turns on
+  NTSC artifact colours for CoCo 2 software drawn in PMODE 4 (Zaxxon,
+  Pitfall II, …): pixel pairs show as black, blue, orange and white, the same
+  as our CoCo 2 machine. It takes effect at once and is saved. Only PMODE 4
+  lines take a different render path, so other modes run at the same speed.
+  On a CoCo 2 the row reads ALWAYS.
+- **GIME timer fix.** In TINS=1 mode the timer counted 28 ticks per scanline
+  instead of 227.5, so timer-driven sound played 8× slow, three octaves low
+  (Rick Dangerous's 6 kHz sample FIRQ fired at about 740 Hz). Reload 596 now
+  gives 5,995 Hz.
+- **Audio rate control.** The playback rate now follows the measured frame
+  interval, with a 2,048-sample ring. Over 30 s of Rick Dangerous: 48 → 0
+  underruns, 11,023 → 0 dropped samples.
+- **Faster HD6309 build.** Short polling loops are skipped to the end of the
+  scanline, interpreter helpers are always inlined, and the run loop does one
+  combined interrupt check: 15–25 % fewer host cycles per instruction than
+  v0.19.0. The MC6809 build is unchanged.
+- **Diagnostics:** CPU profiler (`-DPERF_PROBE_ENABLED=1`), boot-time
+  interpreter benchmark (`-DPERF_BENCH=1`), and `gime_timer` in `/api/status`.
+
 ### v0.19.0 — October 20, 2026
 
 **The CoCo 3 runs at full speed, and fast typing no longer drops keys.**

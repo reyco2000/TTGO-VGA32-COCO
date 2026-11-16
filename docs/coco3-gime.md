@@ -247,7 +247,7 @@ plain colours. **Settings → Machine → PMODE 4 Artifacts** (NVS key
 cpu.irq_pending  = pia0.irq_a || pia0.irq_b || gime.IRQ;
 cpu.firq_pending = pia1.irq_a || pia1.irq_b || gime.FIRQ;
 ```
-This differs from CoCo 2, which uses direct PIA → CPU callbacks.
+This differs from CoCo 2, which uses direct PIA → CPU callbacks. Since v0.23.0 this is `coco3_sync_irq_lines()`, run after every acknowledge, every GIME access or PIA change that alters an output, and at the end of each scanline after VBORD/HBORD/timer latch (see `core.md`, CoCo 3 IRQ Routing).
 
 **Read-acknowledge:** Reading $FF92 (IRQ status) clears all IRQ flags and deasserts IRQ output. Same for $FF93 (FIRQ).
 
@@ -283,7 +283,7 @@ This differs from CoCo 2, which uses direct PIA → CPU callbacks.
 
 **Key implementation notes:**
 - `MACHINE_TYPE == 4` → CoCo3 path; `#else` → CoCo2 path throughout codebase
-- PIA callbacks are no-ops for CoCo3: interrupt routing done by per-scanline polling rather than edge-triggered callbacks (matches XRoar coco3.c approach)
+- PIA callbacks were no-ops for CoCo3 (per-scanline polling, XRoar coco3.c approach); since v0.23.0 they re-route the lines when a port's output changes
 - GIME register writes ($FF90-$FFDF) handled inside `tcc1014_decode_address()` — machine dispatch never sees them
 - ROM offset: `rom_off = g->Z - (0x3C << 13)` converts 19-bit physical address to 0-32767 ROM index
 - Integration tests disabled for CoCo3 (test_mmu_* are CoCo3-specific; old CoCo2 tests use flat 16-bit addresses incompatible with GIME MMU)
