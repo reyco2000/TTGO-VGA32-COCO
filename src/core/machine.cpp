@@ -740,9 +740,6 @@ void machine_run_scanline_coco3(Machine* m) {
     mc6821_ca1_transition(&m->pia0, false);   // HS falling
     mc6821_ca1_transition(&m->pia0, true);    // HS rising
 
-    // Combined interrupt routing — port of coco3.c:1261-1262
-    coco3_sync_irq_lines(m);
-
     // --- Vertical timing ---
     // Port of XRoar's do_vb_irq (tcc1014.c:1087-1228) and gime_fs (coco3.c:1429)
     //
@@ -894,6 +891,12 @@ void machine_run_scanline_coco3(Machine* m) {
     // Horizontal border interrupt on every line, borders and sync included
     // (do_hb_irq, tcc1014.c:1086-1110)
     tcc1014_set_interrupt(g, TCC1014_INT_HBORD);
+
+    // Combined interrupt routing — port of coco3.c:1261-1262. After the
+    // timer, VBORD and HBORD have latched for this line (as the MAME port's
+    // lineTick() then syncIrqLines()), so the CPU sees them at the start of
+    // the next line rather than one line later.
+    coco3_sync_irq_lines(m);
 
     m->scanline++;
     if (m->scanline >= SCANLINES_PER_FRAME) {
