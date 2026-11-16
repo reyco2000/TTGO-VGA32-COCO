@@ -167,6 +167,26 @@ static uint8_t* machine_alloc(size_t size, const char* label) {
 // check happens each scanline in machine_run_scanline_coco3.
 // ============================================================
 
+// Drive the CPU's IRQ/FIRQ lines from the combined CoCo 3 sources:
+//   IRQ  = PIA0 (both ports) OR GIME IRQ
+//   FIRQ = PIA1 (both ports) OR GIME FIRQ OR RS-232 Pak ACIA (CART)
+// PIA IRQ output = (IRQ1_flag && IRQ1_enable) || (IRQ2_flag && IRQ2_enable && !output_mode)
+// IRQ1_flag=bit7, IRQ1_enable=bit0, IRQ2_flag=bit6, IRQ2_enable=bit3, output_mode=bit5
+static inline bool coco3_pia_irq(uint8_t cr) {
+    bool irq1 = (cr & 0x80) && (cr & 0x01);
+    bool irq2 = (cr & 0x40) && (cr & 0x08) && !(cr & 0x20);
+    return irq1 || irq2;
+}
+
+static inline void coco3_sync_irq_lines(Machine* m) {
+    bool pia0_irq = coco3_pia_irq(m->pia0.ctrl_a) || coco3_pia_irq(m->pia0.ctrl_b);
+    bool pia1_irq = coco3_pia_irq(m->pia1.ctrl_a) || coco3_pia_irq(m->pia1.ctrl_b);
+    m->cpu.irq_pending  = pia0_irq || m->gime.IRQ;
+    // Deluxe Pak routes its ACIA IRQ to CART → FIRQ.
+    m->cpu.firq_pending = pia1_irq || m->gime.FIRQ
+                       || (rs232_pak_enabled() && mc6551_irq_active());
+}
+
 static void pia0_irq_a_coco3(bool active) {
     (void)active;
     // Combined routing done in machine_run_scanline_coco3
@@ -707,25 +727,7 @@ void machine_run_scanline_coco3(Machine* m) {
     mc6821_ca1_transition(&m->pia0, true);    // HS rising
 
     // Combined interrupt routing — port of coco3.c:1261-1262
-    // IRQ = PIA0 (both ports) OR GIME IRQ
-    // FIRQ = PIA1 (both ports) OR GIME FIRQ
-    // PIA IRQ output = (IRQ1_flag && IRQ1_enable) || (IRQ2_flag && IRQ2_enable && !output_mode)
-    // IRQ1_flag=bit7, IRQ1_enable=bit0, IRQ2_flag=bit6, IRQ2_enable=bit3, output_mode=bit5
-    {
-        auto pia_irq = [](uint8_t cr) -> bool {
-            bool irq1 = (cr & 0x80) && (cr & 0x01);
-            bool irq2 = (cr & 0x40) && (cr & 0x08) && !(cr & 0x20);
-            return irq1 || irq2;
-        };
-        bool pia0_irq = pia_irq(m->pia0.ctrl_a) || pia_irq(m->pia0.ctrl_b);
-        bool pia1_irq = pia_irq(m->pia1.ctrl_a) || pia_irq(m->pia1.ctrl_b);
-        bool new_irq  = pia0_irq || m->gime.IRQ;
-        // Deluxe Pak routes its ACIA IRQ to CART → FIRQ.
-        bool new_firq = pia1_irq || m->gime.FIRQ
-                     || (rs232_pak_enabled() && mc6551_irq_active());
-        m->cpu.irq_pending  = new_irq;
-        m->cpu.firq_pending = new_firq;
-    }
+    coco3_sync_irq_lines(m);
 
     // --- Vertical timing ---
     // Port of XRoar's do_vb_irq (tcc1014.c:1087-1228) and gime_fs (coco3.c:1429)
