@@ -469,6 +469,18 @@ void machine_gime_timer_info(uint32_t* fires, bool* tins, unsigned* reload) {
     *reload = coco3 ? (((m->gime.registers[4] & 0x0F) << 8) | m->gime.registers[5]) : 0;
 }
 
+// $FF92/$FF93 acknowledge reads since power-on: total, and those that
+// returned 0 (handler entered with nothing latched). Zeros on a CoCo 2.
+void machine_gime_ack_info(uint32_t* irq, uint32_t* irq_zero,
+                           uint32_t* firq, uint32_t* firq_zero) {
+    const Machine* m = g_machine;
+    const bool coco3 = m && g_machine_type == 4;
+    *irq       = coco3 ? m->gime.irq_acks : 0;
+    *irq_zero  = coco3 ? m->gime.irq_ack_zero : 0;
+    *firq      = coco3 ? m->gime.firq_acks : 0;
+    *firq_zero = coco3 ? m->gime.firq_ack_zero : 0;
+}
+
 // GIME video state for the debug API: the last values written to
 // $FF90-$FF9F (write-only on the CoCo), active-area lines and top border.
 // Returns false on a CoCo 2.
@@ -855,6 +867,7 @@ void machine_run_scanline_coco3(Machine* m) {
         } else {
             // Border line: shown where the display has rows to spare around a
             // short active area (192 lines in the 200-row viewport)
+            PERF_PROBE_SCOPE(PROBE_BORDER);
             hal_video_render_border_gime((int)vline - (int)top_border_end, g->vertical.lAA,
                                          g->border_colour);
         }
@@ -894,8 +907,14 @@ void machine_run_frame_coco3(Machine* m) {
     cart_autostart_pulse(m);
 
     for (int line = 0; line < SCANLINES_PER_FRAME; line++) {
-        machine_run_scanline_coco3(m);
-        becker_scanline_tick();
+        {
+            PERF_PROBE_SCOPE(PROBE_SCANLINE);
+            machine_run_scanline_coco3(m);
+        }
+        {
+            PERF_PROBE_SCOPE(PROBE_BECKER);
+            becker_scanline_tick();
+        }
         if (ssc_enabled()) {
             PERF_PROBE_SCOPE(PROBE_SSC);
             ssc_scanline_tick();

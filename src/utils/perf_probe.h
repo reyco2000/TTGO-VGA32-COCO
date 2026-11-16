@@ -39,6 +39,14 @@ enum PerfProbeID {
     PROBE_PUSH_SPRITE,         // hal_video_present_gime body (pushSprite)
     PROBE_AUDIO_SCANLINE,      // hal_audio_capture_scanline (sum)
     PROBE_SSC,                 // ssc_scanline_tick (sum), Speech/Sound Cartridge
+    // Split of the non-CPU frame time (added for improvements.11.16.md Phase 0).
+    // Per-line glue = scanline - cpu_run - render_scn - hal_scn - border.
+    PROBE_SCANLINE,            // whole machine_run_scanline_coco3 (sum)
+    PROBE_LINE_SIG,            // line_signature() inside render_scn (sum)
+    PROBE_BORDER,              // hal_video_render_border_gime (sum)
+    PROBE_BECKER,              // becker_scanline_tick (sum)
+    PROBE_LOOP_PRE,            // loop(): input, wifi tick, OSD check, debug RPC
+    PROBE_LOOP_POST,           // loop(): pace_frame excluded; hal_render_frame, meter, audio dbg
     PROBE_COUNT
 };
 
