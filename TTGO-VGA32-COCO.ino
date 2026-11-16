@@ -25,6 +25,7 @@
 #include "src/net/debug_server.h"
 #include "src/net/dw_bus.h"
 #include "src/utils/perf_bench.h"
+#include "src/utils/perf_probe.h"
 
 // Uncomment to enable integration tests (serial command 'R' to run)
 // CoCo2: LOADM verify, VRAM dump    CoCo3: GIME, video, audio tests
@@ -347,9 +348,12 @@ void loop() {
 #endif
 
     // Process host input (keyboard, joystick — includes F1 intercept)
-    hal_process_input();
-    debug_rpc_keys_poll();   // OSD keys injected over the debug API
-    wifi_mgr_tick();         // advance CONNECTING (no longer tied to the server task)
+    {
+        PERF_PROBE_SCOPE(PROBE_LOOP_PRE);
+        hal_process_input();
+        debug_rpc_keys_poll();   // OSD keys injected over the debug API
+        wifi_mgr_tick();         // advance CONNECTING (no longer tied to the server task)
+    }
 
     // Check if supervisor is handling this frame
     static bool osd_was_active = false;
@@ -369,7 +373,10 @@ void loop() {
     }
 
     // Service one pending debug-server command (core 0 -> core 1) between frames.
-    debug_rpc_poll();
+    {
+        PERF_PROBE_SCOPE(PROBE_LOOP_PRE);
+        debug_rpc_poll();
+    }
 
     // If a remote debugger paused the CPU, freeze emulation but keep draining
     // RPC commands so inspect/resume/screenshot still respond promptly.
@@ -385,6 +392,7 @@ void loop() {
     uint32_t frame_work_us = (uint32_t)(esp_timer_get_time() - frame_t0);
     pace_frame();
 
+    PERF_PROBE_SCOPE(PROBE_LOOP_POST);
     // Push framebuffer to display
     hal_render_frame();
     speed_meter_frame(&coco, frame_work_us);

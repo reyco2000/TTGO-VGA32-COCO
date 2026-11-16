@@ -447,7 +447,15 @@ IRQ  = PIA0 (IRQA | IRQB) OR GIME IRQ
 FIRQ = PIA1 (IRQA | IRQB) OR GIME FIRQ
 ```
 
-Unlike CoCo 2 (which uses PIA callbacks → `mc6809_irq()`/`mc6809_firq()`), CoCo 3 computes the combined interrupt state each scanline via direct assignment to `cpu.irq_pending` and `cpu.firq_pending`. This is necessary because GIME interrupt state changes between scanlines (HBORD, VBORD, TMR).
+Unlike CoCo 2 (which uses PIA callbacks → `mc6809_irq()`/`mc6809_firq()`), CoCo 3 computes the combined state in `coco3_sync_irq_lines()` (`machine.cpp`) by direct assignment to `cpu.irq_pending` and `cpu.firq_pending` (FIRQ also ORs the RS-232 Pak ACIA). As in MAME's `syncIrqLines`, it runs whenever a source can change (since v0.23.0):
+
+- after a `$FF92`/`$FF93` read (acknowledge),
+- after any `$FF00+` slow-path GIME access whose IRQ/FIRQ output changed,
+- from the PIA IRQ callbacks, only when that port's output changes,
+- after RS-232 Pak reads and writes,
+- once at the end of every scanline, after the timer, VBORD and HBORD latch.
+
+The bus paths call an out-of-line copy (`coco3_sync_irq_lines_bus`) to keep the hot read function small. Before v0.23.0 the routing ran once per scanline, before HBORD/VBORD were latched: an acknowledged handler was entered again with nothing pending (2× at 0.89 MHz, 3× at 1.79 MHz) and HBORD reached the CPU a line late, losing one in three. `/api/status` `gime_acks` counts acknowledges and zero-result ones; `tools/gime_irq_test/` checks the counts.
 
 #### SYNC / CWAI wake-up
 
@@ -613,16 +621,15 @@ machine_run_scanline() — CoCo 3:
   2. mc6809_run_variant(cycles_to_run) // CPU execution (see cpu.md)
   3. tcc1014_tick_scanline()           // GIME timer decrement
   4. PIA0 CA1 HS transitions           // Horizontal sync → PIA
-  5. Combined IRQ routing:             // PIA + GIME → CPU
-       new_irq  = pia0_irq || gime.IRQ
-       new_firq = pia1_irq || gime.FIRQ
-  6. Vertical state machine:
+  5. Vertical state machine:
        Scanline 0:   FS falling → PIA0 CB1, latch vertical params
        Scanline 4:   FS rising → PIA0 CB1
        Scanline 7:   Reset VRAM address (B = Y)
        7+lTB:        Active area begins
        Active lines: Render scanline, advance row/VRAM address, HBORD interrupt
        End of active: VBORD interrupt
+  6. coco3_sync_irq_lines()            // PIA + GIME → CPU, after all latches
+       (also called on every acknowledge / source change, see CoCo 3 IRQ Routing)
 ```
 
 ---

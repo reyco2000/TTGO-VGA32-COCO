@@ -180,6 +180,16 @@ static void h_status() {
         j += ",\"tins\":" + String(tins ? "true" : "false");
         j += ",\"reload\":" + String(reload) + "}";
     }
+    // $FF92/$FF93 acknowledge reads since power-on; "*_zero" = reads that
+    // returned 0 (an interrupt handler entered with nothing latched).
+    {
+        uint32_t ia, iz, fa, fz;
+        machine_gime_ack_info(&ia, &iz, &fa, &fz);
+        j += ",\"gime_acks\":{\"irq\":" + String(ia);
+        j += ",\"irq_zero\":" + String(iz);
+        j += ",\"firq\":" + String(fa);
+        j += ",\"firq_zero\":" + String(fz) + "}";
+    }
     // Output layout (640x200, or 512x240 for tall GIME screens)
     {
         int w, h;

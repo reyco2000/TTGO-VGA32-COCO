@@ -167,19 +167,49 @@ static uint8_t* machine_alloc(size_t size, const char* label) {
 // check happens each scanline in machine_run_scanline_coco3.
 // ============================================================
 
-static void pia0_irq_a_coco3(bool active) {
-    (void)active;
-    // Combined routing done in machine_run_scanline_coco3
+// Drive the CPU's IRQ/FIRQ lines from the combined CoCo 3 sources:
+//   IRQ  = PIA0 (both ports) OR GIME IRQ
+//   FIRQ = PIA1 (both ports) OR GIME FIRQ OR RS-232 Pak ACIA (CART)
+// PIA IRQ output = (IRQ1_flag && IRQ1_enable) || (IRQ2_flag && IRQ2_enable && !output_mode)
+// IRQ1_flag=bit7, IRQ1_enable=bit0, IRQ2_flag=bit6, IRQ2_enable=bit3, output_mode=bit5
+static inline bool coco3_pia_irq(uint8_t cr) {
+    bool irq1 = (cr & 0x80) && (cr & 0x01);
+    bool irq2 = (cr & 0x40) && (cr & 0x08) && !(cr & 0x20);
+    return irq1 || irq2;
 }
-static void pia0_irq_b_coco3(bool active) {
-    (void)active;
+
+static inline void coco3_sync_irq_lines(Machine* m) {
+    bool pia0_irq = coco3_pia_irq(m->pia0.ctrl_a) || coco3_pia_irq(m->pia0.ctrl_b);
+    bool pia1_irq = coco3_pia_irq(m->pia1.ctrl_a) || coco3_pia_irq(m->pia1.ctrl_b);
+    m->cpu.irq_pending  = pia0_irq || m->gime.IRQ;
+    // Deluxe Pak routes its ACIA IRQ to CART → FIRQ.
+    m->cpu.firq_pending = pia1_irq || m->gime.FIRQ
+                       || (rs232_pak_enabled() && mc6551_irq_active());
 }
-static void pia1_irq_a_coco3(bool active) {
-    (void)active;
+
+// The PIA calls these whenever it recomputes an IRQ output: data-register
+// reads (acknowledge), control writes and CA1/CB1 edges. Re-route at once,
+// so an acknowledged PIA interrupt is not taken again before the line ends
+// and a newly enabled one is seen at the next instruction.
+// Most calls (every keyboard-scan read of $FF00) leave the output as it
+// was, so only re-route when this port's output actually changed.
+static bool s_pia_irq_out[4];
+static inline void coco3_pia_irq_changed(unsigned port, bool active) {
+    if (s_pia_irq_out[port] == active) return;
+    s_pia_irq_out[port] = active;
+    if (g_machine) coco3_sync_irq_lines(g_machine);
 }
-static void pia1_irq_b_coco3(bool active) {
-    (void)active;
+// Out-of-line copy for the bus read/write paths: keeps machine_read_coco3()
+// and machine_write_coco3() small (the 6809 build is sensitive to the size
+// and layout of its hot functions; inlined, the sync cost 3-5 % at idle).
+static void __attribute__((noinline)) coco3_sync_irq_lines_bus(Machine* m) {
+    coco3_sync_irq_lines(m);
 }
+
+static void pia0_irq_a_coco3(bool active) { coco3_pia_irq_changed(0, active); }
+static void pia0_irq_b_coco3(bool active) { coco3_pia_irq_changed(1, active); }
+static void pia1_irq_a_coco3(bool active) { coco3_pia_irq_changed(2, active); }
+static void pia1_irq_b_coco3(bool active) { coco3_pia_irq_changed(3, active); }
 
 // ============================================================
 // Phase 5: MMU fast-path read
@@ -222,8 +252,12 @@ uint8_t machine_read_coco3(uint16_t addr) {
     // acknowledge). Same results as the generic chain below, without its
     // device checks and the full tcc1014_mem_cycle() decode.
     if (addr >= 0xFF90) {
-        if (addr == 0xFF92 || addr == 0xFF93)
-            return tcc1014_read_register(g, addr & 0x0F);
+        if (addr == 0xFF92 || addr == 0xFF93) {
+            // Acknowledge: drop the CPU line now, not at the end of the line
+            const uint8_t v = tcc1014_read_register(g, addr & 0x0F);
+            coco3_sync_irq_lines_bus(m);
+            return v;
+        }
         if (addr >= 0xFFE0) {
             // Vectors always come from ROM (tcc1014.c:795-797, case 0 below)
             if (m->rom_coco3_loaded) {
@@ -241,8 +275,11 @@ uint8_t machine_read_coco3(uint16_t addr) {
     // RS-232 Pak ($FF68-$FF6B) — decoded ahead of the GIME so the ACIA
     // responds regardless of chip-select. No-op (zero behavior change) unless
     // the pak owns the serial port.
-    if (rs232_pak_enabled() && (addr & 0xFFFC) == 0xFF68)
-        return mc6551_read(addr & 0x03);
+    if (rs232_pak_enabled() && (addr & 0xFFFC) == 0xFF68) {
+        const uint8_t v = mc6551_read(addr & 0x03);
+        coco3_sync_irq_lines_bus(m);   // a status/data read can clear the ACIA IRQ
+        return v;
+    }
 
     // Speech/Sound Cartridge ($FF7D/$FF7E). No-op unless the cartridge is on.
     if (ssc_enabled() && (uint16_t)(addr - SSC_CTRL_ADDR) < 2)
@@ -255,7 +292,13 @@ uint8_t machine_read_coco3(uint16_t addr) {
     // Slow path: GIME address decode for I/O, ROM, registers
     uint8_t reg_data = 0xFF;
     bool is_reg = false;
+    const bool irq0 = g->IRQ, firq0 = g->FIRQ;
     tcc1014_mem_cycle(g, addr, /*RnW=*/true, 0, &reg_data, &is_reg);
+    // GIME output changed by an I/O read (acknowledge, keyboard IL1 edge):
+    // re-route now. ROM fetches (every BASIC opcode) skip the test; an IL
+    // edge they latch reaches the CPU at the end of the line, as before.
+    if (addr >= 0xFF00 && (g->IRQ != irq0 || g->FIRQ != firq0))
+        coco3_sync_irq_lines_bus(m);
 
     // If GIME handled this internally (register/MMU/palette read)
     if (is_reg) return reg_data;
@@ -394,6 +437,7 @@ void machine_write_coco3(uint16_t addr, uint8_t val) {
     // RS-232 Pak ($FF68-$FF6B) — see machine_read_coco3.
     if (rs232_pak_enabled() && (addr & 0xFFFC) == 0xFF68) {
         mc6551_write(addr & 0x03, val);
+        coco3_sync_irq_lines_bus(m);   // command/data writes can change the ACIA IRQ
         return;
     }
 
@@ -417,7 +461,11 @@ void machine_write_coco3(uint16_t addr, uint8_t val) {
 
     // Slow path: GIME address decode for I/O, registers
     bool is_reg = false;
+    const bool irq0 = g->IRQ, firq0 = g->FIRQ;
     tcc1014_mem_cycle(g, addr, /*RnW=*/false, val, nullptr, &is_reg);
+    // GIME output changed ($FF90/$FF92/$FF93 enable writes, IL edges):
+    // re-route now, so a newly enabled source is seen at the next instruction
+    if (g->IRQ != irq0 || g->FIRQ != firq0) coco3_sync_irq_lines_bus(m);
 
     // If GIME handled this internally
     if (is_reg) return;
@@ -467,6 +515,18 @@ void machine_gime_timer_info(uint32_t* fires, bool* tins, unsigned* reload) {
     *fires  = coco3 ? m->gime.timer_fires : 0;
     *tins   = coco3 && m->gime.TINS;
     *reload = coco3 ? (((m->gime.registers[4] & 0x0F) << 8) | m->gime.registers[5]) : 0;
+}
+
+// $FF92/$FF93 acknowledge reads since power-on: total, and those that
+// returned 0 (handler entered with nothing latched). Zeros on a CoCo 2.
+void machine_gime_ack_info(uint32_t* irq, uint32_t* irq_zero,
+                           uint32_t* firq, uint32_t* firq_zero) {
+    const Machine* m = g_machine;
+    const bool coco3 = m && g_machine_type == 4;
+    *irq       = coco3 ? m->gime.irq_acks : 0;
+    *irq_zero  = coco3 ? m->gime.irq_ack_zero : 0;
+    *firq      = coco3 ? m->gime.firq_acks : 0;
+    *firq_zero = coco3 ? m->gime.firq_ack_zero : 0;
 }
 
 // GIME video state for the debug API: the last values written to
@@ -694,27 +754,6 @@ void machine_run_scanline_coco3(Machine* m) {
     mc6821_ca1_transition(&m->pia0, false);   // HS falling
     mc6821_ca1_transition(&m->pia0, true);    // HS rising
 
-    // Combined interrupt routing — port of coco3.c:1261-1262
-    // IRQ = PIA0 (both ports) OR GIME IRQ
-    // FIRQ = PIA1 (both ports) OR GIME FIRQ
-    // PIA IRQ output = (IRQ1_flag && IRQ1_enable) || (IRQ2_flag && IRQ2_enable && !output_mode)
-    // IRQ1_flag=bit7, IRQ1_enable=bit0, IRQ2_flag=bit6, IRQ2_enable=bit3, output_mode=bit5
-    {
-        auto pia_irq = [](uint8_t cr) -> bool {
-            bool irq1 = (cr & 0x80) && (cr & 0x01);
-            bool irq2 = (cr & 0x40) && (cr & 0x08) && !(cr & 0x20);
-            return irq1 || irq2;
-        };
-        bool pia0_irq = pia_irq(m->pia0.ctrl_a) || pia_irq(m->pia0.ctrl_b);
-        bool pia1_irq = pia_irq(m->pia1.ctrl_a) || pia_irq(m->pia1.ctrl_b);
-        bool new_irq  = pia0_irq || m->gime.IRQ;
-        // Deluxe Pak routes its ACIA IRQ to CART → FIRQ.
-        bool new_firq = pia1_irq || m->gime.FIRQ
-                     || (rs232_pak_enabled() && mc6551_irq_active());
-        m->cpu.irq_pending  = new_irq;
-        m->cpu.firq_pending = new_firq;
-    }
-
     // --- Vertical timing ---
     // Port of XRoar's do_vb_irq (tcc1014.c:1087-1228) and gime_fs (coco3.c:1429)
     //
@@ -855,6 +894,7 @@ void machine_run_scanline_coco3(Machine* m) {
         } else {
             // Border line: shown where the display has rows to spare around a
             // short active area (192 lines in the 200-row viewport)
+            PERF_PROBE_SCOPE(PROBE_BORDER);
             hal_video_render_border_gime((int)vline - (int)top_border_end, g->vertical.lAA,
                                          g->border_colour);
         }
@@ -865,6 +905,12 @@ void machine_run_scanline_coco3(Machine* m) {
     // Horizontal border interrupt on every line, borders and sync included
     // (do_hb_irq, tcc1014.c:1086-1110)
     tcc1014_set_interrupt(g, TCC1014_INT_HBORD);
+
+    // Combined interrupt routing — port of coco3.c:1261-1262. After the
+    // timer, VBORD and HBORD have latched for this line (as the MAME port's
+    // lineTick() then syncIrqLines()), so the CPU sees them at the start of
+    // the next line rather than one line later.
+    coco3_sync_irq_lines(m);
 
     m->scanline++;
     if (m->scanline >= SCANLINES_PER_FRAME) {
@@ -894,8 +940,14 @@ void machine_run_frame_coco3(Machine* m) {
     cart_autostart_pulse(m);
 
     for (int line = 0; line < SCANLINES_PER_FRAME; line++) {
-        machine_run_scanline_coco3(m);
-        becker_scanline_tick();
+        {
+            PERF_PROBE_SCOPE(PROBE_SCANLINE);
+            machine_run_scanline_coco3(m);
+        }
+        {
+            PERF_PROBE_SCOPE(PROBE_BECKER);
+            becker_scanline_tick();
+        }
         if (ssc_enabled()) {
             PERF_PROBE_SCOPE(PROBE_SSC);
             ssc_scanline_tick();
