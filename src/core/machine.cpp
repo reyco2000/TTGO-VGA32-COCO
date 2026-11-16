@@ -191,14 +191,25 @@ static inline void coco3_sync_irq_lines(Machine* m) {
 // reads (acknowledge), control writes and CA1/CB1 edges. Re-route at once,
 // so an acknowledged PIA interrupt is not taken again before the line ends
 // and a newly enabled one is seen at the next instruction.
-static void coco3_pia_irq_changed(bool active) {
-    (void)active;
+// Most calls (every keyboard-scan read of $FF00) leave the output as it
+// was, so only re-route when this port's output actually changed.
+static bool s_pia_irq_out[4];
+static inline void coco3_pia_irq_changed(unsigned port, bool active) {
+    if (s_pia_irq_out[port] == active) return;
+    s_pia_irq_out[port] = active;
     if (g_machine) coco3_sync_irq_lines(g_machine);
 }
-static void pia0_irq_a_coco3(bool active) { coco3_pia_irq_changed(active); }
-static void pia0_irq_b_coco3(bool active) { coco3_pia_irq_changed(active); }
-static void pia1_irq_a_coco3(bool active) { coco3_pia_irq_changed(active); }
-static void pia1_irq_b_coco3(bool active) { coco3_pia_irq_changed(active); }
+// Out-of-line copy for the bus read/write paths: keeps machine_read_coco3()
+// and machine_write_coco3() small (the 6809 build is sensitive to the size
+// and layout of its hot functions; inlined, the sync cost 3-5 % at idle).
+static void __attribute__((noinline)) coco3_sync_irq_lines_bus(Machine* m) {
+    coco3_sync_irq_lines(m);
+}
+
+static void pia0_irq_a_coco3(bool active) { coco3_pia_irq_changed(0, active); }
+static void pia0_irq_b_coco3(bool active) { coco3_pia_irq_changed(1, active); }
+static void pia1_irq_a_coco3(bool active) { coco3_pia_irq_changed(2, active); }
+static void pia1_irq_b_coco3(bool active) { coco3_pia_irq_changed(3, active); }
 
 // ============================================================
 // Phase 5: MMU fast-path read
@@ -244,7 +255,7 @@ uint8_t machine_read_coco3(uint16_t addr) {
         if (addr == 0xFF92 || addr == 0xFF93) {
             // Acknowledge: drop the CPU line now, not at the end of the line
             const uint8_t v = tcc1014_read_register(g, addr & 0x0F);
-            coco3_sync_irq_lines(m);
+            coco3_sync_irq_lines_bus(m);
             return v;
         }
         if (addr >= 0xFFE0) {
@@ -266,7 +277,7 @@ uint8_t machine_read_coco3(uint16_t addr) {
     // the pak owns the serial port.
     if (rs232_pak_enabled() && (addr & 0xFFFC) == 0xFF68) {
         const uint8_t v = mc6551_read(addr & 0x03);
-        coco3_sync_irq_lines(m);   // a status/data read can clear the ACIA IRQ
+        coco3_sync_irq_lines_bus(m);   // a status/data read can clear the ACIA IRQ
         return v;
     }
 
@@ -283,8 +294,11 @@ uint8_t machine_read_coco3(uint16_t addr) {
     bool is_reg = false;
     const bool irq0 = g->IRQ, firq0 = g->FIRQ;
     tcc1014_mem_cycle(g, addr, /*RnW=*/true, 0, &reg_data, &is_reg);
-    // GIME output changed (acknowledge, keyboard IL1 edge): re-route now
-    if (g->IRQ != irq0 || g->FIRQ != firq0) coco3_sync_irq_lines(m);
+    // GIME output changed by an I/O read (acknowledge, keyboard IL1 edge):
+    // re-route now. ROM fetches (every BASIC opcode) skip the test; an IL
+    // edge they latch reaches the CPU at the end of the line, as before.
+    if (addr >= 0xFF00 && (g->IRQ != irq0 || g->FIRQ != firq0))
+        coco3_sync_irq_lines_bus(m);
 
     // If GIME handled this internally (register/MMU/palette read)
     if (is_reg) return reg_data;
@@ -423,7 +437,7 @@ void machine_write_coco3(uint16_t addr, uint8_t val) {
     // RS-232 Pak ($FF68-$FF6B) — see machine_read_coco3.
     if (rs232_pak_enabled() && (addr & 0xFFFC) == 0xFF68) {
         mc6551_write(addr & 0x03, val);
-        coco3_sync_irq_lines(m);   // command/data writes can change the ACIA IRQ
+        coco3_sync_irq_lines_bus(m);   // command/data writes can change the ACIA IRQ
         return;
     }
 
@@ -451,7 +465,7 @@ void machine_write_coco3(uint16_t addr, uint8_t val) {
     tcc1014_mem_cycle(g, addr, /*RnW=*/false, val, nullptr, &is_reg);
     // GIME output changed ($FF90/$FF92/$FF93 enable writes, IL edges):
     // re-route now, so a newly enabled source is seen at the next instruction
-    if (g->IRQ != irq0 || g->FIRQ != firq0) coco3_sync_irq_lines(m);
+    if (g->IRQ != irq0 || g->FIRQ != firq0) coco3_sync_irq_lines_bus(m);
 
     // If GIME handled this internally
     if (is_reg) return;
