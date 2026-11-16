@@ -370,11 +370,15 @@ void tcc1014_mem_cycle(TCC1014* gime, uint16_t addr, bool RnW,
                 if (addr == 0xFF92) {
                     // Read-acknowledge IRQ — port of tcc1014.c:788-791
                     *read_data = gime->irq_state;
+                    gime->irq_acks++;
+                    if (!gime->irq_state) gime->irq_ack_zero++;
                     gime->irq_state = 0;
                     gime->IRQ = false;
                 } else if (addr == 0xFF93) {
                     // Read-acknowledge FIRQ — port of tcc1014.c:792-795
                     *read_data = gime->firq_state;
+                    gime->firq_acks++;
+                    if (!gime->firq_state) gime->firq_ack_zero++;
                     gime->firq_state = 0;
                     gime->FIRQ = false;
                 } else {
@@ -575,6 +579,8 @@ uint8_t tcc1014_read_register(TCC1014* gime, unsigned reg) {
         // re-latch on read (d9bba8a3).
         edge_detect_il(gime);
         uint8_t val = gime->irq_state;
+        gime->irq_acks++;
+        if (!val) gime->irq_ack_zero++;
         gime->irq_state = 0;
         gime->IRQ = false;  // Deassert IRQ output immediately
         return val;
@@ -583,6 +589,8 @@ uint8_t tcc1014_read_register(TCC1014* gime, unsigned reg) {
         // Read-acknowledge FIRQ status — port of tcc1014.c:792-795
         edge_detect_il(gime);
         uint8_t val = gime->firq_state;
+        gime->firq_acks++;
+        if (!val) gime->firq_ack_zero++;
         gime->firq_state = 0;
         gime->FIRQ = false;  // Deassert FIRQ output immediately
         return val;
@@ -1470,7 +1478,11 @@ void tcc1014_render_scanline(TCC1014* gime, unsigned scanline) {
 
 #if GIME_LINE_SKIP
     if (scanline < GIME_MAX_LINES) {
-        const uint64_t sig = line_signature(gime, src, nbytes, n, attr);
+        uint64_t sig;
+        {
+            PERF_PROBE_SCOPE(PROBE_LINE_SIG);
+            sig = line_signature(gime, src, nbytes, n, attr);
+        }
         // Only skip when the caller wants display output (raw); a screenshot
         // frame (RGB565) must produce every line.
         if (gime->raw_output && s_raw_lut && sig == s_line_sig[scanline]) {

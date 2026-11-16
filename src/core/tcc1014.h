@@ -150,6 +150,10 @@ typedef struct TCC1014 {
     // added to the overshoot, so the period counts from the exact expiry.
     int32_t  timer_left_x2;
     uint32_t timer_fires;    // timer expiries since power-on (diagnostics)
+    // $FF92/$FF93 reads (acknowledges) since power-on, and how many of them
+    // returned 0: a handler entered with nothing latched (diagnostics).
+    uint32_t irq_acks, irq_ack_zero;
+    uint32_t firq_acks, firq_ack_zero;
     bool     blink;          // Toggle on timer zero (text blink)
 
     // --- Video address state (from tcc1014.c:256-265) ---

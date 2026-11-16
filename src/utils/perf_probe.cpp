@@ -27,7 +27,13 @@ static const char* const probe_names[PROBE_COUNT] = {
     "hal_scn     ",
     "push_sprite ",
     "audio_scn   ",
-    "ssc         "
+    "ssc         ",
+    "scanline    ",
+    "line_sig    ",
+    "border      ",
+    "becker      ",
+    "loop_pre    ",
+    "loop_post   "
 };
 
 PerfCpuStats perf_cpu;
