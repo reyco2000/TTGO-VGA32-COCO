@@ -99,10 +99,12 @@ void hal_video_render_scanline_gime_raw(int line, int total_lines,
 // otherwise does nothing.
 void hal_video_render_border_gime(int line, unsigned total_lines, uint8_t border_colour);
 
-// Once per CoCo 3 frame: the active-area line count and line width. A
-// screen taller than 200 lines and at most 512 pixels wide switches the
-// output to 512x240 (after 30 frames); anything else switches back.
-void hal_video_gime_frame(unsigned total_lines, int width);
+// Once per CoCo 3 frame: the active-area line count, the output line width
+// and the screen's real pixels per line. A screen taller than 200 lines
+// switches the output (after 30 frames) to 320x240 when it is at most 320
+// real pixels wide, else to 512x240 when at most 512 output pixels wide;
+// anything else stays at (or goes back to) 640x200.
+void hal_video_gime_frame(unsigned total_lines, int width, int native_width);
 // Back to 640x200 now (the supervisor draws for that layout).
 void hal_video_standard_layout(void);
 void hal_video_layout_info(int* w, int* h, uint32_t* switches, uint32_t* switch_us);

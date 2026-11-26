@@ -276,6 +276,9 @@ void tcc1014_set_raw_lut(const uint8_t* lut64, const uint8_t* direct64);
 // Call whenever something other than the GIME renderer has drawn on the
 // display (OSD, overlays, another machine's video).
 void tcc1014_invalidate_lines(void);
+// Real pixels per line of the current CoCo 3 native screen (graphics:
+// bytes per row x pixels per byte; text: characters x 8), 0 in VDG mode.
+unsigned tcc1014_native_width(const TCC1014* gime);
 
 // PMODE 4 NTSC artifact colours: GIME_ARTIFACT_OFF / _STANDARD / _REVERSE
 // (gime_artifact.h, MAME's artifacter: 14 mixes of the line's two colours).

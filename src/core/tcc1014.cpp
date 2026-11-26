@@ -726,6 +726,13 @@ void tcc1014_tick_scanline(TCC1014* gime) {
 // values. Called whenever GIME registers or PIA1B shadow change.
 // ============================================================
 
+unsigned tcc1014_native_width(const TCC1014* gime) {
+    if (gime->COCO) return 0;
+    if (!gime->BP) return gime->BPR * 8;
+    static const unsigned ppb[4] = { 8, 4, 2, 2 };
+    return gime->BPR * ppb[gime->CRES & 3];
+}
+
 static void update_from_gime_registers(TCC1014* gime) {
     // Decode VDG-compatible mode setting — tcc1014.c:1562-1566
     gime->VDG.GnA = gime->PIA1B_shadow.pdr & 0x80;

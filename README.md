@@ -414,9 +414,11 @@ All technical documentation is in the `docs/` directory:
   512×240, so that all 225 lines show, with border rows above and below. The switch
   happens about half a second after such a screen appears, and again when it goes away
   or the OSD opens (the OSD always uses 640×200). Each switch restarts the VGA signal, so
-  the monitor blanks or flickers briefly. 640-wide 225-line screens (NitrOS-9's 80×25
-  text) can't use 512×240: they stay at 640×200, which drops one line in nine (the
-  blank gap under each text row)
+  the monitor blanks or flickers briefly. Tall screens at most 320 pixels wide
+  (16-colour 320×225 graphics, 40×25 text) switch to 320×240 instead, which shows every
+  line and pixel exactly. 640-wide 225-line screens (NitrOS-9's 80×25 text) can't use
+  either: they stay at 640×200, which drops one line in nine (the blank gap under each
+  text row)
 - **The first 512×240 switch fragments internal RAM.** FabGL re-allocates its scan
   descriptors on each switch (11,088 bytes at 640×200, 12,048 at 512×240), and the larger
   table doesn't fit where the smaller one was. Total free RAM is unchanged (about 960 bytes
