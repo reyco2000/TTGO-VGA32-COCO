@@ -3,6 +3,33 @@
 Releases before the three most recent ones. The latest changes are in the
 [Changelog section of the README](README.md#changelog).
 
+### v0.21.0 — October 26, 2026
+
+**GIME accuracy fixes, and full-height 225-line games.**
+
+- **GIME fixes** where ours differed from XRoar and MAME:
+  - **TINS=1 timer:** 228 counts per line (was 227.5), several expiries per
+    line for short reloads (was one at most), and the reload is re-read at
+    each expiry.
+  - **X offset (`$FF9F`)** now applies in native video modes (was ignored).
+  - **HBORD** interrupt on every line, borders included (was active lines
+    only); **VBORD** on the line after the last active line (was one line
+    early).
+  - **Interrupt latching** as XRoar's current logic, which is based on tests
+    on real GIMEs: keyboard and other external interrupts latch on a rising
+    edge, reading `$FF92/$FF93` no longer re-latches TMR, and enabling a
+    source that is already active latches it.
+  - **Font:** character `$15` row 4 is `$54`.
+- **225-line games in full.** Screens 225 lines tall and up to 512 pixels wide
+  (Rick Dangerous, Donkey Kong: 256×225) switch the VGA output to 512×240, so
+  all 225 lines show with border rows above and below; they lost one line in
+  nine before. The monitor resyncs at each switch (see Known Limitations).
+- **Border colour effects:** 192-line screens show the border colour of the
+  lines just above and below the picture (4 rows each), so loader stripes
+  appear.
+- **Diagnostics:** `gime` (registers `$FF90-$FF9F`, line counts) and `video`
+  (output layout, switches) sections in `/api/status`.
+
 ### v0.20.0 — October 24, 2026
 
 **PMODE 4 artifact colours on the CoCo 3, and timer-driven sound at the right

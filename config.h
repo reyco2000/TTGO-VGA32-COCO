@@ -25,8 +25,8 @@
 // Firmware version (reported by the WiFi debug API /api/status and shown on
 // the supervisor About screen). Bump both of these together on a release —
 // they are the single source of truth; nothing else should hardcode a version.
-#define FIRMWARE_VERSION        "0.23.0"
-#define FIRMWARE_BUILD_DATE     "16.11.2026"
+#define FIRMWARE_VERSION        "0.24.0"
+#define FIRMWARE_BUILD_DATE     "26.11.2026"
 
 // ------------------------------------------------------------
 // Build target — standalone USB flash vs. ESP32_Bootloader
