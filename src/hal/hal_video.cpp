@@ -30,6 +30,11 @@
 // clocks per line, 262 lines double-scanned): 512 active pixels with 64
 // extra blank clocks each side, so pixels keep their 640-mode width.
 #define VGA_512x240_60HzD "\"512x240@60HzD\" 25.175 512 592 688 800 240 245 247 262 -HSync -VSync DoubleScan"
+// Tall screens at most 320 pixels wide (16-colour 320x225, 40-column 25-row
+// text) use 320x240 instead: the same 640x480 signal at half the pixel clock,
+// so each pixel is two 640-mode pixels wide and the picture fills the screen
+// with every line and every pixel shown exactly.
+#define VGA_320x240_60HzD "\"320x240@60HzD\" 12.5875 320 328 376 400 240 245 247 262 -HSync -VSync DoubleScan"
 
 // VGAController whose framebuffer is allocated once and kept: a mode switch
 // re-points the rows instead of freeing 128 KB and allocating it again
@@ -90,11 +95,13 @@ class CocoVGAController : public fabgl::VGAController {
 
 static CocoVGAController    s_vga;
 static fabgl::Canvas        s_canvas(&s_vga);
-static bool                 s_tall = false;      // 512x240 output active
-static int                  s_tall_votes = 0;    // frames the other layout was wanted
+enum VideoLayout { LAYOUT_640x200 = 0, LAYOUT_512x240, LAYOUT_320x240 };
+static int                  s_layout = LAYOUT_640x200;  // output layout in use
+static int                  s_layout_votes = 0;  // frames the other layout was wanted
+static int                  s_layout_want = LAYOUT_640x200;
 static uint32_t             s_switches = 0;
 static uint32_t             s_switch_us = 0;
-static void set_tall(bool tall);
+static void set_layout(int layout);
 
 // OSDCanvas shim instance the supervisor draws into via hal_video_get_canvas().
 static OSDCanvas             s_tft_shim;
@@ -270,7 +277,7 @@ void hal_video_render_scanline(int line, const uint8_t* pixels, int width) {
 
 void hal_video_present(const uint8_t* ram, uint16_t vdg_base, uint8_t vdg_mode) {
     (void)ram; (void)vdg_base; (void)vdg_mode;
-    set_tall(false);   // the VDG path draws for 640x200
+    set_layout(LAYOUT_640x200);   // the VDG path draws for 640x200
     // FabGL scans out continuously — present is a no-op apart from FPS.
     fps_tick_and_draw();
 }
@@ -573,38 +580,51 @@ void hal_video_render_scanline_gime_raw(int line, int total_lines,
             for (int x = 0; x < x_off; x++) row[x ^ 2] = border_byte;
             for (int x = 0; x < width; x++) row[(x_off + x) ^ 2] = raw[x];
             for (int x = x_off + width; x < vp_w; x++) row[x ^ 2] = border_byte;
+        } else if (width == 2 * vp_w) {
+            // Pixel-doubled source (320x240 output): every other byte
+            for (int x = 0; x < vp_w; x++) row[x ^ 2] = raw[2 * x];
         } else {
             for (int x = 0; x < vp_w; x++) row[x ^ 2] = raw[x * width / vp_w];
         }
     }
 }
 
-// Switch the output between 640x200 and 512x240. The framebuffer comes back
-// black, so every GIME line and border row is redrawn.
-static void set_tall(bool tall) {
-    if (tall == s_tall || !display_available) return;
+// Switch the output between 640x200, 512x240 and 320x240. The framebuffer
+// comes back black, so every GIME line and border row is redrawn.
+static void set_layout(int layout) {
+    if (layout == s_layout || !display_available) return;
     const int64_t t0 = esp_timer_get_time();
-    s_vga.setResolution(tall ? VGA_512x240_60HzD : VGA_640x200_60HzD);
+    s_vga.setResolution(layout == LAYOUT_512x240 ? VGA_512x240_60HzD :
+                        layout == LAYOUT_320x240 ? VGA_320x240_60HzD : VGA_640x200_60HzD);
     s_switch_us = (uint32_t)(esp_timer_get_time() - t0);
-    s_tall = tall;
-    s_tall_votes = 0;
+    s_layout = layout;
+    s_layout_votes = 0;
     s_switches++;
     tcc1014_invalidate_lines();
     border_rows_invalidate();
-    DEBUG_PRINTF("  Video: %s, viewport=%dx%d, %u us", tall ? "512x240" : "640x200",
+    DEBUG_PRINTF("  Video: viewport=%dx%d, %u us",
                  s_vga.getViewPortWidth(), s_vga.getViewPortHeight(), (unsigned)s_switch_us);
 }
 
-void hal_video_gime_frame(unsigned total_lines, int width) {
-    const bool want = total_lines > 200 && total_lines <= 240 && width > 0 && width <= 512;
-    if (want == s_tall) { s_tall_votes = 0; return; }
-    // Only after 30 frames in a row, so a brief mode change (a loader, a
-    // one-frame glitch) doesn't blank the monitor twice.
-    if (++s_tall_votes >= 30) set_tall(want);
+// width is the output line width (<= 640, low-resolution pixels repeated);
+// native_width is the screen's real pixel count per line.
+void hal_video_gime_frame(unsigned total_lines, int width, int native_width) {
+    int want = LAYOUT_640x200;
+    if (total_lines > 200 && total_lines <= 240 && width > 0) {
+        if (native_width > 0 && native_width <= 320 && (width == 320 || width == 640))
+            want = LAYOUT_320x240;
+        else if (width <= 512)
+            want = LAYOUT_512x240;
+    }
+    if (want == s_layout) { s_layout_votes = 0; return; }
+    // Only after 30 frames in a row of the same new layout, so a brief mode
+    // change (a loader, a one-frame glitch) doesn't blank the monitor twice.
+    if (want != s_layout_want) { s_layout_want = want; s_layout_votes = 0; }
+    if (++s_layout_votes >= 30) set_layout(want);
 }
 
 void hal_video_standard_layout(void) {
-    set_tall(false);
+    set_layout(LAYOUT_640x200);
 }
 
 void hal_video_layout_info(int* w, int* h, uint32_t* switches, uint32_t* switch_us) {
