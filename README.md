@@ -4,7 +4,7 @@
 
 A full **TRS-80 Color Computer** (CoCo 2 and CoCo 3) emulator running on the ESP32  **[LilyGo TTGO VGA32 v1.4](https://lilygo.cc/en-us/products/fabgl-vga32?_pos=1&_sid=4c095f59b&_ss=r)** board (ESP32-WROVER). Inspired on  [XRoar](http://www.6809.org.uk/xroar/) emulator.
 
-**v0.23.0 — November 16, 2026** (LilyGo TTGO VGA32 port)
+**v0.24.0 — November 26, 2026** (LilyGo TTGO VGA32 port)
 
 ## Features
 
@@ -471,6 +471,24 @@ mode, with diagrams.
 
 ## Changelog
 
+### v0.24.0 — November 26, 2026
+
+**320×225 16-colour screens show every line.** CoCo 3 screens of 225 lines that
+are at most 320 pixels wide (16-colour 320×225 graphics, 40×25 text) now switch
+the VGA output to 320×240: the same 640×480 signal at half the pixel clock, so
+each CoCo pixel is one output pixel and all 225 lines show, centred.
+
+- **The bug:** these lines are drawn 640 wide (each pixel twice), so they failed
+  the "at most 512 wide" test for the 512×240 output and stayed at 640×200,
+  which dropped one line in nine (25 lines). MAME showed the same program
+  correctly.
+- Screens up to 512 pixels wide (Rick Dangerous, Donkey Kong) still use
+  512×240; 640-wide 225-line screens (NitrOS-9 80×25) still use 640×200.
+- The switch takes about 68 ms; it happens after 30 frames in a row asking for
+  the same new layout.
+- Checked on the board (CoCo 3, HD6309): a 320×225×16 program shows all lines,
+  59.6 FPS.
+
 ### v0.23.0 — November 16, 2026
 
 **GIME interrupts are delivered once, on time.** Interrupt handling now follows
@@ -533,33 +551,6 @@ the same board.
   `late_refills`, `poll_gap_us_max`, `stack_free`, `hold_samples`) instead of
   the timer ISR fields. New host tests in `tools/audio_test`,
   `tools/gime_monitor_test` and `tools/gime_artifact_test`.
-
-### v0.21.0 — October 26, 2026
-
-**GIME accuracy fixes, and full-height 225-line games.**
-
-- **GIME fixes** where ours differed from XRoar and MAME:
-  - **TINS=1 timer:** 228 counts per line (was 227.5), several expiries per
-    line for short reloads (was one at most), and the reload is re-read at
-    each expiry.
-  - **X offset (`$FF9F`)** now applies in native video modes (was ignored).
-  - **HBORD** interrupt on every line, borders included (was active lines
-    only); **VBORD** on the line after the last active line (was one line
-    early).
-  - **Interrupt latching** as XRoar's current logic, which is based on tests
-    on real GIMEs: keyboard and other external interrupts latch on a rising
-    edge, reading `$FF92/$FF93` no longer re-latches TMR, and enabling a
-    source that is already active latches it.
-  - **Font:** character `$15` row 4 is `$54`.
-- **225-line games in full.** Screens 225 lines tall and up to 512 pixels wide
-  (Rick Dangerous, Donkey Kong: 256×225) switch the VGA output to 512×240, so
-  all 225 lines show with border rows above and below; they lost one line in
-  nine before. The monitor resyncs at each switch (see Known Limitations).
-- **Border colour effects:** 192-line screens show the border colour of the
-  lines just above and below the picture (4 rows each), so loader stripes
-  appear.
-- **Diagnostics:** `gime` (registers `$FF90-$FF9F`, line counts) and `video`
-  (output layout, switches) sections in `/api/status`.
 
 ## ⚠️ Vibe Coding Alert
 
